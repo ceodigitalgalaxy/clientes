@@ -3,23 +3,49 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
+  <!-- Só arquivos deste site; dados só do Supabase do painel; nada embutido no HTML -->
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data: https:; media-src 'self' https:; font-src 'self'; connect-src 'self' https://peieimwpkrattuldmjux.supabase.co; object-src 'none'; base-uri 'self'; form-action 'none'">
+  <meta name="referrer" content="no-referrer">
   <meta name="robots" content="noindex, nofollow">
   <title>Painel da agência · Digital Galaxy</title>
   <meta name="theme-color" content="#F5F3FA">
-  <link rel="icon" href="/shared/images/logo/favicon.svg" type="image/svg+xml">
-  <link rel="preload" href="/shared/fonts/sora-latin-400-normal.woff2" as="font" type="font/woff2" crossorigin>
-  <link rel="preload" href="/shared/fonts/sora-latin-600-normal.woff2" as="font" type="font/woff2" crossorigin>
+  <link rel="icon" href="../images/logo/favicon.svg" type="image/svg+xml">
+  <link rel="preload" href="../fonts/sora-latin-400-normal.woff2" as="font" type="font/woff2" crossorigin>
+  <link rel="preload" href="../fonts/sora-latin-600-normal.woff2" as="font" type="font/woff2" crossorigin>
   <!-- Mesmos tokens e componentes do portal do cliente -->
-  <link rel="stylesheet" href="/shared/css/style.css?v=1">
-  <link rel="stylesheet" href="/css/admin.css?v=1">
-  <script type="module" src="/js/main.js?v=1"></script>
+  <link rel="stylesheet" href="../css/style.css?v=5">
+  <link rel="stylesheet" href="css/admin.css?v=2">
+  <script type="module" src="js/main.js?v=2"></script>
 </head>
 <body class="admin">
+  <!-- Tela de entrada: aparece enquanto ninguém estiver logado -->
+  <main class="login" id="login" aria-labelledby="login-title" hidden>
+    <div class="login__card">
+      <span class="login__logo" data-slot="brand-mark" aria-hidden="true"></span>
+      <h1 class="login__title" id="login-title">Painel da agência</h1>
+      <p class="login__text">Entre com o usuário e a senha da equipe Digital Galaxy.</p>
+      <form class="login__form" id="login-form" novalidate>
+        <label class="field">
+          <span class="field__label">Usuário</span>
+          <input class="field__input" name="username" autocomplete="username" autocapitalize="none" spellcheck="false" maxlength="32" required>
+        </label>
+        <label class="field">
+          <span class="field__label">Senha</span>
+          <input class="field__input" name="password" type="password" autocomplete="current-password" maxlength="72" required>
+        </label>
+        <p class="form-error" role="alert" hidden></p>
+        <button class="btn btn--primary login__submit" type="submit"><span>Entrar</span></button>
+      </form>
+      <p class="login__help" data-icon="lock">Esqueceu a senha? Peça para quem administra o painel criar uma nova.</p>
+    </div>
+  </main>
+
+  <!-- Painel: só aparece depois do login de um membro da equipe -->
+  <div class="app" id="app" hidden>
   <a class="skip-link" href="#conteudo">Pular para o conteúdo</a>
 
-  <!-- Este painel roda só no computador da agência (admin/server.mjs) até existir login -->
   <div class="admin-bar">
-    <span data-icon="lock">Uso interno da agência. Este painel só abre neste computador.</span>
+    <span data-icon="lock">Uso interno da agência. Acesso só com usuário e senha da equipe.</span>
   </div>
 
   <header class="topbar">
@@ -33,7 +59,10 @@
         <a class="admin-nav__link" href="#/conteudos" data-route="conteudos" data-icon="calendar">Conteúdos</a>
         <a class="admin-nav__link" href="#/clientes" data-route="clientes" data-icon="users">Clientes</a>
       </nav>
-      <span class="db-status" id="db-status" role="status"><span class="db-status__dot"></span><span class="db-status__text">Conectando…</span></span>
+      <div class="user-menu">
+        <span class="user-menu__name" id="user-name" data-icon="user"></span>
+        <button class="link-btn user-menu__out" type="button" data-action="sign-out" data-icon="logout">Sair</button>
+      </div>
     </div>
   </header>
 
@@ -85,6 +114,7 @@
       <div class="client-grid" id="clients-list" aria-busy="true"></div>
     </section>
   </main>
+  </div>
 
   <!-- Cadastro e edição de cliente -->
   <dialog class="modal modal--wide" id="client-modal" aria-labelledby="client-modal-title">

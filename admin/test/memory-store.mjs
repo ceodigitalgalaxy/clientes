@@ -1,10 +1,10 @@
 /* SÓ PARA TESTES AUTOMÁTICOS: imita as regras do banco (supabase/migrations)
-   em memória, para testar a tela e o servidor sem acesso ao Supabase.
-   Nunca é usado pelo painel de verdade (admin/server.mjs usa o Supabase). */
+   em memória, para testar a tela sem acesso ao Supabase (veja
+   fake-supabase.mjs). Nunca é usado pelo painel de verdade. */
 
 import { randomUUID } from "node:crypto";
-import { StoreError } from "../lib/store-supabase.mjs";
-import { CLIENT_VISIBLE_STATUS } from "../public/js/domain/rules.js";
+import { StoreError } from "../../site/admin/js/data/store.js";
+import { CLIENT_VISIBLE_STATUS } from "../../site/admin/js/domain/rules.js";
 
 const VISIBLE_FIELDS = ["title", "scheduled_date", "scheduled_time", "network", "format", "media_url", "media_kind", "caption"];
 
@@ -18,7 +18,7 @@ export function createMemoryStore() {
     delayMs: 0,        // atraso artificial (para ver o "carregando")
     async tick() {
       if (this.delayMs) await new Promise((r) => setTimeout(r, this.delayMs));
-      if (this.failNext > 0) { this.failNext -= 1; throw new StoreError(503, "Não foi possível conectar ao banco de dados. Verifique a internet e tente de novo."); }
+      if (this.failNext > 0) { this.failNext -= 1; throw new StoreError(503, "Não foi possível conectar ao banco de dados. Verifique a internet e tente de novo.", "offline"); }
     },
     async ping() { await this.tick(); return true; },
     async listClients() {
@@ -26,25 +26,25 @@ export function createMemoryStore() {
       return [...clients.values()].sort((a, b) => a.name.localeCompare(b.name))
         .map((c) => ({ ...c, contents_count: [...contents.values()].filter((x) => x.client_id === c.id).length }));
     },
-    async getClient(id) { await this.tick(); const c = clients.get(id); if (!c) throw new StoreError(404, "Registro não encontrado."); return { ...c }; },
+    async getClient(id) { await this.tick(); const c = clients.get(id); if (!c) throw new StoreError(404, "Registro não encontrado.", "PGRST116"); return { ...c }; },
     async createClient(value) {
       await this.tick();
-      if ([...clients.values()].some((c) => c.slug === value.slug)) throw new StoreError(409, "Já existe um cliente com esse identificador. Escolha outro.");
+      if ([...clients.values()].some((c) => c.slug === value.slug)) throw new StoreError(409, "Já existe um cliente com esse identificador. Escolha outro.", "23505");
       const c = { id: randomUUID(), ...value, created_at: now(), updated_at: now() };
       clients.set(c.id, c);
       return { ...c };
     },
     async updateClient(id, value) {
       await this.tick();
-      const c = clients.get(id); if (!c) throw new StoreError(404, "Registro não encontrado.");
-      if ([...clients.values()].some((o) => o.slug === value.slug && o.id !== id)) throw new StoreError(409, "Já existe um cliente com esse identificador. Escolha outro.");
+      const c = clients.get(id); if (!c) throw new StoreError(404, "Registro não encontrado.", "PGRST116");
+      if ([...clients.values()].some((o) => o.slug === value.slug && o.id !== id)) throw new StoreError(409, "Já existe um cliente com esse identificador. Escolha outro.", "23505");
       Object.assign(c, value, { updated_at: now() });
       return { ...c };
     },
     async deleteClient(id) {
       await this.tick();
-      if (!clients.has(id)) throw new StoreError(404, "Registro não encontrado.");
-      if ([...contents.values()].some((x) => x.client_id === id)) throw new StoreError(409, "Este cliente tem conteúdos cadastrados e não pode ser excluído. Você pode inativá-lo.");
+      if (!clients.has(id)) throw new StoreError(404, "Registro não encontrado.", "PGRST116");
+      if ([...contents.values()].some((x) => x.client_id === id)) throw new StoreError(409, "Este cliente tem conteúdos cadastrados e não pode ser excluído. Você pode inativá-lo.", "23503");
       clients.delete(id);
     },
     async listContents(f = {}) {
@@ -54,23 +54,23 @@ export function createMemoryStore() {
         .sort((a, b) => (a.scheduled_date + (a.scheduled_time || "99")).localeCompare(b.scheduled_date + (b.scheduled_time || "99")))
         .map((c) => ({ ...c }));
     },
-    async getContent(id) { await this.tick(); const c = contents.get(id); if (!c) throw new StoreError(404, "Registro não encontrado."); return { ...c }; },
+    async getContent(id) { await this.tick(); const c = contents.get(id); if (!c) throw new StoreError(404, "Registro não encontrado.", "PGRST116"); return { ...c }; },
     async createContent(value) {
       await this.tick();
-      if (!clients.has(value.client_id)) throw new StoreError(409, "Cliente não encontrado.");
+      if (!clients.has(value.client_id)) throw new StoreError(409, "Cliente não encontrado.", "23503");
       const c = { id: randomUUID(), ...value, scheduled_time: value.scheduled_time ? `${value.scheduled_time}:00` : null, version: 1, created_at: now(), updated_at: now() };
       contents.set(c.id, c);
       return { ...c };
     },
     async updateContent(id, value) {
       await this.tick();
-      const c = contents.get(id); if (!c) throw new StoreError(404, "Registro não encontrado.");
+      const c = contents.get(id); if (!c) throw new StoreError(404, "Registro não encontrado.", "PGRST116");
       const next = { ...value, scheduled_time: value.scheduled_time ? `${value.scheduled_time}:00` : null };
       const changed = VISIBLE_FIELDS.some((k) => (c[k] ?? null) !== (next[k] ?? null));
       Object.assign(c, next, { version: c.version + (changed ? 1 : 0), updated_at: now() });
       return { ...c };
     },
-    async deleteContent(id) { await this.tick(); if (!contents.delete(id)) throw new StoreError(404, "Registro não encontrado."); },
+    async deleteContent(id) { await this.tick(); if (!contents.delete(id)) throw new StoreError(404, "Registro não encontrado.", "PGRST116"); },
     async listClientCalendar(clientId, { from, to } = {}) {
       return (await this.listContents({ client_id: clientId, from, to }))
         .filter((c) => CLIENT_VISIBLE_STATUS.includes(c.status))

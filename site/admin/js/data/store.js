@@ -1,9 +1,11 @@
 /* ==========================================================================
    Armazenamento no Supabase (PostgreSQL), via API REST (PostgREST)
    --------------------------------------------------------------------------
-   Usado SÓ pelo servidor local do painel (admin/server.mjs). A chave secreta
-   fica aqui, no servidor, e nunca vai para o navegador. Ela ignora o RLS: por
-   isso o servidor só aceita conexões do próprio computador (veja server.mjs).
+   Dois modos, com o mesmo código:
+   - Navegador (painel publicado): chave PUBLICÁVEL + sessão de quem entrou
+     (getToken). O banco só entrega dados a membros da equipe (RLS).
+   - Comandos locais (admin/verify.mjs): chave SECRETA, que ignora o RLS.
+     Ela fica só em admin/.env, no computador da agência, nunca no navegador.
 
    Todos os métodos recebem dados já validados (rules.js) e devolvem objetos
    simples. Erros do banco viram StoreError com status HTTP e mensagem em
@@ -22,29 +24,44 @@ const CLIENT_FIELDS = "id,name,slug,segment,contact_name,contact_email,notes,act
 const CONTENT_FIELDS = "id,client_id,title,scheduled_date,scheduled_time,network,format,media_url,media_kind,caption,internal_notes,status,version,created_at,updated_at";
 
 /** Traduz erros do PostgREST/PostgreSQL para mensagens do painel */
-function translate(status, body) {
+function translate(status, body, withSession) {
   const code = body && body.code;
   if (code === "23505") return new StoreError(409, "Já existe um cliente com esse identificador. Escolha outro.", code);
   if (code === "23503") return new StoreError(409, "Este cliente tem conteúdos cadastrados e não pode ser excluído. Você pode inativá-lo.", code);
   if (code === "23514" || code === "22P02" || code === "22007" || code === "22008") return new StoreError(400, "Algum campo está fora do formato aceito. Revise e tente de novo.", code);
   if (code === "PGRST116") return new StoreError(404, "Registro não encontrado. Ele pode ter sido excluído.", code);
+  if (withSession && status === 401) return new StoreError(401, "Sua sessão expirou. Entre de novo.", "session_expired");
+  if (withSession && (status === 403 || code === "42501")) return new StoreError(403, "Seu usuário não tem permissão para fazer isso.", code);
   if (status === 401 || status === 403) return new StoreError(502, "O banco recusou o acesso. Confira a chave secreta em admin/.env.", code);
   return new StoreError(502, "O banco de dados não respondeu como esperado. Tente de novo em instantes.", code);
 }
 
-export function createSupabaseStore({ url, secretKey, fetchImpl = globalThis.fetch }) {
+/**
+ * @param {object} options
+ * @param {string} options.url        endereço do projeto Supabase
+ * @param {string} options.apiKey     chave publicável (navegador) ou secreta (comandos locais)
+ * @param {() => Promise<string>} [options.getToken]   sessão de quem entrou (só no navegador)
+ * @param {() => Promise<unknown>} [options.onUnauthorized]  renova a sessão depois de um 401
+ */
+export function createSupabaseStore({ url, apiKey, secretKey, getToken, onUnauthorized, fetchImpl = globalThis.fetch.bind(globalThis) }) {
+  const key = apiKey || secretKey;
+  if (!key) throw new Error("createSupabaseStore: informe a chave (apiKey).");
   const base = `${url.replace(/\/+$/, "")}/rest/v1`;
-  const headers = { apikey: secretKey, "Content-Type": "application/json" };
+  const withSession = typeof getToken === "function";
+  const headers = { apikey: key, "Content-Type": "application/json" };
   // Chave legada (JWT "service_role") também vai no Authorization
-  if (secretKey.startsWith("eyJ")) headers.Authorization = `Bearer ${secretKey}`;
+  if (!withSession && key.startsWith("eyJ")) headers.Authorization = `Bearer ${key}`;
 
-  async function request(path, { method = "GET", body, single = false, prefer } = {}) {
+  async function request(path, { method = "GET", body, single = false, prefer } = {}, retry = true) {
+    // Sem sessão válida, getToken falha antes de qualquer pedido ao banco
+    const auth = withSession ? { Authorization: `Bearer ${await getToken()}` } : {};
     let response;
     try {
       response = await fetchImpl(`${base}/${path}`, {
         method,
         headers: {
           ...headers,
+          ...auth,
           ...(single ? { Accept: "application/vnd.pgrst.object+json" } : {}),
           ...(prefer ? { Prefer: prefer } : {})
         },
@@ -54,10 +71,15 @@ export function createSupabaseStore({ url, secretKey, fetchImpl = globalThis.fet
     } catch {
       throw new StoreError(503, "Não foi possível conectar ao banco de dados. Verifique a internet e tente de novo.");
     }
+    // Sessão vencida no meio do caminho: renova uma vez e repete o pedido
+    if (response.status === 401 && withSession && retry && onUnauthorized) {
+      await onUnauthorized();
+      return request(path, { method, body, single, prefer }, false);
+    }
     const text = await response.text();
     let data = null;
     try { data = text ? JSON.parse(text) : null; } catch { data = null; }
-    if (!response.ok) throw translate(response.status, data);
+    if (!response.ok) throw translate(response.status, data, withSession);
     return data;
   }
 
@@ -119,6 +141,12 @@ export function createSupabaseStore({ url, secretKey, fetchImpl = globalThis.fet
       if (from) query.push(`scheduled_date=gte.${enc(from)}`);
       if (to) query.push(`scheduled_date=lte.${enc(to)}`);
       return request(`client_calendar_items?${query.join("&")}`);
+    },
+
+    /** A pessoa logada faz parte da equipe? (ela só enxerga o próprio cadastro) */
+    async isAgencyMember(userId) {
+      const rows = await request(`agency_members?select=user_id&user_id=eq.${enc(userId)}`);
+      return Array.isArray(rows) && rows.length === 1;
     },
 
     async ping() {

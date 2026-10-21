@@ -1,7 +1,7 @@
 /* Telas de estado reaproveitadas pelas listas: carregando, vazio e erro */
 
-import { esc } from "/shared/js/lib/dom.js";
-import { icon } from "/shared/js/lib/icons.js";
+import { esc } from "../../../js/lib/dom.js";
+import { icon } from "../../../js/lib/icons.js";
 
 export const loadingRows = (rows = 5) =>
   Array.from({ length: rows }, () => `<div class="skeleton-row" aria-hidden="true">${'<span class="skeleton"></span>'.repeat(6)}</div>`).join("");

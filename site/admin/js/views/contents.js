@@ -1,9 +1,9 @@
 /* Seção Conteúdos: filtros, lista, detalhes, cadastro, edição e exclusão */
 
-import { $, esc, on } from "/shared/js/lib/dom.js";
-import { icon } from "/shared/js/lib/icons.js";
-import { longDayLabel, timeLabel, todayISO } from "/shared/js/lib/dates.js";
-import { typeBadge } from "/shared/js/ui/badges.js";
+import { $, esc, on } from "../../../js/lib/dom.js";
+import { icon } from "../../../js/lib/icons.js";
+import { longDayLabel, timeLabel, todayISO } from "../../../js/lib/dates.js";
+import { typeBadge } from "../../../js/ui/badges.js";
 import { CONTENT_STATUS, CLIENT_VISIBLE_STATUS, NETWORKS, FORMATS, LIMITS, validateContent, validateContentFilters } from "../domain/rules.js";
 import { closeDialog, wireDialog, showFieldErrors, setBusy } from "../ui/dialogs.js";
 import { stateBlock, loadingRows, button } from "../ui/states.js";

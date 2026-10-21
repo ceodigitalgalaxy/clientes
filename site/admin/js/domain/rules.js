@@ -1,9 +1,9 @@
 /* ==========================================================================
    Regras do painel administrativo
    --------------------------------------------------------------------------
-   Usadas pela tela (validação antes de enviar) E pelo servidor local
-   (admin/server.mjs), para os dois nunca discordarem. As mesmas regras
-   também estão no banco (supabase/migrations), que é a última barreira.
+   Usadas pela tela (validação antes de enviar) e pelos comandos locais
+   (admin/equipe.mjs, admin/verify.mjs). As mesmas regras também estão no
+   banco (supabase/migrations), que é a barreira final.
    Sem dependências: roda no navegador e no Node.
    ========================================================================== */
 
@@ -161,4 +161,41 @@ export function validateContentFilters(input = {}) {
   if (input.to && isDate(input.to)) filters.to = input.to;
   if (input.status && CONTENT_STATUS[input.status]) filters.status = input.status;
   return filters;
+}
+
+/* ---------- Login da equipe (usuário e senha) ----------
+   O Supabase Auth identifica cada pessoa por e-mail. Para entrar só com um
+   nome de usuário, cada usuário vira um endereço interno fixo
+   (equipe+<usuario>@digitalgalaxy.com.br). Nenhum e-mail é enviado para
+   ele: as contas são criadas pelo comando admin/equipe.mjs, já confirmadas. */
+
+export const USERNAME_LIMITS = { min: 3, max: 32 };
+export const PASSWORD_LIMITS = { min: 10, max: 72 };
+const USERNAME = /^[a-z0-9]+([._-][a-z0-9]+)*$/;
+const LOGIN_EMAIL = /^equipe\+([a-z0-9._-]+)@digitalgalaxy\.com\.br$/;
+
+/** "  João.Silva " → "joao.silva" (minúsculas, sem acento, sem espaços nas pontas) */
+export const normalizeUsername = (raw) => String(raw ?? "").trim().toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+
+/** Usuário válido ou null */
+export function parseUsername(raw) {
+  const value = normalizeUsername(raw);
+  if (value.length < USERNAME_LIMITS.min || value.length > USERNAME_LIMITS.max || !USERNAME.test(value)) return null;
+  return value;
+}
+
+/** Endereço interno usado pelo Supabase Auth para esse usuário */
+export const loginEmail = (username) => `equipe+${username}@digitalgalaxy.com.br`;
+
+/** Caminho inverso: endereço interno → usuário (null se não for da equipe) */
+export const usernameFromEmail = (email) => String(email ?? "").match(LOGIN_EMAIL)?.[1] ?? null;
+
+/** Regras da senha nova (só para criar ou trocar; a de login não é validada aqui) */
+export function passwordProblem(password, username = "") {
+  const text = String(password ?? "");
+  if (text.length < PASSWORD_LIMITS.min) return `Use pelo menos ${PASSWORD_LIMITS.min} caracteres.`;
+  if (new TextEncoder().encode(text).length > PASSWORD_LIMITS.max) return `Use no máximo ${PASSWORD_LIMITS.max} caracteres.`;
+  if (username && text.toLowerCase().includes(username)) return "A senha não pode conter o nome de usuário.";
+  if (new Set(text).size < 5) return "A senha precisa variar mais os caracteres.";
+  return null;
 }

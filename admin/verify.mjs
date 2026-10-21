@@ -6,11 +6,15 @@
    Cria um cliente e um conteúdo de TESTE, consulta, edita, filtra, confere o
    calendário do cliente, exclui os dois e mostra o resultado de cada passo.
    Nada fica gravado no final (o próprio script apaga o que criou).
+   Também confere a proteção do painel publicado: visitante sem login não lê
+   nada e ninguém consegue criar conta sozinho.
    ========================================================================== */
 
 import { loadEnv } from "./server.mjs";
-import { createSupabaseStore } from "./lib/store-supabase.mjs";
-import { validateClient, validateContent } from "./public/js/domain/rules.js";
+import { createSupabaseStore } from "../site/admin/js/data/store.js";
+import { validateClient, validateContent } from "../site/admin/js/domain/rules.js";
+import { SUPABASE_PUBLISHABLE_KEY } from "../site/admin/js/config.js";
+import { createTeamAdmin } from "./equipe.mjs";
 
 const env = loadEnv();
 if (!env.SUPABASE_URL || !env.SUPABASE_SECRET_KEY) {
@@ -29,6 +33,15 @@ let client, content;
 try {
   await store.ping();
   check("Conexão com o banco", true);
+
+  // Visitante sem login (só a chave publicável, que fica no site): nenhum dado
+  for (const table of ["clients", "contents", "agency_members", "client_calendar_items"]) {
+    const response = await fetch(`${env.SUPABASE_URL}/rest/v1/${table}?select=*&limit=1`, { headers: { apikey: SUPABASE_PUBLISHABLE_KEY } });
+    const body = await response.json().catch(() => null);
+    check(`Sem login não lê ${table}`, !response.ok || (Array.isArray(body) && body.length === 0), `resposta ${response.status}`);
+  }
+  const signupOff = await createTeamAdmin({ url: env.SUPABASE_URL, secretKey: env.SUPABASE_SECRET_KEY }).signupDisabled();
+  check("Cadastro aberto desligado (só a agência cria usuários)", signupOff, signupOff ? "" : "desligue em Authentication → Sign In / Providers");
 
   client = await store.createClient(validateClient({ name: "Verificação automática", slug: `verificacao-${stamp}` }).value);
   check("Criar cliente", Boolean(client.id), client.slug);

@@ -1,6 +1,6 @@
 /* ==========================================================================
    Painel da agência · complementos do portal
-   Usa os tokens e componentes de site/css/style.css (servido em /shared).
+   Usa os tokens e componentes de site/css/style.css (portal do cliente).
    Aqui ficam só as peças novas: navegação, filtros, lista, formulários e os
    status do fluxo de produção. Espaçamentos em múltiplos de 8px.
    ========================================================================== */
@@ -24,10 +24,28 @@
 .admin-nav__link:hover { color: var(--brand); background: var(--surface-hover); }
 .admin-nav__link[aria-current="page"] { color: var(--brand); background: var(--brand-soft); }
 
-.db-status { display: inline-flex; align-items: center; gap: 8px; font-size: 12px; color: var(--text-muted); white-space: nowrap; }
-.db-status__dot { width: 8px; height: 8px; border-radius: 50%; background: var(--line-strong); }
-.db-status.is-ok .db-status__dot { background: var(--aprovado); box-shadow: 0 0 0 3px var(--aprovado-soft); }
-.db-status.is-error .db-status__dot { background: var(--ajustes); box-shadow: 0 0 0 3px var(--ajustes-soft); }
+.user-menu { display: flex; align-items: center; gap: 16px; min-width: 0; }
+.user-menu__name { display: inline-flex; align-items: center; gap: 8px; min-width: 0; font-size: 14px; font-weight: 600; color: var(--text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.user-menu__name .icon { flex: none; width: 18px; height: 18px; color: var(--brand); }
+.user-menu__out { display: inline-flex; align-items: center; gap: 8px; font-size: 14px; }
+.user-menu__out .icon { width: 18px; height: 18px; }
+
+/* A página só aparece depois de conferir que não está dentro de outro site (main.js) */
+body.admin:not(.is-ready) { visibility: hidden; }
+
+/* Tela de entrada */
+.login[hidden] { display: none; }
+.login { display: grid; place-items: center; min-height: 100vh; min-height: 100dvh; padding: 40px 16px; }
+.login__card { width: 100%; max-width: 400px; padding: 40px 32px; border: 1px solid var(--line); border-radius: var(--radius-xl); background: var(--surface); box-shadow: var(--shadow-pop); text-align: center; }
+.login__logo { display: inline-flex; color: var(--brand); }
+.login__logo svg { width: 48px; height: 48px; }
+.login__title { margin-top: 16px; font-family: var(--font-display); font-size: 26px; font-weight: 600; line-height: 1.2; }
+.login__text { margin-top: 8px; font-size: 14px; color: var(--text-muted); }
+.login__form { display: grid; gap: 16px; margin-top: 32px; text-align: left; }
+.login__submit { width: 100%; justify-content: center; }
+.login__help { display: inline-flex; align-items: center; gap: 8px; margin-top: 24px; font-size: 12px; color: var(--text-muted); text-align: left; }
+.login__help .icon { flex: none; width: 14px; height: 14px; }
+.form-error.is-info { color: var(--brand-deep); background: var(--brand-soft); }
 
 /* Estrutura das seções */
 .admin-main { padding-top: 40px; padding-bottom: 80px; max-width: calc(1280px + var(--gutter) * 2); }
@@ -146,6 +164,9 @@ select.field__input { padding-right: 40px; appearance: none; background-image: u
 @media (max-width: 768px) {
   .topbar__inner { flex-wrap: wrap; height: auto; padding-top: 12px; padding-bottom: 12px; }
   .admin-title, .topbar__divider { display: none; }
+  .user-menu { gap: 12px; }
+  .user-menu__name { max-width: 160px; }
+  .login__card { padding: 32px 24px; }
   .admin-nav { order: 3; width: 100%; }
   .admin-nav__link { flex: 1; justify-content: center; }
   .view__head { flex-direction: column; align-items: stretch; }

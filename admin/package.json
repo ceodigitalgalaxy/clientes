@@ -1,11 +1,13 @@
 {
   "name": "digitalgalaxy-painel-agencia",
   "private": true,
-  "description": "Painel administrativo local do portal de clientes (clientes e conteúdos).",
+  "description": "Ferramentas locais do painel da agência: prévia do site, equipe (usuários) e verificação do banco.",
   "type": "module",
-  "engines": { "node": ">=18.17" },
+  "engines": { "node": ">=22.12" },
   "scripts": {
     "start": "node server.mjs",
-    "verify": "node verify.mjs"
+    "equipe": "node equipe.mjs",
+    "verify": "node verify.mjs",
+    "test": "node test/store.test.mjs && node test/e2e.mjs"
   }
 }

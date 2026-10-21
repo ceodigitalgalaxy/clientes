@@ -1,7 +1,7 @@
 /* Seção Clientes: lista, cadastro, edição e exclusão (só sem conteúdos) */
 
-import { $, esc, on } from "/shared/js/lib/dom.js";
-import { icon } from "/shared/js/lib/icons.js";
+import { $, esc, on } from "../../../js/lib/dom.js";
+import { icon } from "../../../js/lib/icons.js";
 import { validateClient, slugify } from "../domain/rules.js";
 import { closeDialog, wireDialog, showFieldErrors, setBusy } from "../ui/dialogs.js";
 import { stateBlock, loadingCards, button } from "../ui/states.js";

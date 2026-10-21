@@ -1,19 +1,26 @@
-/* Teste de ponta a ponta do painel (tela + servidor), com o armazenamento de
-   teste em memória. Precisa do Playwright instalado (npm i -D playwright) ou
-   indicado em PLAYWRIGHT=/caminho/para/playwright/index.mjs.
+/* Teste de ponta a ponta do painel (login + tela), com um Supabase de mentira
+   em memória (fake-supabase.mjs). Precisa do Playwright instalado
+   (npm i -D playwright) ou indicado em PLAYWRIGHT=/caminho/para/playwright/index.mjs.
    Rode: node admin/test/e2e.mjs   (capturas opcionais em ADMIN_SHOTS=pasta) */
 
 import assert from "node:assert/strict";
 import http from "node:http";
-import { createAdminServer } from "../server.mjs";
+import { createPreviewServer } from "../server.mjs";
 import { createMemoryStore } from "./memory-store.mjs";
+import { createFakeSupabase } from "./fake-supabase.mjs";
+import { SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY } from "../../site/admin/js/config.js";
 
 const { chromium } = await import(process.env.PLAYWRIGHT || "playwright");
 const PORT = 5611;
-const BASE = `http://localhost:${PORT}`;
+const ORIGIN = `http://localhost:${PORT}`;
+const BASE = `${ORIGIN}/admin/`;
 const SHOTS = process.env.ADMIN_SHOTS;
 const store = createMemoryStore();
-const server = createAdminServer({ store, port: PORT });
+const fake = createFakeSupabase({ store, publishableKey: SUPABASE_PUBLISHABLE_KEY });
+const TEAM = { username: "admdg-teste", password: "Senha-de-teste-123" };
+fake.addUser(TEAM.username, TEAM.password, { name: "Equipe DG" });
+fake.addUser("visitante", "Outra-senha-456", { member: false });
+const server = createPreviewServer({ port: PORT });
 await new Promise((r) => server.listen(PORT, "127.0.0.1", r));
 
 const results = [];
@@ -23,41 +30,43 @@ const step = async (label, fn) => {
   console.log(results.at(-1));
 };
 
-/* ---------- Segurança do servidor ---------- */
+/* ---------- Segurança da prévia local ---------- */
 const raw = (path, { method = "GET", headers = {}, body } = {}) => new Promise((resolve) => {
   const req = http.request({ host: "127.0.0.1", port: PORT, path, method, headers }, (res) => { let d = ""; res.on("data", (c) => (d += c)); res.on("end", () => resolve({ status: res.statusCode, body: d, headers: res.headers })); });
   req.end(body);
 });
-await step("Recusa Host desconhecido (DNS rebinding)", async () => assert.equal((await raw("/api/clients", { headers: { Host: "evil.example" } })).status, 421));
-await step("Recusa escrita vinda de outro site", async () => {
-  const r = await raw("/api/clients", { method: "POST", headers: { Host: `localhost:${PORT}`, Origin: "https://evil.example", "Content-Type": "application/json" }, body: "{}" });
-  assert.equal(r.status, 403);
-});
-await step("Recusa escrita sem JSON", async () => {
-  const r = await raw("/api/clients", { method: "POST", headers: { Host: `localhost:${PORT}`, Origin: BASE, "Content-Type": "text/plain" }, body: "{}" });
-  assert.equal(r.status, 415);
-});
-await step("Não expõe arquivos fora das pastas permitidas", async () => {
-  for (const p of ["/shared/index.html", "/shared/js/main.js", "/../server.mjs", "/%2e%2e/server.mjs", "/shared/..%2f..%2fadmin%2f.env", "/.env"]) {
-    const r = await raw(p, { headers: { Host: `localhost:${PORT}` } });
+const host = { Host: `localhost:${PORT}` };
+await step("Prévia local recusa Host desconhecido (DNS rebinding)", async () => assert.equal((await raw("/admin/", { headers: { Host: "evil.example" } })).status, 421));
+await step("Prévia local só aceita leitura", async () => assert.equal((await raw("/admin/", { method: "POST", headers: host, body: "{}" })).status, 405));
+await step("Prévia local não expõe arquivos fora de site/ (nem o admin/.env)", async () => {
+  for (const p of ["/../admin/.env", "/%2e%2e/admin/.env", "/..%2fadmin%2f.env", "/admin/..%2f..%2fadmin%2fequipe.mjs", "/..%2fREADME.md", "/.env"]) {
+    const r = await raw(p, { headers: host });
     assert.equal(r.status, 404, p);
   }
 });
-await step("Envia CSP e proteções nos cabeçalhos", async () => {
-  const r = await raw("/", { headers: { Host: `localhost:${PORT}` } });
-  assert.match(r.headers["content-security-policy"], /frame-ancestors 'none'/);
-  assert.equal(r.headers["x-content-type-options"], "nosniff");
-});
-await step("Servidor recusa dados inválidos mesmo sem passar pela tela", async () => {
-  const r = await raw("/api/contents", { method: "POST", headers: { Host: `localhost:${PORT}`, Origin: BASE, "Content-Type": "application/json" }, body: JSON.stringify({ title: "x", media_url: "javascript:alert(1)" }) });
-  assert.equal(r.status, 422);
-  const data = JSON.parse(r.body);
-  assert.ok(data.fields.client_id && data.fields.media_url && data.fields.network);
+await step("Página do painel tem CSP, noindex e nenhuma chave secreta", async () => {
+  const r = await raw("/admin/", { headers: host });
+  assert.equal(r.status, 200);
+  assert.match(r.body, /Content-Security-Policy" content="default-src 'self'; script-src 'self'/);
+  assert.match(r.body, /connect-src 'self' https:\/\/peieimwpkrattuldmjux\.supabase\.co;/);
+  assert.match(r.body, /noindex/);
+  assert.equal(r.headers["x-frame-options"], "DENY");
+  const config = await raw("/admin/js/config.js", { headers: host });
+  assert.doesNotMatch(config.body, /sb_secret_[A-Za-z0-9]|service_role|eyJ[A-Za-z0-9]/, "só a chave publicável vai para o navegador");
+  assert.match(config.body, /sb_publishable_[A-Za-z0-9]/);
 });
 
 /* ---------- Tela ---------- */
 const browser = await chromium.launch();
-const page = await browser.newPage({ viewport: { width: 1360, height: 900 } });
+const context = await browser.newContext({ viewport: { width: 1360, height: 900 } });
+// Pedidos ao Supabase respondidos pelo Supabase de mentira (nada sai para a internet)
+await context.route(`${SUPABASE_URL}/**`, async (route) => {
+  const req = route.request();
+  const answer = await fake.handle({ method: req.method(), url: req.url(), headers: await req.allHeaders(), body: req.postData() });
+  if (answer === "abort") return route.abort("failed");
+  return route.fulfill(answer);
+});
+const page = await context.newPage();
 page.setDefaultTimeout(8000);
 const consoleErrors = [];
 // Respostas de erro provocadas pelos próprios testes (409, 503, mídia externa) aparecem
@@ -74,13 +83,68 @@ const fillContent = async (data) => {
   }
 };
 
-await step("Carregamento e lista vazia de conteúdos sem clientes", async () => {
-  store.delayMs = 400;
+const loginError = async () => { await page.waitForSelector("#login .form-error:not([hidden])"); return (await page.textContent("#login .form-error")).trim(); };
+const signIn = async (username, password) => {
+  await page.fill('#login-form [name="username"]', username);
+  await page.fill('#login-form [name="password"]', password);
+  await page.click("#login-form [type=submit]");
+};
+const sessionStored = () => page.evaluate(() => localStorage.getItem("dg-painel-sessao"));
+
+await step("Sem login: só a tela de entrada, nenhum dado pedido ao banco", async () => {
   await page.goto(BASE);
+  await page.waitForSelector("#login:not([hidden])");
+  assert.equal(await page.isVisible("#app"), false);
+  assert.equal(await page.textContent("#login-title"), "Painel da agência");
+  assert.equal(fake.log.filter((r) => r.path.startsWith("/rest/")).length, 0);
+  await shot("00-entrar");
+});
+
+await step("Campos vazios são apontados", async () => {
+  await page.click("#login-form [type=submit]");
+  assert.equal(await page.getAttribute('#login-form [name="username"]', "aria-invalid"), "true");
+  assert.equal(await page.getAttribute('#login-form [name="password"]', "aria-invalid"), "true");
+});
+
+await step("Senha errada ou usuário inexistente: a mesma mensagem", async () => {
+  await signIn(TEAM.username, "senha-errada-000");
+  assert.equal(await loginError(), "Usuário ou senha incorretos.");
+  assert.equal(await page.inputValue('#login-form [name="password"]'), "", "a senha digitada é apagada");
+  await signIn("ninguem", "qualquer-senha-1");
+  await page.waitForFunction(() => !document.querySelector("#login-form [type=submit]").disabled);
+  assert.equal(await loginError(), "Usuário ou senha incorretos.");
+  assert.equal(await sessionStored(), null);
+});
+
+await step("Muitas tentativas: pede para aguardar", async () => {
+  fake.failAuthNext = 1;
+  await signIn(TEAM.username, TEAM.password);
+  await page.waitForFunction(() => document.querySelector("#login .form-error").textContent.includes("Muitas tentativas"));
+});
+
+await step("Usuário fora da equipe é recusado e a sessão é apagada", async () => {
+  await signIn("visitante", "Outra-senha-456");
+  await page.waitForFunction(() => document.querySelector("#login .form-error").textContent.includes("não tem acesso"));
+  assert.equal(await page.isVisible("#app"), false);
+  assert.equal(await sessionStored(), null);
+  await shot("00-sem-acesso");
+});
+
+await step("Login da equipe abre o painel (usuário aceita maiúsculas)", async () => {
+  store.delayMs = 400;
+  await signIn("AdmDG-Teste", TEAM.password);
+  await page.waitForSelector("#app:not([hidden])");
   await page.waitForSelector(".skeleton");                       // estado de carregamento
+  assert.equal(await page.isVisible("#login"), false, "tela de entrada some depois do login");
+  assert.match(await page.textContent("#user-name"), /Equipe DG/);
+  assert.ok(await sessionStored(), "sessão guardada no navegador");
+  assert.equal(await page.evaluate(() => document.body.innerHTML.includes("Senha-de-teste-123")), false, "a senha não fica na página");
+  assert.ok(!(await sessionStored()).includes(TEAM.password), "a senha não é guardada");
+});
+
+await step("Carregamento e lista vazia de conteúdos sem clientes", async () => {
   await page.waitForSelector(".state__title");
   assert.equal(await page.textContent(".state__title"), "Cadastre um cliente primeiro");
-  assert.equal(await page.textContent(".db-status__text"), "Banco conectado");
   store.delayMs = 0;
   await shot("01-sem-clientes");
 });
@@ -281,17 +345,98 @@ await step("Erro ao salvar mantém o formulário aberto com a mensagem", async (
   await page.waitForSelector("#content-modal:not([open])", { state: "attached" });
 });
 
-await step("Calendário do cliente recebe só o que está visível, sem notas internas", async () => {
-  const [client] = (await store.listClients()).filter((c) => c.slug === "padaria-central-ltda");
-  const r = await raw(`/api/clients/${client.id}/calendar`, { headers: { Host: `localhost:${PORT}` } });
-  const items = JSON.parse(r.body);
-  assert.equal(items.length, 2);
-  assert.ok(items.every((i) => !("internal_notes" in i)));
+await step("Recarregar a página mantém o login", async () => {
+  await page.reload();
+  await page.waitForSelector("#app:not([hidden])");
+  assert.equal(await page.isVisible("#login"), false);
+  await page.waitForSelector(".row[data-row]");
+});
+
+await step("Sem internet ao abrir: avisa, sem tela em branco e sem perder a sessão", async () => {
+  fake.offline = true;
+  await page.reload();
+  assert.match(await loginError(), /Não foi possível conectar/);
+  assert.ok(await sessionStored(), "sessão mantida para quando a internet voltar");
+  fake.offline = false;
+  await page.reload();
+  await page.waitForSelector("#app:not([hidden])");
+  await page.waitForSelector(".row[data-row]");
+});
+
+const refreshCount = () => fake.log.filter((r) => r.query.includes("grant_type=refresh_token")).length;
+const waitFor = async (condition, label) => {
+  for (let i = 0; i < 80; i += 1) { if (condition()) return; await new Promise((r) => setTimeout(r, 100)); }
+  throw new Error(`esperando: ${label}`);
+};
+
+await step("Token vencido é renovado sozinho, sem perder o que estava na tela", async () => {
+  fake.expireAccessTokens();
+  const before = refreshCount();
+  await page.selectOption('#filters [name="status"]', "planejado");      // pede dados ao banco
+  await waitFor(() => refreshCount() > before, "pedido de token novo");
+  await page.waitForFunction(() => document.querySelector("#contents-list .state__title")?.textContent === "Nenhum conteúdo encontrado");
+  await page.click('#filters [type="reset"]');
+  await page.waitForFunction(() => document.querySelectorAll(".row[data-row]").length === 2);
+  assert.equal(await page.isVisible("#app"), true);
+});
+
+await step("Sessão encerrada no servidor volta para a entrada e limpa os dados da tela", async () => {
+  fake.revokeAll();
+  await page.selectOption('#filters [name="status"]', "planejado");
+  assert.equal(await loginError(), "Sua sessão expirou. Entre de novo.");
+  assert.equal(await page.isVisible("#app"), false);
+  assert.equal(await page.locator(".client-card, .row[data-row]").count(), 0, "dados apagados da tela");
+  assert.equal(await sessionStored(), null);
+  await page.evaluate(() => { location.hash = "#/conteudos"; });
+});
+
+await step("Sair encerra a sessão (e continua fora depois de recarregar)", async () => {
+  await signIn(TEAM.username, TEAM.password);
+  await page.waitForSelector("#app:not([hidden])");
+  await page.click('[data-action="sign-out"]');
+  await page.waitForSelector("#login:not([hidden])");
+  assert.equal(await page.textContent("#login .form-error"), "Você saiu do painel.");
+  assert.equal(await sessionStored(), null);
+  assert.ok(fake.log.some((r) => r.path === "/auth/v1/logout"), "sessão encerrada no Supabase");
+  await page.reload();
+  await page.waitForSelector("#login:not([hidden])");
+  assert.equal(await page.isVisible("#app"), false);
+});
+
+await step("Painel não aparece dentro de outro site (iframe)", async () => {
+  const other = await context.newPage();
+  // A prévia local já bloqueia iframes pelo cabeçalho X-Frame-Options; o GitHub Pages não
+  // manda esse cabeçalho, então aqui ele é tirado para testar a proteção da própria página.
+  await other.route(`${ORIGIN}/**`, async (route) => {
+    const response = await route.fetch();
+    const headers = { ...response.headers() };
+    delete headers["x-frame-options"];
+    await route.fulfill({ response, headers });
+  });
+  await other.setContent(`<iframe src="${BASE}" width="800" height="600"></iframe>`);
+  const frame = await (await other.waitForSelector("iframe")).contentFrame();
+  await frame.waitForLoadState("load");
+  await other.waitForTimeout(300);
+  assert.equal(await frame.evaluate(() => document.querySelector("#login-title") !== null), true, "a página carregou no iframe");
+  assert.equal(await frame.evaluate(() => getComputedStyle(document.body).visibility), "hidden");
+  await other.close();
+});
+
+await step("Entrar de novo para os testes de celular", async () => {
+  await signIn(TEAM.username, TEAM.password);
+  await page.waitForSelector("#app:not([hidden])");
 });
 
 await step("Celular: lista e formulário cabem na tela", async () => {
   await page.setViewportSize({ width: 390, height: 844 });
   await page.reload();
+  await page.waitForSelector(".row[data-row]");
+  await page.click('[data-action="sign-out"]');
+  await page.waitForSelector("#login:not([hidden])");
+  const loginOverflow = await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth);
+  assert.ok(loginOverflow <= 0, `entrada com rolagem lateral de ${loginOverflow}px`);
+  await shot("11-entrar-celular");
+  await signIn(TEAM.username, TEAM.password);
   await page.waitForSelector(".row[data-row]");
   const overflow = await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth);
   assert.ok(overflow <= 0, `rolagem lateral de ${overflow}px`);
