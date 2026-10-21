@@ -93,6 +93,8 @@ export const PLATFORMS = {
   instagram: "Instagram",
   facebook: "Facebook",
   tiktok: "TikTok",
+  linkedin: "LinkedIn",
+  youtube: "YouTube",
   google: "Perfil do Google",
   whatsapp: "WhatsApp",
   loja: "Na loja"

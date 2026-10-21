@@ -1,0 +1,236 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="robots" content="noindex, nofollow">
+  <title>Painel da agência · Digital Galaxy</title>
+  <meta name="theme-color" content="#F5F3FA">
+  <link rel="icon" href="/shared/images/logo/favicon.svg" type="image/svg+xml">
+  <link rel="preload" href="/shared/fonts/sora-latin-400-normal.woff2" as="font" type="font/woff2" crossorigin>
+  <link rel="preload" href="/shared/fonts/sora-latin-600-normal.woff2" as="font" type="font/woff2" crossorigin>
+  <!-- Mesmos tokens e componentes do portal do cliente -->
+  <link rel="stylesheet" href="/shared/css/style.css?v=1">
+  <link rel="stylesheet" href="/css/admin.css?v=1">
+  <script type="module" src="/js/main.js?v=1"></script>
+</head>
+<body class="admin">
+  <a class="skip-link" href="#conteudo">Pular para o conteúdo</a>
+
+  <!-- Este painel roda só no computador da agência (admin/server.mjs) até existir login -->
+  <div class="admin-bar">
+    <span data-icon="lock">Uso interno da agência. Este painel só abre neste computador.</span>
+  </div>
+
+  <header class="topbar">
+    <div class="container topbar__inner">
+      <div class="topbar__brands">
+        <span class="brand" aria-hidden="true"><span class="brand__logo" data-slot="brand-mark"></span></span>
+        <span class="topbar__divider" aria-hidden="true"></span>
+        <span class="admin-title">Painel da agência</span>
+      </div>
+      <nav class="admin-nav" aria-label="Seções do painel">
+        <a class="admin-nav__link" href="#/conteudos" data-route="conteudos" data-icon="calendar">Conteúdos</a>
+        <a class="admin-nav__link" href="#/clientes" data-route="clientes" data-icon="users">Clientes</a>
+      </nav>
+      <span class="db-status" id="db-status" role="status"><span class="db-status__dot"></span><span class="db-status__text">Conectando…</span></span>
+    </div>
+  </header>
+
+  <main id="conteudo" class="container admin-main">
+    <!-- Conteúdos -->
+    <section class="view" id="view-conteudos" data-view="conteudos" aria-labelledby="conteudos-title" hidden>
+      <div class="view__head">
+        <div>
+          <h1 class="view__title" id="conteudos-title">Conteúdos</h1>
+          <p class="view__text">O que for cadastrado aqui aparece no calendário do cliente quando o status chegar a "Aguardando aprovação".</p>
+        </div>
+        <button class="btn btn--primary" type="button" data-action="new-content" data-icon="sparkle">Novo conteúdo</button>
+      </div>
+
+      <form class="filters" id="filters" aria-label="Filtrar conteúdos">
+        <label class="field">
+          <span class="field__label">Cliente</span>
+          <select class="field__input" name="client_id"><option value="">Todos os clientes</option></select>
+        </label>
+        <label class="field">
+          <span class="field__label">De</span>
+          <input class="field__input" type="date" name="from">
+        </label>
+        <label class="field">
+          <span class="field__label">Até</span>
+          <input class="field__input" type="date" name="to">
+        </label>
+        <label class="field">
+          <span class="field__label">Status</span>
+          <select class="field__input" name="status"><option value="">Todos os status</option></select>
+        </label>
+        <button class="link-btn filters__clear" type="reset" data-icon="refresh">Limpar filtros</button>
+      </form>
+
+      <p class="list-count" id="contents-count" aria-live="polite"></p>
+      <div class="list" id="contents-list" aria-busy="true"></div>
+    </section>
+
+    <!-- Clientes -->
+    <section class="view" id="view-clientes" data-view="clientes" aria-labelledby="clientes-title" hidden>
+      <div class="view__head">
+        <div>
+          <h1 class="view__title" id="clientes-title">Clientes</h1>
+          <p class="view__text">Cada cliente tem um identificador único. Os conteúdos ficam sempre ligados a um cliente.</p>
+        </div>
+        <button class="btn btn--primary" type="button" data-action="new-client" data-icon="user">Novo cliente</button>
+      </div>
+      <p class="list-count" id="clients-count" aria-live="polite"></p>
+      <div class="client-grid" id="clients-list" aria-busy="true"></div>
+    </section>
+  </main>
+
+  <!-- Cadastro e edição de cliente -->
+  <dialog class="modal modal--wide" id="client-modal" aria-labelledby="client-modal-title">
+    <form class="modal__form" method="dialog" novalidate>
+      <div class="modal__head">
+        <span class="modal__icon modal__icon--brand" data-icon="user"></span>
+        <div>
+          <h2 class="modal__title" id="client-modal-title">Novo cliente</h2>
+          <p class="modal__text">Os dados de contato e as observações são só para a equipe.</p>
+        </div>
+        <button class="icon-btn modal__close" type="button" data-action="close-modal" aria-label="Fechar" data-icon="close"></button>
+      </div>
+      <div class="form-grid">
+        <label class="field form-grid__wide">
+          <span class="field__label">Nome do cliente</span>
+          <input class="field__input" name="name" maxlength="120" autocomplete="off" required>
+        </label>
+        <label class="field">
+          <span class="field__label">Identificador</span>
+          <input class="field__input" name="slug" maxlength="60" autocomplete="off" spellcheck="false" required aria-describedby="slug-hint">
+          <span class="field__hint" id="slug-hint">Único. Letras minúsculas, números e hífens.</span>
+        </label>
+        <label class="field">
+          <span class="field__label">Segmento <span class="field__optional">(opcional)</span></span>
+          <input class="field__input" name="segment" maxlength="120" autocomplete="off">
+        </label>
+        <label class="field">
+          <span class="field__label">Nome do contato <span class="field__optional">(opcional)</span></span>
+          <input class="field__input" name="contact_name" maxlength="120" autocomplete="off">
+        </label>
+        <label class="field">
+          <span class="field__label">E-mail do contato <span class="field__optional">(opcional)</span></span>
+          <input class="field__input" name="contact_email" type="email" autocomplete="off">
+        </label>
+        <label class="field form-grid__wide">
+          <span class="field__label">Observações internas <span class="field__optional">(opcional)</span></span>
+          <textarea class="field__input field__input--area" name="notes" rows="3" maxlength="2000"></textarea>
+        </label>
+        <label class="check form-grid__wide">
+          <input type="checkbox" name="active" checked>
+          <span>Cliente ativo</span>
+        </label>
+      </div>
+      <p class="form-error" role="alert" hidden></p>
+      <div class="modal__actions">
+        <button class="btn btn--ghost" type="button" data-action="close-modal">Cancelar</button>
+        <button class="btn btn--primary" type="submit"><span>Salvar cliente</span></button>
+      </div>
+    </form>
+  </dialog>
+
+  <!-- Cadastro e edição de conteúdo -->
+  <dialog class="modal modal--wide" id="content-modal" aria-labelledby="content-modal-title">
+    <form class="modal__form" method="dialog" novalidate>
+      <div class="modal__head">
+        <span class="modal__icon modal__icon--brand" data-icon="calendar"></span>
+        <div>
+          <h2 class="modal__title" id="content-modal-title">Novo conteúdo</h2>
+          <p class="modal__text">Observações internas nunca aparecem para o cliente.</p>
+        </div>
+        <button class="icon-btn modal__close" type="button" data-action="close-modal" aria-label="Fechar" data-icon="close"></button>
+      </div>
+      <div class="form-grid">
+        <label class="field form-grid__wide">
+          <span class="field__label">Cliente</span>
+          <select class="field__input" name="client_id" required></select>
+        </label>
+        <label class="field form-grid__wide">
+          <span class="field__label">Título da publicação</span>
+          <input class="field__input" name="title" maxlength="160" autocomplete="off" required>
+        </label>
+        <label class="field">
+          <span class="field__label">Data programada</span>
+          <input class="field__input" name="scheduled_date" type="date" required>
+        </label>
+        <label class="field">
+          <span class="field__label">Horário <span class="field__optional">(opcional)</span></span>
+          <input class="field__input" name="scheduled_time" type="time">
+        </label>
+        <label class="field">
+          <span class="field__label">Rede social</span>
+          <select class="field__input" name="network" required></select>
+        </label>
+        <label class="field">
+          <span class="field__label">Formato</span>
+          <select class="field__input" name="format" required></select>
+        </label>
+        <label class="field form-grid__wide">
+          <span class="field__label">URL da imagem ou vídeo de referência <span class="field__optional">(opcional)</span></span>
+          <input class="field__input" name="media_url" type="url" inputmode="url" placeholder="https://" autocomplete="off" spellcheck="false">
+        </label>
+        <fieldset class="field form-grid__wide radio-row" data-media-kind>
+          <legend class="field__label">Tipo da mídia</legend>
+          <label class="check"><input type="radio" name="media_kind" value="image"><span>Imagem</span></label>
+          <label class="check"><input type="radio" name="media_kind" value="video"><span>Vídeo</span></label>
+        </fieldset>
+        <label class="field form-grid__wide">
+          <span class="field__label">Legenda <span class="field__optional">(opcional)</span></span>
+          <textarea class="field__input field__input--area" name="caption" rows="5" maxlength="2200" aria-describedby="caption-count"></textarea>
+          <span class="field__hint" id="caption-count">0 de 2.200 caracteres</span>
+        </label>
+        <label class="field form-grid__wide">
+          <span class="field__label">Observações internas <span class="field__optional">(opcional)</span></span>
+          <textarea class="field__input field__input--area" name="internal_notes" rows="3" maxlength="4000"></textarea>
+        </label>
+        <label class="field">
+          <span class="field__label">Status</span>
+          <select class="field__input" name="status" required></select>
+        </label>
+      </div>
+      <p class="form-error" role="alert" hidden></p>
+      <div class="modal__actions">
+        <button class="btn btn--ghost" type="button" data-action="close-modal">Cancelar</button>
+        <button class="btn btn--primary" type="submit"><span>Salvar conteúdo</span></button>
+      </div>
+    </form>
+  </dialog>
+
+  <!-- Detalhes do conteúdo -->
+  <dialog class="drawer" id="content-drawer" aria-labelledby="drawer-title">
+    <div class="drawer__panel">
+      <div class="drawer__header">
+        <div class="drawer__badges" id="drawer-badges"></div>
+        <button class="icon-btn" type="button" data-action="close-drawer" aria-label="Fechar" data-icon="close"></button>
+      </div>
+      <div class="drawer__body" id="drawer-body"></div>
+    </div>
+  </dialog>
+
+  <!-- Confirmação de exclusão -->
+  <dialog class="modal" id="confirm-modal" role="alertdialog" aria-labelledby="confirm-title" aria-describedby="confirm-text">
+    <div class="modal__form">
+      <div class="modal__head">
+        <span class="modal__icon modal__icon--danger" data-icon="close"></span>
+        <div>
+          <h2 class="modal__title" id="confirm-title">Excluir?</h2>
+          <p class="modal__text" id="confirm-text"></p>
+        </div>
+      </div>
+      <div class="modal__actions">
+        <button class="btn btn--ghost" type="button" data-confirm="cancel">Cancelar</button>
+        <button class="btn btn--danger" type="button" data-confirm="ok">Excluir</button>
+      </div>
+    </div>
+  </dialog>
+
+  <div class="toasts" id="toasts" aria-live="polite"></div>
+</body>
+</html>

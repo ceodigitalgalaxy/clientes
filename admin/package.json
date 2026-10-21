@@ -1,0 +1,11 @@
+{
+  "name": "digitalgalaxy-painel-agencia",
+  "private": true,
+  "description": "Painel administrativo local do portal de clientes (clientes e conteúdos).",
+  "type": "module",
+  "engines": { "node": ">=18.17" },
+  "scripts": {
+    "start": "node server.mjs",
+    "verify": "node verify.mjs"
+  }
+}

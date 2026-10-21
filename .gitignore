@@ -18,3 +18,7 @@ dist/
 # Variáveis de ambiente e segredos (nunca versionar)
 .env
 .env.*
+
+# Painel da agência: chave secreta do Supabase (nunca versionar)
+admin/.env
+!.env.example
