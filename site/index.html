@@ -3,7 +3,9 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data: blob:; media-src 'self' blob:; font-src 'self'; connect-src 'self'; object-src 'none'; base-uri 'self'; form-action 'self'; frame-src 'none'; upgrade-insecure-requests">
+  <!-- Scripts e estilos só deste site. Dados só do Supabase do portal. Imagens e vídeos de
+       referência de qualquer endereço https; players incorporados só das plataformas suportadas. -->
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data: blob: https:; media-src 'self' blob: https:; font-src 'self'; connect-src 'self' https://peieimwpkrattuldmjux.supabase.co; object-src 'none'; base-uri 'self'; form-action 'none'; frame-src https://www.youtube-nocookie.com https://player.vimeo.com https://www.tiktok.com https://drive.google.com; upgrade-insecure-requests">
   <meta name="referrer" content="strict-origin-when-cross-origin">
   <!-- Portal privado de clientes: fora das buscas -->
   <meta name="robots" content="noindex, nofollow">
@@ -15,14 +17,38 @@
   <link rel="apple-touch-icon" href="images/logo/apple-touch-icon.png">
   <link rel="preload" href="fonts/sora-latin-400-normal.woff2" as="font" type="font/woff2" crossorigin>
   <link rel="preload" href="fonts/sora-latin-600-normal.woff2" as="font" type="font/woff2" crossorigin>
-  <link rel="stylesheet" href="css/style.css?v=5">
-  <link rel="stylesheet" href="css/responsive.css?v=5">
-  <script type="module" src="js/main.js?v=5"></script>
+  <link rel="stylesheet" href="css/style.css?v=6">
+  <link rel="stylesheet" href="css/responsive.css?v=6">
+  <script type="module" src="js/main.js?v=6"></script>
 </head>
-<body>
+<body class="portal">
+  <!-- Entrada do cliente (dados reais). A demonstração abre com ?demo -->
+  <main class="login" id="login" aria-labelledby="login-title" hidden>
+    <div class="login__card">
+      <span class="login__logo" data-slot="brand-mark" aria-hidden="true"></span>
+      <h1 class="login__title" id="login-title">Seu planejamento</h1>
+      <p class="login__text">Entre com o usuário e a senha que a Digital Galaxy enviou para você.</p>
+      <form class="login__form" id="login-form" novalidate>
+        <label class="field">
+          <span class="field__label">Usuário</span>
+          <input class="field__input" name="username" autocomplete="username" autocapitalize="none" spellcheck="false" maxlength="32" required>
+        </label>
+        <label class="field">
+          <span class="field__label">Senha</span>
+          <input class="field__input" name="password" type="password" autocomplete="current-password" maxlength="72" required>
+        </label>
+        <p class="form-error" role="alert" hidden></p>
+        <button class="btn btn--primary login__submit" type="submit">Entrar</button>
+      </form>
+      <p class="login__help" data-icon="lock">Esqueceu a senha? Fale com a Digital Galaxy para receber uma nova.</p>
+      <a class="link-btn login__demo" href="?demo">Conhecer o portal com dados de exemplo</a>
+    </div>
+  </main>
+
+  <div class="app" id="app" hidden>
   <a class="skip-link" href="#calendario">Pular para o calendário</a>
 
-  <!-- Aviso de demonstração: some quando houver dados reais (js/main.js) -->
+  <!-- Aviso de demonstração: só aparece com ?demo (js/main.js) -->
   <div class="demo-bar" id="demo-bar" hidden>
     <span>Ambiente de demonstração com dados fictícios. O que você fizer fica salvo só neste navegador.</span>
   </div>
@@ -45,8 +71,9 @@
           </button>
           <div class="profile__menu" id="profile-menu" role="menu" hidden>
             <p class="profile__who" id="profile-who"></p>
-            <p class="profile__note">O acesso com login chega na próxima etapa.</p>
-            <button class="profile__item" type="button" role="menuitem" data-action="reset-demo" data-icon="refresh">Restaurar demonstração</button>
+            <p class="profile__note" id="profile-note">Demonstração com dados de exemplo.</p>
+            <button class="profile__item" type="button" role="menuitem" data-action="reset-demo" data-icon="refresh" data-demo-only>Restaurar demonstração</button>
+            <button class="profile__item" type="button" role="menuitem" data-action="sign-out" data-icon="logout" data-live-only hidden>Sair</button>
           </div>
         </div>
       </div>
@@ -77,10 +104,17 @@
           </div>
         </div>
         <div class="planner__actions">
-          <button class="btn btn--ghost btn--sm" type="button" data-action="show-ideas">
+          <div class="view-toggle" role="group" aria-label="Ver por">
+            <button class="view-toggle__btn" type="button" data-view-mode="month" aria-pressed="true">Mês</button>
+            <button class="view-toggle__btn" type="button" data-view-mode="week" aria-pressed="false">Semana</button>
+          </div>
+          <button class="btn btn--ghost btn--sm planner__refresh" type="button" data-action="refresh" data-live-only hidden>
+            <span data-icon="refresh"></span>Atualizar
+          </button>
+          <button class="btn btn--ghost btn--sm" type="button" data-action="show-ideas" data-feature="ideas">
             <span data-icon="lightbulb"></span>Suas ideias <span class="count-pill" id="ideas-count">0</span>
           </button>
-          <button class="btn btn--primary btn--sm" type="button" data-action="new-idea">
+          <button class="btn btn--primary btn--sm" type="button" data-action="new-idea" data-feature="ideas">
             <span data-icon="sparkle"></span>Compartilhar uma ideia
           </button>
         </div>
@@ -93,8 +127,8 @@
       <div class="agenda" id="agenda" aria-live="polite"></div>
     </section>
 
-    <!-- Ideias enviadas -->
-    <section class="ideas" id="ideias" aria-labelledby="ideas-title">
+    <!-- Ideias enviadas (por enquanto só na demonstração) -->
+    <section class="ideas" id="ideias" aria-labelledby="ideas-title" data-feature="ideas">
       <div class="ideas__head">
         <h2 class="section-title" id="ideas-title">Ideias que você compartilhou</h2>
         <p class="ideas__text">Suas sugestões também fazem parte do nosso planejamento.</p>
@@ -109,6 +143,7 @@
       <p>© <span class="js-year">2026</span> Digital Galaxy</p>
     </div>
   </footer>
+  </div>
 
   <!-- Resumo do dia no hover (desktop) -->
   <div class="popover" id="day-popover" role="dialog" hidden></div>

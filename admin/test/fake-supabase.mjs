@@ -3,7 +3,9 @@
    memória (memory-store.mjs). O teste de ponta a ponta intercepta os pedidos
    do navegador ao endereço do Supabase e responde por aqui.
    Imita as regras que importam para a tela: sem login → recusa; quem não é da
-   equipe → não vê nada; token vencido → 401; token de renovação gira a cada uso. */
+   equipe → não vê nada; token vencido → 401; token de renovação gira a cada uso.
+   Portal do cliente: rpc/portal_profile e rpc/portal_contents só devolvem o
+   cliente ligado ao login e não aceitam outros parâmetros (como o PostgREST). */
 
 import { randomUUID, randomBytes } from "node:crypto";
 import { loginEmail } from "../../site/admin/js/domain/rules.js";
@@ -44,12 +46,21 @@ export function createFakeSupabase({ store, publishableKey }) {
     return out;
   }
 
+  /** Funções do portal: o cliente vem da sessão, nunca de um parâmetro */
+  async function rpc(name, body, user) {
+    const keys = Object.keys(body || {}).sort().join(",");
+    if (name === "portal_profile" && keys === "") return store.portalProfile(user.id);
+    if (name === "portal_contents" && keys === "p_from,p_to") return store.portalContents(user.id, body.p_from, body.p_to);
+    return { error: json(404, { code: "PGRST202", message: "Could not find the function with the given parameters" }) };
+  }
+
   async function rest(method, table, params, body, user, single) {
+    if (table.startsWith("rpc/") && method === "POST") return rpc(table.slice(4), body, user);
     if (table === "agency_members") {
       const id = eq(params, "user_id");
       return id === user.id && user.member ? [{ user_id: user.id }] : [];
     }
-    // Quem não é da equipe não enxerga nada e não grava nada (como o RLS)
+    // Quem não é da equipe (inclusive clientes) não enxerga nada nas tabelas e não grava nada (como o RLS)
     if (!user.member) {
       if (method === "GET") return [];
       return { error: json(403, { code: "42501", message: "new row violates row-level security policy" }) };
@@ -57,7 +68,7 @@ export function createFakeSupabase({ store, publishableKey }) {
     const id = eq(params, "id");
     if (table === "clients") {
       if (method === "GET" && id) return [await store.getClient(id)];
-      if (method === "GET") return (await store.listClients()).map(({ contents_count, ...c }) => ({ ...c, contents: [{ count: contents_count }] }));
+      if (method === "GET") return (await store.listClients()).map(({ contents_count, portal_users, ...c }) => ({ ...c, contents: [{ count: contents_count }], client_members: portal_users.map((username) => ({ username })) }));
       if (method === "POST") return [await store.createClient(body)];
       if (method === "PATCH") return [await store.updateClient(id, body)];
       if (method === "DELETE") { await store.deleteClient(id); return [{ id }]; }
@@ -80,9 +91,11 @@ export function createFakeSupabase({ store, publishableKey }) {
     failAuthNext: 0,   // pedidos de login que devem dar "muitas tentativas"
     offline: false,    // simula internet caída (todo pedido falha)
 
-    addUser(username, password, { name = username, member = true } = {}) {
-      const user = { id: randomUUID(), email: loginEmail(username), password, name, member };
+    /** kind "equipe" (member = acesso ao painel) ou "cliente" (clientId = cliente do portal) */
+    addUser(username, password, { name = username, member = true, kind = "equipe", clientId = null } = {}) {
+      const user = { id: randomUUID(), email: loginEmail(username, kind), password, name, member: kind === "equipe" && member };
       users.set(user.email, user);
+      if (kind === "cliente" && clientId) store.addMember(user.id, clientId, username);
       return user;
     },
     /** Todos os tokens de acesso vencem (a renovação ainda funciona) */
@@ -136,8 +149,9 @@ export function createFakeSupabase({ store, publishableKey }) {
           return json(status, { code: error.code, message: error.message });
         }
         if (result?.error) return result.error;
+        const isRpc = pathname.startsWith("/rest/v1/rpc/");
         if (single) return result.length === 1 ? json(method === "POST" ? 201 : 200, result[0]) : json(406, { code: "PGRST116", message: "0 rows" });
-        return json(method === "POST" ? 201 : 200, result);
+        return json(method === "POST" && !isRpc ? 201 : 200, result);
       }
       return json(404, { message: "not found" });
     }

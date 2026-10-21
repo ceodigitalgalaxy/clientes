@@ -6,11 +6,12 @@ import { randomUUID } from "node:crypto";
 import { StoreError } from "../../site/admin/js/data/store.js";
 import { CLIENT_VISIBLE_STATUS } from "../../site/admin/js/domain/rules.js";
 
-const VISIBLE_FIELDS = ["title", "scheduled_date", "scheduled_time", "network", "format", "media_url", "media_kind", "caption"];
+const VISIBLE_FIELDS = ["title", "scheduled_date", "scheduled_time", "network", "format", "media_url", "media_kind", "caption", "client_notes"];
 
 export function createMemoryStore() {
   const clients = new Map();
   const contents = new Map();
+  const members = new Map();   // userId → { clientId, username } (logins do portal)
   const now = () => new Date().toISOString();
   const store = {
     kind: "memory",
@@ -24,7 +25,11 @@ export function createMemoryStore() {
     async listClients() {
       await this.tick();
       return [...clients.values()].sort((a, b) => a.name.localeCompare(b.name))
-        .map((c) => ({ ...c, contents_count: [...contents.values()].filter((x) => x.client_id === c.id).length }));
+        .map((c) => ({
+          ...c,
+          contents_count: [...contents.values()].filter((x) => x.client_id === c.id).length,
+          portal_users: [...members.values()].filter((m) => m.clientId === c.id).map((m) => m.username).sort()
+        }));
     },
     async getClient(id) { await this.tick(); const c = clients.get(id); if (!c) throw new StoreError(404, "Registro não encontrado.", "PGRST116"); return { ...c }; },
     async createClient(value) {
@@ -71,6 +76,25 @@ export function createMemoryStore() {
       return { ...c };
     },
     async deleteContent(id) { await this.tick(); if (!contents.delete(id)) throw new StoreError(404, "Registro não encontrado.", "PGRST116"); },
+    /* Portal do cliente: o mesmo que as funções portal_profile() e portal_contents() */
+    addMember(userId, clientId, username) { members.set(userId, { clientId, username }); },
+    async portalProfile(userId) {
+      await this.tick();
+      const m = members.get(userId);
+      const c = m && clients.get(m.clientId);
+      return c && c.active ? [{ client_id: c.id, name: c.name, segment: c.segment }] : [];
+    },
+    async portalContents(userId, from, to) {
+      await this.tick();
+      const m = members.get(userId);
+      const c = m && clients.get(m.clientId);
+      const days = (Date.parse(to) - Date.parse(from)) / 86400000;
+      if (!c || !c.active || !(days >= 0 && days <= 62)) return [];
+      return [...contents.values()]
+        .filter((x) => x.client_id === c.id && CLIENT_VISIBLE_STATUS.includes(x.status) && x.scheduled_date >= from && x.scheduled_date <= to)
+        .sort((a, b) => (a.scheduled_date + (a.scheduled_time || "99")).localeCompare(b.scheduled_date + (b.scheduled_time || "99")))
+        .map(({ client_id, internal_notes, created_at, ...rest }) => rest);
+    },
     async listClientCalendar(clientId, { from, to } = {}) {
       return (await this.listContents({ client_id: clientId, from, to }))
         .filter((c) => CLIENT_VISIBLE_STATUS.includes(c.status))

@@ -6,7 +6,7 @@ O projeto tem duas partes, publicadas juntas pelo GitHub Pages:
 
 | Parte | Endereço | Pasta | Situação |
 |---|---|---|---|
-| **Portal do cliente** | `clientes.digitalgalaxy.com.br` | `site/` | Demonstração com dados fictícios ("Trigo & Mel"), salvos só no navegador |
+| **Portal do cliente** | `clientes.digitalgalaxy.com.br` | `site/` | Cada cliente entra com usuário e senha e vê o calendário com os conteúdos que a agência liberou. Demonstração com dados fictícios em `?demo` |
 | **Painel da agência** | `clientes.digitalgalaxy.com.br/admin/` | `site/admin/` | Clientes e conteúdos no banco Supabase. Acesso só com usuário e senha da equipe |
 
 A pasta `admin/` tem as ferramentas que rodam **só no computador da agência** (criar usuários, prévia local, verificação do banco). Ela não é publicada.
@@ -17,18 +17,21 @@ A pasta `admin/` tem as ferramentas que rodam **só no computador da agência** 
 
 Abra `https://clientes.digitalgalaxy.com.br/admin/` e entre com o usuário e a senha. O usuário é um nome (ex.: `admdg`), sem e-mail. "Sair", no topo, encerra a sessão. A sessão dura enquanto for usada; se a senha for trocada ou o usuário removido, ela acaba na próxima renovação (até 1 hora).
 
-### Criar usuários e trocar senhas
+### Criar usuários (equipe e clientes) e trocar senhas
 
 Só pelo computador da agência, com a chave secreta em `admin/.env`. Requer Node 22.12 ou mais novo, sem dependências para instalar.
 
 ```bash
 cp admin/.env.example admin/.env      # uma vez; cole a chave secreta (Supabase → Project Settings → API Keys → Secret key)
-node admin/equipe.mjs criar           # novo usuário (a senha é digitada sem aparecer)
+node admin/equipe.mjs criar           # novo usuário da EQUIPE (painel da agência)
+node admin/equipe.mjs criar-cliente   # login de um CLIENTE no portal (escolhe o cliente da lista)
 node admin/equipe.mjs senha           # troca a senha (também serve para "esqueci a senha")
-node admin/equipe.mjs listar          # quem tem acesso e o último acesso de cada um
+node admin/equipe.mjs listar          # equipe e clientes com acesso, e o último acesso de cada um
 node admin/equipe.mjs remover         # apaga o usuário (perde o acesso)
 node admin/equipe.mjs verificar       # confere se o cadastro aberto está desligado
 ```
+
+A senha é digitada sem aparecer. O cartão de cada cliente no painel mostra se ele já tem login no portal.
 
 Senhas: pelo menos 10 caracteres, sem conter o nome do usuário. Ficam guardadas só no Supabase, criptografadas. **Nunca** envie o `admin/.env` para o GitHub nem cole a chave secreta ou senhas em chats ou páginas.
 
@@ -97,34 +100,51 @@ supabase/migrations/           Estrutura do banco (tabelas, regras, segurança)
 | `clients` | Nome, identificador (`slug`), segmento, contato, observações, ativo |
 | `contents` | Conteúdos de cada cliente (campos acima) e `version`, que sobe quando muda algo que o cliente vê |
 | `agency_members` | Quem da equipe pode entrar no painel (preenchida pelo `equipe.mjs`) |
-| `client_calendar_items` (visão) | Calendário do cliente: sem observações internas e só com status aguardando aprovação, aprovado ou publicado |
+| `client_members` | Login de cada cliente no portal, ligado a **um** cliente (preenchida pelo `equipe.mjs criar-cliente`) |
+| `client_calendar_items` (visão) | Calendário do cliente para a equipe: sem observações internas e só com status aguardando aprovação, aprovado ou publicado |
+| `portal_profile()` e `portal_contents(p_from, p_to)` | **As únicas portas do cliente.** Descobrem o cliente pela sessão (não recebem id de cliente) e devolvem só os conteúdos liberados dele, sem observações internas. O cliente não tem nenhum acesso direto às tabelas |
+
+Em cada conteúdo, **Observação para o cliente** (`client_notes`) aparece no portal; **Observações internas** (`internal_notes`) nunca saem do painel.
 
 ### Testes
 
 ```bash
-node admin/test/store.test.mjs                                          # banco, login e equipe (sem rede)
-PLAYWRIGHT=$(npm root -g)/playwright/index.mjs node admin/test/e2e.mjs   # tela, ponta a ponta
+P=$(npm root -g)/playwright/index.mjs
+node admin/test/store.test.mjs                    # banco, login e equipe (sem rede)
+node admin/test/portal.test.mjs                   # links de mídia, repositório do portal, contas de cliente
+PLAYWRIGHT=$P node admin/test/e2e.mjs             # painel da agência, ponta a ponta
+PLAYWRIGHT=$P node admin/test/portal-e2e.mjs      # painel → calendário do cliente, ponta a ponta
 ```
 
-O teste de ponta a ponta usa um Supabase de mentira em memória (**só para teste**) e confere: prévia local, CSP, login (senha errada, muitas tentativas, usuário fora da equipe), renovação e fim da sessão, sair, iframe, cadastro, edição, filtros, exclusão com confirmação, erros e layout no celular.
-
-### Próximo passo: portal do cliente com dados reais
-
-Login do cliente, ligação usuário ↔ cliente e regra de acesso à visão `client_calendar_items`. O mapeamento para a tela do portal já existe em `site/js/domain/content-mapping.js`; o mesmo esquema de usuário e senha pode ser reaproveitado.
+Os testes de ponta a ponta usam um Supabase de mentira em memória (**só para teste**). O do portal abre o painel e o portal lado a lado e confere: imagem cadastrada na data certa e proporcional, vídeo do YouTube no player oficial, arquivo de vídeo, link do Instagram e imagem quebrada com aviso, mudança de data (inclusive para outro mês), edição e exclusão refletidas, atualização automática, outro cliente sem acesso, tentativas de trocar parâmetros, semana, carregando, erro, celular e a demonstração. O `admin/verify.mjs` repete o essencial no banco real.
 
 ## Portal do cliente (`site/`)
 
-> **Em modo demonstração.** Empresa e conteúdos fictícios. O que o cliente faz fica salvo só no navegador dele (`localStorage`).
+O cliente entra em `https://clientes.digitalgalaxy.com.br` com o usuário e a senha criados pelo `equipe.mjs criar-cliente` e vê o calendário com os conteúdos do cliente dele que estão **Aguardando aprovação**, **Aprovados** ou **Publicados**. Sem login, nenhum dado é pedido ao banco.
+
+- **Calendário:** mês ou semana, com navegação; no celular, pontinhos no dia e agenda abaixo.
+- **Detalhes** (clique no conteúdo ou na data): título, prévia da mídia, legenda, rede social, data, status e a observação para o cliente. Data com vários conteúdos mostra a lista; data livre mostra "Nada programado para este dia".
+- **Atualização:** busca de novo a cada 30 segundos, ao voltar para a aba e no botão **Atualizar**. O que a agência muda no painel aparece sozinho, inclusive no painel de detalhes aberto.
+- **Ainda não gravam no banco** (ficam só na demonstração): aprovar, pedir ajuste, observações do cliente e ideias. No modo real essas ações ficam escondidas.
+- **Demonstração:** `https://clientes.digitalgalaxy.com.br/?demo` (dados fictícios, salvos só no navegador; "Restaurar demonstração" no menu do perfil).
+
+### Links de mídia aceitos (prévia)
+
+| Link | Como aparece |
+|---|---|
+| Imagem (link direto do arquivo: .jpg, .png, .webp...) | Imagem inteira e proporcional, sem cortar nem esticar |
+| YouTube (vídeo, Shorts, youtu.be) | Player oficial em modo de privacidade (`youtube-nocookie.com`) |
+| Vimeo (inclusive não listado com o código) | Player oficial (`player.vimeo.com`) |
+| TikTok (link completo `tiktok.com/@perfil/video/...`) | Player oficial (`tiktok.com/player`) |
+| Google Drive (link de arquivo) | Prévia oficial do Drive (o arquivo precisa estar compartilhado com "qualquer pessoa com o link") |
+| Arquivo de vídeo (.mp4, .webm, .ogg, .m4v, .mov) | Player do navegador, sem tocar sozinho |
+| Instagram, Facebook, links curtos do TikTok, Canva, páginas comuns | **Não são incorporados**: aviso amigável e botão para abrir o original |
+
+Se a imagem ou o arquivo de vídeo não carregar, a prévia vira o mesmo aviso com o link. Players incorporados (YouTube, Vimeo, TikTok, Drive) não avisam quando o vídeo é privado ou foi removido: nesses casos aparece a mensagem da própria plataforma, e o link para abrir o original fica sempre embaixo.
 
 ### Como rodar
 
-Site estático, sem build (mesmo padrão do site principal e do portfólio). Sirva a pasta `site/`:
-
-```bash
-npx -y http-server site -p 5502 -c-1
-```
-
-Abra http://localhost:5502. Para voltar a demonstração ao estado inicial: menu do perfil (canto superior direito) → **Restaurar demonstração**.
+Site estático, sem build. Para ver localmente: `node admin/server.mjs` e abra http://localhost:5600/ (portal) ou http://localhost:5600/?demo (demonstração).
 
 ### Estrutura
 
@@ -135,15 +155,19 @@ site/
 │   ├── style.css               Tokens da marca, componentes e calendário
 │   └── responsive.css          Tablet e celular (calendário com pontinhos + agenda do dia, painel vira folha de baixo)
 ├── js/
-│   ├── main.js                 Liga os dados à tela; escolhe o repositório (hoje: demonstração)
+│   ├── main.js                 Liga os dados à tela: entrada do cliente, mês/semana, atualização; ?demo usa a demonstração
+│   ├── config.js               Endereço do Supabase e chave PUBLICÁVEL
 │   ├── domain/
 │   │   ├── model.js            Entidades (Client, Plan, Activity, Approval, Comment, Idea), tipos e status
-│   │   └── status.js           Regras: status calculado pela aprovação da versão atual; indicadores do mês
+│   │   ├── status.js           Regras: status (da agência ou calculado pelas aprovações); indicadores do mês
+│   │   ├── content-mapping.js  Linha do banco → Activity do calendário
+│   │   └── accounts.js         Usuário e senha (equipe e clientes)
 │   ├── data/
 │   │   ├── repository.js       Interface de dados + implementação de demonstração (localStorage)
+│   │   ├── supabase-repository.js  Implementação real (funções portal_profile / portal_contents)
 │   │   └── demo-data.js        Dados FICTÍCIOS, montados a partir do mês atual
-│   ├── lib/                    Datas em pt-BR, utilitários de DOM, ícones
-│   └── ui/                     Componentes: calendar, drawer, summary, ideas, preview, badges, toast
+│   ├── lib/                    Datas em pt-BR, utilitários de DOM, ícones, login (auth.js)
+│   └── ui/                     Componentes: calendar, drawer, summary, ideas, preview, media, badges, toast
 ├── fonts/                      Sora e Orbitron (locais, as mesmas do site)
 └── images/logo/                Favicons da marca
 ```
@@ -163,7 +187,7 @@ site/
 
 ## Próximas etapas (preparadas, não implementadas)
 
-1. **Portal com dados reais.** Criar um repositório com os mesmos métodos de `data/repository.js` lendo `client_calendar_items` e trocá-lo em `js/main.js`. Depois: aprovações, comentários e ideias no banco, upload de mídias.
+1. **Aprovações, observações e ideias do cliente no banco**, para o cliente aprovar ou pedir ajuste pelo portal. Depois: upload de mídias e "foco do mês".
 2. **Exportar cronograma em PDF.** Gerar no admin a partir de `Plan` + `Activity[]` do mês, com a identidade da Digital Galaxy (impressão de uma página própria do cronograma ou geração no servidor).
 3. **Compartilhar via WhatsApp.** Link `https://wa.me/?text=...` com a mensagem e o link do planejamento. Anexar o PDF automaticamente exige a API oficial do WhatsApp Business; sem ela, o PDF é enviado manualmente.
 

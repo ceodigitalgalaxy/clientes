@@ -43,7 +43,7 @@ export const MEDIA_KINDS = { image: "Imagem", video: "Vídeo" };
 
 export const LIMITS = {
   clientName: 120, slug: 60, segment: 120, contactName: 120, clientNotes: 2000,
-  title: 160, mediaUrl: 2000, caption: 2200, internalNotes: 4000
+  title: 160, mediaUrl: 2000, caption: 2200, internalNotes: 4000, sharedNotes: 2000
 };
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
@@ -126,6 +126,7 @@ export function validateContent(input = {}) {
     media_kind: clean(input.media_kind),
     caption: clean(input.caption),
     internal_notes: clean(input.internal_notes),
+    client_notes: clean(input.client_notes),
     status: clean(input.status) || "planejado"
   };
   if (value.scheduled_time && value.scheduled_time.length > 5) value.scheduled_time = value.scheduled_time.slice(0, 5);
@@ -148,6 +149,7 @@ export function validateContent(input = {}) {
   }
   if (value.caption && value.caption.length > LIMITS.caption) errors.caption = `A legenda pode ter até ${LIMITS.caption} caracteres.`;
   if (value.internal_notes && value.internal_notes.length > LIMITS.internalNotes) errors.internal_notes = `Use até ${LIMITS.internalNotes} caracteres.`;
+  if (value.client_notes && value.client_notes.length > LIMITS.sharedNotes) errors.client_notes = `Use até ${LIMITS.sharedNotes} caracteres.`;
   if (!CONTENT_STATUS[value.status]) errors.status = "Escolha o status.";
 
   return { value, errors };
@@ -163,39 +165,5 @@ export function validateContentFilters(input = {}) {
   return filters;
 }
 
-/* ---------- Login da equipe (usuário e senha) ----------
-   O Supabase Auth identifica cada pessoa por e-mail. Para entrar só com um
-   nome de usuário, cada usuário vira um endereço interno fixo
-   (equipe+<usuario>@digitalgalaxy.com.br). Nenhum e-mail é enviado para
-   ele: as contas são criadas pelo comando admin/equipe.mjs, já confirmadas. */
-
-export const USERNAME_LIMITS = { min: 3, max: 32 };
-export const PASSWORD_LIMITS = { min: 10, max: 72 };
-const USERNAME = /^[a-z0-9]+([._-][a-z0-9]+)*$/;
-const LOGIN_EMAIL = /^equipe\+([a-z0-9._-]+)@digitalgalaxy\.com\.br$/;
-
-/** "  João.Silva " → "joao.silva" (minúsculas, sem acento, sem espaços nas pontas) */
-export const normalizeUsername = (raw) => String(raw ?? "").trim().toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
-
-/** Usuário válido ou null */
-export function parseUsername(raw) {
-  const value = normalizeUsername(raw);
-  if (value.length < USERNAME_LIMITS.min || value.length > USERNAME_LIMITS.max || !USERNAME.test(value)) return null;
-  return value;
-}
-
-/** Endereço interno usado pelo Supabase Auth para esse usuário */
-export const loginEmail = (username) => `equipe+${username}@digitalgalaxy.com.br`;
-
-/** Caminho inverso: endereço interno → usuário (null se não for da equipe) */
-export const usernameFromEmail = (email) => String(email ?? "").match(LOGIN_EMAIL)?.[1] ?? null;
-
-/** Regras da senha nova (só para criar ou trocar; a de login não é validada aqui) */
-export function passwordProblem(password, username = "") {
-  const text = String(password ?? "");
-  if (text.length < PASSWORD_LIMITS.min) return `Use pelo menos ${PASSWORD_LIMITS.min} caracteres.`;
-  if (new TextEncoder().encode(text).length > PASSWORD_LIMITS.max) return `Use no máximo ${PASSWORD_LIMITS.max} caracteres.`;
-  if (username && text.toLowerCase().includes(username)) return "A senha não pode conter o nome de usuário.";
-  if (new Set(text).size < 5) return "A senha precisa variar mais os caracteres.";
-  return null;
-}
+/* Regras de usuário e senha: as mesmas do portal do cliente (site/js/domain/accounts.js) */
+export { USERNAME_LIMITS, PASSWORD_LIMITS, normalizeUsername, parseUsername, loginEmail, usernameFromEmail, accountKind, passwordProblem } from "../../../js/domain/accounts.js";

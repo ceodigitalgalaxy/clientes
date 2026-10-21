@@ -4,6 +4,7 @@ import { $, esc, on } from "../../../js/lib/dom.js";
 import { icon } from "../../../js/lib/icons.js";
 import { longDayLabel, timeLabel, todayISO } from "../../../js/lib/dates.js";
 import { typeBadge } from "../../../js/ui/badges.js";
+import { renderMedia, wireMediaFallbacks } from "../../../js/ui/media.js";
 import { CONTENT_STATUS, CLIENT_VISIBLE_STATUS, NETWORKS, FORMATS, LIMITS, validateContent, validateContentFilters } from "../domain/rules.js";
 import { closeDialog, wireDialog, showFieldErrors, setBusy } from "../ui/dialogs.js";
 import { stateBlock, loadingRows, button } from "../ui/states.js";
@@ -20,6 +21,7 @@ export function setupContents({ api, state, toast, confirm, navigate }) {
   const form = dialog.querySelector("form");
   const submit = form.querySelector("[type=submit]");
   const drawer = $("#content-drawer");
+  wireMediaFallbacks(drawer);
   const mediaKind = form.querySelector("[data-media-kind]");
   const captionCount = $("#caption-count");
   let contents = [];
@@ -119,11 +121,9 @@ export function setupContents({ api, state, toast, confirm, navigate }) {
   function openDetails(content) {
     const visible = CLIENT_VISIBLE_STATUS.includes(content.status);
     $("#drawer-badges").innerHTML = `${typeBadge(content.format, true)}${statusChip(content.status)}`;
+    // A mesma prévia que o cliente vê no calendário
     const media = content.media_url
-      ? `<div class="media-ref">${content.media_kind === "video"
-          ? `<video src="${esc(content.media_url)}" controls preload="metadata" playsinline></video>`
-          : `<img src="${esc(content.media_url)}" alt="Referência de ${esc(content.title)}" loading="lazy" referrerpolicy="no-referrer">`}
-          <a class="media-ref__link" href="${esc(content.media_url)}" target="_blank" rel="noopener noreferrer">${icon("arrowRight")}${esc(content.media_url)}</a></div>`
+      ? `<div class="media-ref">${renderMedia({ url: content.media_url, kind: content.media_kind || "image", title: content.title })}</div>`
       : "";
     $("#drawer-body").innerHTML = `
       <h2 class="drawer__title" id="drawer-title">${esc(content.title)}</h2>
@@ -135,6 +135,7 @@ export function setupContents({ api, state, toast, confirm, navigate }) {
       </dl>
       ${media}
       <div class="detail"><h3 class="detail__title">Legenda</h3><p class="caption-text">${content.caption ? esc(content.caption) : '<span class="field__optional">Sem legenda ainda.</span>'}</p></div>
+      ${content.client_notes ? `<div class="detail"><h3 class="detail__title">Observação para o cliente</h3><p class="caption-text">${esc(content.client_notes)}</p></div>` : ""}
       ${content.internal_notes ? `<div class="internal"><p class="internal__label">${icon("lock")}Observações internas · só a agência vê</p><p class="internal__text">${esc(content.internal_notes)}</p></div>` : ""}
       <p class="drawer__version">${visible ? "Visível no calendário do cliente" : "Ainda não aparece para o cliente"} · versão ${esc(content.version)}</p>
       <div class="drawer__actions">
@@ -162,7 +163,7 @@ export function setupContents({ api, state, toast, confirm, navigate }) {
     submit.querySelector("span").textContent = content ? "Salvar alterações" : "Cadastrar conteúdo";
     form.elements.client_id.innerHTML = `<option value="">Escolha o cliente</option>${options(active.map((c) => [c.id, c.name]))}`;
     if (content) {
-      ["client_id", "title", "scheduled_date", "network", "format", "media_url", "caption", "internal_notes", "status"].forEach((name) => { form.elements[name].value = content[name] || ""; });
+      ["client_id", "title", "scheduled_date", "network", "format", "media_url", "caption", "client_notes", "internal_notes", "status"].forEach((name) => { form.elements[name].value = content[name] || ""; });
       form.elements.scheduled_time.value = content.scheduled_time ? content.scheduled_time.slice(0, 5) : "";
       form.elements.media_kind.value = content.media_kind || "";
     } else {

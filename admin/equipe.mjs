@@ -1,14 +1,17 @@
 /* ==========================================================================
-   Equipe do painel: criar usuários, trocar senha, listar e remover acesso
+   Acessos: equipe (painel da agência) e clientes (portal do cliente)
    --------------------------------------------------------------------------
    Rode no computador da agência, na pasta do projeto (precisa de admin/.env
    com a chave secreta):
 
-       node admin/equipe.mjs criar       cria um usuário com acesso ao painel
-       node admin/equipe.mjs senha       troca a senha de um usuário
-       node admin/equipe.mjs listar      mostra quem tem acesso
-       node admin/equipe.mjs remover     apaga um usuário (perde o acesso)
-       node admin/equipe.mjs verificar   confere se o cadastro aberto está desligado
+       node admin/equipe.mjs criar           cria um usuário da EQUIPE (painel)
+       node admin/equipe.mjs criar-cliente   cria o login de um CLIENTE (portal)
+       node admin/equipe.mjs senha           troca a senha de um usuário
+       node admin/equipe.mjs listar          mostra quem tem acesso
+       node admin/equipe.mjs remover         apaga um usuário (perde o acesso)
+       node admin/equipe.mjs verificar       confere se o cadastro aberto está desligado
+
+   Cada login de cliente vê só os conteúdos do próprio cliente.
 
    A senha é digitada sem aparecer na tela e vai direto para o Supabase, que
    guarda só a versão criptografada. Ela não fica em nenhum arquivo.
@@ -18,7 +21,7 @@ import readline from "node:readline";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { loadEnv } from "./server.mjs";
-import { parseUsername, loginEmail, usernameFromEmail, passwordProblem, USERNAME_LIMITS } from "../site/admin/js/domain/rules.js";
+import { parseUsername, loginEmail, usernameFromEmail, accountKind, passwordProblem, USERNAME_LIMITS } from "../site/js/domain/accounts.js";
 
 export class TeamError extends Error {}
 
@@ -60,9 +63,32 @@ export function createTeamAdmin({ url, secretKey, fetchImpl = globalThis.fetch.b
     return users;
   }
 
-  async function findUser(username) {
-    const email = loginEmail(username);
-    return (await listAuthUsers()).find((u) => (u.email || "").toLowerCase() === email) || null;
+  /** Contas com esse nome de usuário (pode haver uma da equipe e uma de cliente) */
+  async function findUsers(username, kind = null) {
+    const emails = (kind ? [kind] : ["equipe", "cliente"]).map((k) => loginEmail(username, k));
+    return (await listAuthUsers()).filter((u) => emails.includes((u.email || "").toLowerCase()));
+  }
+
+  async function findOne(username, kind) {
+    const found = await findUsers(username, kind);
+    if (!found.length) throw new TeamError("Usuário não encontrado. Veja os usuários com: node admin/equipe.mjs listar");
+    if (found.length > 1) throw new TeamError("Existe um usuário da equipe e um de cliente com esse nome. Informe qual.");
+    return found[0];
+  }
+
+  async function createAccount({ email, password, name, link }) {
+    const user = await call("/auth/v1/admin/users", {
+      method: "POST",
+      body: { email, password, email_confirm: true, user_metadata: { name } }
+    });
+    try {
+      await link(user);
+    } catch (error) {
+      // Sem o vínculo a conta não serve para nada: desfaz
+      await call(`/auth/v1/admin/users/${encodeURIComponent(user.id)}`, { method: "DELETE" }).catch(() => {});
+      throw error;
+    }
+    return user;
   }
 
   return {
@@ -72,40 +98,57 @@ export function createTeamAdmin({ url, secretKey, fetchImpl = globalThis.fetch.b
       return data?.disable_signup === true;
     },
 
+    /** Clientes cadastrados no painel (para escolher a quem dar acesso) */
+    async listClients() {
+      return (await call("/rest/v1/clients?select=id,name,slug,active&order=name.asc")) || [];
+    },
+
     async list() {
-      const [users, members] = await Promise.all([listAuthUsers(), call("/rest/v1/agency_members?select=user_id,created_at")]);
-      const memberIds = new Set((members || []).map((m) => m.user_id));
+      const [users, members, clientMembers, clients] = await Promise.all([
+        listAuthUsers(),
+        call("/rest/v1/agency_members?select=user_id"),
+        call("/rest/v1/client_members?select=user_id,client_id"),
+        call("/rest/v1/clients?select=id,name")
+      ]);
+      const team = new Set((members || []).map((m) => m.user_id));
+      const clientName = Object.fromEntries((clients || []).map((c) => [c.id, c.name]));
+      const clientOf = Object.fromEntries((clientMembers || []).map((m) => [m.user_id, clientName[m.client_id] || "cliente removido"]));
       return users
-        .map((u) => ({ id: u.id, username: usernameFromEmail(u.email), email: u.email, name: u.user_metadata?.name || "", member: memberIds.has(u.id), lastSignIn: u.last_sign_in_at || null }))
-        .sort((a, b) => String(a.username || a.email).localeCompare(String(b.username || b.email)));
+        .map((u) => ({
+          id: u.id, username: usernameFromEmail(u.email), email: u.email, kind: accountKind(u.email),
+          name: u.user_metadata?.name || "", member: team.has(u.id), client: clientOf[u.id] || null,
+          lastSignIn: u.last_sign_in_at || null
+        }))
+        .sort((a, b) => `${a.kind}${a.username || a.email}`.localeCompare(`${b.kind}${b.username || b.email}`));
     },
 
+    /** Usuário da equipe (painel da agência) */
     async create({ username, name, password }) {
-      const user = await call("/auth/v1/admin/users", {
-        method: "POST",
-        body: { email: loginEmail(username), password, email_confirm: true, user_metadata: { name: name || username } }
+      return createAccount({
+        email: loginEmail(username, "equipe"), password, name: name || username,
+        link: (user) => call("/rest/v1/agency_members", { method: "POST", body: { user_id: user.id }, extraHeaders: { Prefer: "return=minimal" } })
       });
-      try {
-        await call("/rest/v1/agency_members", { method: "POST", body: { user_id: user.id }, extraHeaders: { Prefer: "return=minimal" } });
-      } catch (error) {
-        // Sem o vínculo com a equipe a conta não serve para nada: desfaz
-        await call(`/auth/v1/admin/users/${encodeURIComponent(user.id)}`, { method: "DELETE" }).catch(() => {});
-        throw error;
-      }
-      return user;
     },
 
-    async setPassword(username, password) {
-      const user = await findUser(username);
-      if (!user) throw new TeamError("Usuário não encontrado. Veja os usuários com: node admin/equipe.mjs listar");
+    /** Login de um cliente (portal do cliente), ligado a UM cliente */
+    async createClientAccess({ username, clientId, clientName, password }) {
+      return createAccount({
+        email: loginEmail(username, "cliente"), password, name: clientName,
+        link: (user) => call("/rest/v1/client_members", { method: "POST", body: { user_id: user.id, client_id: clientId, username }, extraHeaders: { Prefer: "return=minimal" } })
+      });
+    },
+
+    findUsers,
+
+    async setPassword(username, password, kind = null) {
+      const user = await findOne(username, kind);
       await call(`/auth/v1/admin/users/${encodeURIComponent(user.id)}`, { method: "PUT", body: { password } });
       return user;
     },
 
-    async remove(username) {
-      const user = await findUser(username);
-      if (!user) throw new TeamError("Usuário não encontrado. Veja os usuários com: node admin/equipe.mjs listar");
-      // Apagar a conta também apaga o vínculo com a equipe (on delete cascade)
+    async remove(username, kind = null) {
+      const user = await findOne(username, kind);
+      // Apagar a conta também apaga o vínculo (agency_members / client_members: on delete cascade)
       await call(`/auth/v1/admin/users/${encodeURIComponent(user.id)}`, { method: "DELETE" });
       return user;
     }
@@ -165,14 +208,42 @@ async function warnIfSignupOpen(team) {
 }
 
 const HELP = `
-Equipe do painel da agência
+Acessos do painel da agência e do portal do cliente
 
-  node admin/equipe.mjs criar       cria um usuário com acesso ao painel
-  node admin/equipe.mjs senha       troca a senha de um usuário
-  node admin/equipe.mjs listar      mostra quem tem acesso
-  node admin/equipe.mjs remover     apaga um usuário (perde o acesso)
-  node admin/equipe.mjs verificar   confere se o cadastro aberto está desligado
+  node admin/equipe.mjs criar           cria um usuário da EQUIPE (painel da agência)
+  node admin/equipe.mjs criar-cliente   cria o login de um CLIENTE (portal do cliente)
+  node admin/equipe.mjs senha           troca a senha de um usuário
+  node admin/equipe.mjs listar          mostra quem tem acesso
+  node admin/equipe.mjs remover         apaga um usuário (perde o acesso)
+  node admin/equipe.mjs verificar       confere se o cadastro aberto está desligado
 `;
+
+const KIND_LABEL = { equipe: "da equipe", cliente: "de cliente" };
+
+/** Mesmo nome na equipe e num cliente: pergunta qual */
+async function askKind(team, username) {
+  const found = await team.findUsers(username);
+  if (!found.length) throw new TeamError("Usuário não encontrado. Veja os usuários com: node admin/equipe.mjs listar");
+  if (found.length === 1) return accountKind(found[0].email);
+  for (;;) {
+    const answer = (await ask('Existe um usuário da equipe e um de cliente com esse nome. Qual? (digite "equipe" ou "cliente"): ')).trim().toLowerCase();
+    if (answer === "equipe" || answer === "cliente") return answer;
+  }
+}
+
+async function askClient(team) {
+  const clients = (await team.listClients()).filter((c) => c.active);
+  if (!clients.length) throw new TeamError("Nenhum cliente ativo cadastrado. Cadastre o cliente no painel da agência primeiro.");
+  console.log("Clientes ativos:\n");
+  clients.forEach((c, i) => console.log(`  ${String(i + 1).padStart(2)}. ${c.name}  (${c.slug})`));
+  console.log("");
+  for (;;) {
+    const answer = (await ask("Número ou identificador do cliente: ")).trim().toLowerCase();
+    const chosen = clients[Number(answer) - 1] || clients.find((c) => c.slug === answer);
+    if (chosen) return chosen;
+    console.log("  Não encontrei esse cliente. Use o número da lista ou o identificador.");
+  }
+}
 
 async function main(command) {
   const env = loadEnv();
@@ -193,32 +264,55 @@ async function main(command) {
     await warnIfSignupOpen(team);
     return;
   }
+  if (command === "criar-cliente") {
+    console.log("\nNovo login de cliente (portal do cliente)\n");
+    const client = await askClient(team);
+    console.log(`\nCliente: ${client.name}. Sugestão de usuário: ${client.slug.slice(0, 32)}`);
+    const username = await askUsername();
+    const password = await askNewPassword(username);
+    await team.createClientAccess({ username, clientId: client.id, clientName: client.name, password });
+    console.log(`\n✔ Login "${username}" criado para ${client.name}.`);
+    console.log("  Envie ao cliente o endereço https://clientes.digitalgalaxy.com.br, o usuário e a senha (de preferência por canais separados).");
+    console.log("  Ele vê só os conteúdos deste cliente com status Aguardando aprovação, Aprovado ou Publicado.");
+    await warnIfSignupOpen(team);
+    return;
+  }
   if (command === "senha") {
     console.log("\nTrocar a senha de um usuário\n");
     const username = await askUsername();
+    const kind = await askKind(team, username);
     const password = await askNewPassword(username);
-    await team.setPassword(username, password);
-    console.log(`\n✔ Senha de "${username}" trocada. Sessões abertas com a senha antiga deixam de ser renovadas.`);
+    await team.setPassword(username, password, kind);
+    console.log(`\n✔ Senha do usuário ${KIND_LABEL[kind]} "${username}" trocada. Sessões abertas com a senha antiga deixam de ser renovadas.`);
     return;
   }
   if (command === "listar") {
     const users = await team.list();
     if (!users.length) { console.log("\nNenhum usuário cadastrado. Crie o primeiro com: node admin/equipe.mjs criar\n"); return; }
-    console.log("\nUsuários do painel:\n");
-    for (const u of users) {
-      const last = u.lastSignIn ? `último acesso ${new Date(u.lastSignIn).toLocaleString("pt-BR")}` : "nunca entrou";
-      console.log(`  ${u.member ? "✔" : "✘"} ${u.username || u.email}  (${u.name || "sem nome"}, ${last})${u.member ? "" : "  ← sem acesso ao painel"}`);
-    }
+    const last = (u) => (u.lastSignIn ? `último acesso ${new Date(u.lastSignIn).toLocaleString("pt-BR")}` : "nunca entrou");
+    console.log("\nEquipe (painel da agência):\n");
+    users.filter((u) => u.kind === "equipe").forEach((u) => {
+      console.log(`  ${u.member ? "✔" : "✘"} ${u.username}  (${u.name || "sem nome"}, ${last(u)})${u.member ? "" : "  ← sem acesso ao painel"}`);
+    });
+    console.log("\nClientes (portal do cliente):\n");
+    const clientUsers = users.filter((u) => u.kind === "cliente");
+    if (!clientUsers.length) console.log("  Nenhum. Crie com: node admin/equipe.mjs criar-cliente");
+    clientUsers.forEach((u) => {
+      console.log(`  ${u.client ? "✔" : "✘"} ${u.username}  (${u.client || "sem cliente ligado"}, ${last(u)})`);
+    });
+    const other = users.filter((u) => !u.kind);
+    if (other.length) console.log(`\n  ⚠ ${other.length} conta(s) fora do padrão no Supabase Auth (sem acesso ao painel nem ao portal).`);
     console.log("");
     return;
   }
   if (command === "remover") {
-    console.log("\nRemover um usuário (ele perde o acesso ao painel)\n");
+    console.log("\nRemover um usuário (ele perde o acesso)\n");
     const username = await askUsername();
+    const kind = await askKind(team, username);
     const typed = parseUsername(await ask(`Para confirmar, digite de novo o usuário "${username}": `));
     if (typed !== username) { console.log("\nNada foi removido."); return; }
-    await team.remove(username);
-    console.log(`\n✔ Usuário "${username}" removido.`);
+    await team.remove(username, kind);
+    console.log(`\n✔ Usuário ${KIND_LABEL[kind]} "${username}" removido.`);
     return;
   }
   if (command === "verificar") {

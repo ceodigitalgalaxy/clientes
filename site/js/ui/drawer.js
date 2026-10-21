@@ -2,21 +2,36 @@
    Painel lateral com os detalhes de um conteúdo
    Abre por cima do calendário (que continua visível ao fundo) e concentra
    as três ações do cliente: aprovar, solicitar alteração e observar.
+   Também abre pelo dia (openDay): lista o que está programado ou avisa que
+   o dia está livre. Com dados reais (repo.features), mostra o status
+   definido pela agência e as observações liberadas para o cliente; as ações
+   que ainda não existem no banco ficam escondidas.
    ========================================================================== */
 
 import { esc, on, reduceMotion } from "../lib/dom.js";
 import { icon } from "../lib/icons.js";
 import { longDayLabel, timeLabel, stampLabel } from "../lib/dates.js";
-import { ACTIVITY_TYPES, PLATFORMS } from "../domain/model.js";
+import { ACTIVITY_TYPES, PLATFORMS, STATUS } from "../domain/model.js";
 import { statusOf, latestDecision } from "../domain/status.js";
 import { typeBadge, statusBadge } from "./badges.js";
 import { renderPreview } from "./preview.js";
+import { wireMediaFallbacks } from "./media.js";
 import { toast } from "./toast.js";
+
+const LIVE_STATUS_TEXT = {
+  aguardando: ["Este conteúdo espera a sua aprovação", "Confira a prévia e a legenda. Para aprovar ou pedir ajustes, fale com a nossa equipe pelo canal de sempre."],
+  aprovado: ["Conteúdo aprovado", "Ele segue para publicação na data programada."],
+  publicado: ["Conteúdo publicado", "Este conteúdo já foi ao ar."]
+};
 
 export function createDrawer({ dialog, repo, getContext, onChange }) {
   let activity = null;
   let comments = [];
   let mode = "idle"; // idle | confirm-approve | request-change
+  let day = null;     // dia aberto (lista) ou de onde o conteúdo foi aberto
+  let view = "detail"; // detail | day
+  const features = { approvals: true, comments: true, ...(repo.features || {}) };
+  wireMediaFallbacks(dialog);
 
   const approvalsFor = () => getContext().approvals.filter((a) => a.activityId === activity.id);
 
@@ -27,7 +42,8 @@ export function createDrawer({ dialog, repo, getContext, onChange }) {
       ["calendar", "Data", longDayLabel(activity.date)],
       activity.time ? ["clock", "Horário", timeLabel(activity.time)] : null,
       [t.icon, "Formato", t.label],
-      ["target", "Onde", activity.platforms.map((p) => PLATFORMS[p] || p).join(", ")]
+      ["target", "Rede social", activity.platforms.map((p) => PLATFORMS[p] || p).join(", ")],
+      activity.status ? ["check", "Status", STATUS[activity.status]?.label || ""] : null
     ].filter(Boolean);
     return `<dl class="facts">${rows.map(([ic, label, value]) => `
       <div class="facts__row"><dt>${icon(ic)}${label}</dt><dd>${esc(value)}</dd></div>`).join("")}</dl>`;
@@ -40,6 +56,11 @@ export function createDrawer({ dialog, repo, getContext, onChange }) {
     </section>` : "";
 
   const approvalBlock = () => {
+    // Dados reais: o status vem da agência; aprovar por aqui ainda não existe
+    if (!features.approvals) {
+      const [title, text] = LIVE_STATUS_TEXT[statusOf(activity, [])] || LIVE_STATUS_TEXT.aguardando;
+      return `<div class="decision decision--info">${icon("clock")}<div><p class="decision__title">${esc(title)}</p><p class="decision__text">${esc(text)}</p></div></div>`;
+    }
     if (!activity.requiresApproval) {
       return `<div class="decision decision--info">${icon("calendar")}<p>Esta atividade não precisa de aprovação. Se quiser comentar algo, deixe uma observação abaixo.</p></div>`;
     }
@@ -136,16 +157,60 @@ export function createDrawer({ dialog, repo, getContext, onChange }) {
       </form>
     </section>`;
 
+  /** Observações que a agência liberou para o cliente (dados reais) */
+  const sharedNotes = () => activity.notes ? section("Observações da Digital Galaxy", `
+      <div class="note note--agencia note--shared">
+        <span class="avatar avatar--xs avatar--brand">DG</span>
+        <div class="note__body"><p class="note__text">${esc(activity.notes)}</p></div>
+      </div>`) : "";
+
+  const dayItems = () => getContext().activities.filter((a) => a.date === day);
+
+  /** Lista do dia (ou aviso de dia livre) */
+  const renderDay = () => {
+    const items = dayItems();
+    const approvals = getContext().approvals;
+    dialog.innerHTML = `
+      <div class="drawer__panel">
+        <header class="drawer__header">
+          <div class="drawer__badges"><span class="type-badge">${icon("calendar")}${items.length ? `${items.length} ${items.length === 1 ? "conteúdo" : "conteúdos"}` : "Dia livre"}</span></div>
+          <button class="icon-btn" type="button" data-do="close" aria-label="Fechar">${icon("close")}</button>
+        </header>
+        <div class="drawer__body">
+          <h2 class="drawer__title" id="drawer-title">${esc(longDayLabel(day))}</h2>
+          ${items.length ? `<ul class="day-list">${items.map((a) => `
+            <li>
+              <button class="agenda__item day-list__item" type="button" data-day-item="${esc(a.id)}">
+                <span class="agenda__time">${a.time ? timeLabel(a.time) : "Dia todo"}</span>
+                <span class="agenda__body">
+                  ${typeBadge(a.type)}
+                  <span class="agenda__name">${esc(a.title)}</span>
+                  ${statusBadge(statusOf(a, approvals))}
+                </span>
+                ${icon("chevronRight", "icon agenda__go")}
+              </button>
+            </li>`).join("")}</ul>`
+          : `<div class="day-empty">
+              <span class="art-empty__icon">${icon("calendar")}</span>
+              <p class="art-empty__title">Nada programado para este dia</p>
+              <p class="art-empty__text">Quando houver um conteúdo nesta data, ele aparece aqui.</p>
+            </div>`}
+        </div>
+      </div>`;
+  };
+
   const render = (keepScroll = false) => {
+    if (view === "day") return renderDay();
     const body = dialog.querySelector(".drawer__body");
     const scroll = keepScroll && body ? body.scrollTop : 0;
     const { client } = getContext();
     const status = statusOf(activity, approvalsFor());
     const copy = activity.caption ? `<button class="link-btn" type="button" data-do="copy">${icon("copy")}Copiar</button>` : "";
+    const back = day && dayItems().length > 1 ? `<button class="link-btn drawer__back" type="button" data-do="back">${icon("chevronLeft")}${esc(longDayLabel(day))}</button>` : "";
     dialog.innerHTML = `
       <div class="drawer__panel">
         <header class="drawer__header">
-          <div class="drawer__badges">${typeBadge(activity.type, true)}${statusBadge(status)}</div>
+          <div class="drawer__badges">${back}${typeBadge(activity.type, true)}${statusBadge(status)}</div>
           <button class="icon-btn" type="button" data-do="close" aria-label="Fechar detalhes">${icon("close")}</button>
         </header>
         <div class="drawer__body">
@@ -154,9 +219,10 @@ export function createDrawer({ dialog, repo, getContext, onChange }) {
           <div class="preview">${renderPreview(activity, client.name)}</div>
           ${section("Objetivo", activity.objective ? `<p class="detail__text">${esc(activity.objective)}</p>` : "")}
           ${section("A ideia", activity.description ? `<p class="detail__text">${esc(activity.description)}</p>` : "")}
-          ${section("Legenda", activity.caption ? `<p class="detail__text detail__caption">${esc(activity.caption)}</p>` : "", copy)}
+          ${section("Legenda", activity.caption ? `<p class="detail__text detail__caption">${esc(activity.caption)}</p>` : (features.approvals ? "" : `<p class="detail__text detail__muted">A legenda ainda está sendo preparada.</p>`), copy)}
+          ${sharedNotes()}
           <section class="detail detail--decision" aria-live="polite">${approvalBlock()}</section>
-          ${commentsBlock()}
+          ${features.comments ? commentsBlock() : ""}
           <p class="drawer__version">Versão ${activity.version} · atualizada em ${esc(stampLabel(activity.updatedAt))}</p>
         </div>
       </div>`;
@@ -174,6 +240,7 @@ export function createDrawer({ dialog, repo, getContext, onChange }) {
   on(dialog, "click", "[data-do]", async (event, button) => {
     const action = button.dataset.do;
     if (action === "close") return close();
+    if (action === "back") { view = "day"; render(); dialog.querySelector("[data-day-item]")?.focus(); return; }
     if (action === "cancel") { mode = "idle"; return render(true); }
     if (action === "confirm") { mode = "confirm-approve"; render(true); dialog.querySelector('[data-do="approve"]')?.focus(); return; }
     if (action === "request") { mode = "request-change"; render(true); dialog.querySelector('textarea[name="message"]')?.focus(); return; }
@@ -219,21 +286,65 @@ export function createDrawer({ dialog, repo, getContext, onChange }) {
   });
   dialog.addEventListener("input", (event) => { if (event.target.value.trim()) event.target.removeAttribute("aria-invalid"); });
 
+  on(dialog, "click", "[data-day-item]", (event, button) => { showActivity(button.dataset.dayItem); });
+
+  async function showActivity(id) {
+    activity = getContext().activities.find((a) => a.id === id);
+    if (!activity) return false;
+    view = "detail";
+    mode = "idle";
+    comments = features.comments ? await repo.listComments(activity.id) : [];
+    render();
+    if (!dialog.open) dialog.showModal();
+    dialog.querySelector(".drawer__body").scrollTop = 0;
+    dialog.querySelector('[data-do="back"], [data-do="close"]').focus();
+    return true;
+  }
+
+  /** Assinatura do que o cliente vê: muda quando a agência edita */
+  const signature = (a) => a ? [a.id, a.version, a.status, a.date, a.time, a.updatedAt].join("|") : "";
+
   // Clique no fundo fecha; Esc fecha (nativo do <dialog>, com animação aqui)
   dialog.addEventListener("click", (event) => { if (event.target === dialog) close(); });
   dialog.addEventListener("cancel", (event) => { event.preventDefault(); close(); });
 
   return {
-    async open(id) {
-      activity = getContext().activities.find((a) => a.id === id);
-      if (!activity) return;
-      mode = "idle";
-      comments = await repo.listComments(activity.id);
+    /** Detalhes de um conteúdo (de: dia de onde veio, para o botão "voltar") */
+    async open(id, { from = null } = {}) {
+      day = from;
+      return showActivity(id);
+    },
+
+    /** Dia: um conteúdo abre direto; vários viram lista; nenhum mostra o aviso */
+    async openDay(iso) {
+      day = iso;
+      const items = dayItems();
+      if (items.length === 1) return showActivity(items[0].id);
+      view = "day";
+      activity = null;
       render();
       if (!dialog.open) dialog.showModal();
-      dialog.querySelector(".drawer__body").scrollTop = 0;
-      dialog.querySelector('[data-do="close"]').focus();
+      dialog.querySelector("[data-day-item], [data-do='close']").focus();
+      return true;
     },
+
+    /** Dados novos (atualização automática): redesenha só se algo mudou */
+    refresh() {
+      if (!dialog.open) return;
+      if (view === "day") { renderDay(); return; }
+      if (!activity) return;
+      const next = getContext().activities.find((a) => a.id === activity.id);
+      if (!next) {
+        close();
+        toast("O conteúdo que você estava vendo mudou de data ou foi removido.", "info");
+        return;
+      }
+      if (signature(next) === signature(activity) && next.caption === activity.caption && next.notes === activity.notes && next.title === activity.title && JSON.stringify(next.media) === JSON.stringify(activity.media)) return;
+      activity = next;
+      render(true);
+    },
+
+    get openId() { return dialog.open && view === "detail" ? activity?.id : null; },
     close
   };
 }

@@ -1,8 +1,10 @@
 /* Prévia da arte. "mock" é uma prévia ILUSTRATIVA da demonstração, desenhada em CSS;
-   quando houver arquivos reais, "image" e "video" mostram o arquivo enviado pela equipe. */
+   "image" e "video" (dados reais) mostram a referência cadastrada pela equipe,
+   com as regras de ui/media.js (imagem proporcional, players oficiais, aviso + link). */
 
 import { esc } from "../lib/dom.js";
 import { icon } from "../lib/icons.js";
+import { renderMedia } from "./media.js";
 
 const ratioClass = (ratio) => ({ "1:1": "square", "4:5": "portrait", "9:16": "vertical" }[ratio] || "square");
 
@@ -33,8 +35,7 @@ export function renderPreview(activity, brand = "") {
       </div>`;
   }
   return media.map((item) => {
-    if (item.kind === "image") return `<figure class="art art--${ratioClass(item.ratio)}"><img src="${esc(item.src)}" alt="${esc(item.alt || "")}" loading="lazy"></figure>`;
-    if (item.kind === "video") return `<figure class="art art--${ratioClass(item.ratio)}"><video src="${esc(item.src)}" controls playsinline preload="metadata"></video></figure>`;
+    if (item.kind === "image" || item.kind === "video") return renderMedia({ url: item.src, kind: item.kind, title: activity.title });
     return mockArt(item, activity.type, brand);
   }).join("");
 }

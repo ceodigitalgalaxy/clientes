@@ -51,6 +51,11 @@
   .planner__nav { order: 0; }
   .planner__actions { width: 100%; }
   .planner__actions .btn { flex: 1 1 0; padding: 0 8px; }
+  .view-toggle { flex: 1 1 100%; }
+  .view-toggle__btn { flex: 1; }
+  .cal--week .cal__cell { min-height: 72px; }
+  .login__card { padding: 32px 24px; }
+  .preview { padding: 16px; }
   /* Legenda rola para o lado em vez de quebrar em várias linhas */
   .legend { flex-wrap: nowrap; overflow-x: auto; margin: 16px -16px; padding: 0 16px 4px; scrollbar-width: none; }
   .legend::-webkit-scrollbar { display: none; }

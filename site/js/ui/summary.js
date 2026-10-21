@@ -10,9 +10,18 @@ const STATS = [
   { key: "aprovado",   label: "Aprovados",            tone: "aprovado" },
   { key: "ajustes",    label: "Ajustes solicitados",  tone: "ajustes" }
 ];
+// Dados reais: pedidos de ajuste ainda não passam pelo portal; mostra os publicados
+const LIVE_STATS = [...STATS.slice(0, 3), { key: "publicado", label: "Publicados", tone: "publicado" }];
 
-export function renderSummary(container, { plan, counts, month }) {
-  const focus = plan
+export function renderSummary(container, { plan, counts, month, live = false, hasActivities = false }) {
+  const focus = !plan && live && hasActivities
+    ? `
+      <article class="focus">
+        <p class="focus__eyebrow">${icon("target2")}Seus conteúdos de ${esc(monthName(month).toLowerCase())}</p>
+        <h2 class="focus__title">Confira o que a nossa equipe preparou</h2>
+        <p class="focus__text">Clique em um dia ou em um conteúdo para ver a prévia, a legenda e o status.</p>
+      </article>`
+    : plan
     ? `
       <article class="focus">
         <p class="focus__eyebrow">${icon("target2")}Nosso foco em ${esc(monthName(month).toLowerCase())}</p>
@@ -26,7 +35,7 @@ export function renderSummary(container, { plan, counts, month }) {
         <p class="focus__text">Assim que a nossa equipe compartilhar, a estratégia e os conteúdos aparecem aqui.</p>
       </article>`;
 
-  const stats = STATS.map((s) => `
+  const stats = (live ? LIVE_STATS : STATS).map((s) => `
       <li class="stat stat--${s.tone}">
         <span class="stat__value">${counts[s.key]}</span>
         <span class="stat__label">${s.label}</span>

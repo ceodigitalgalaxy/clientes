@@ -4,7 +4,7 @@
 
 import assert from "node:assert/strict";
 import { createSupabaseStore } from "../../site/admin/js/data/store.js";
-import { createAuth } from "../../site/admin/js/auth.js";
+import { createAuth } from "../../site/js/lib/auth.js";
 import { createTeamAdmin } from "../equipe.mjs";
 
 const calls = [];

@@ -44,3 +44,27 @@ export function monthGrid(key) {
     return { iso: toISO(d), day: d.getDate(), inMonth: monthKey(d) === key, weekday: d.getDay() };
   });
 }
+
+/** Soma (ou subtrai) dias de uma data AAAA-MM-DD */
+export const addDays = (iso, delta) => { const d = fromISO(iso); d.setDate(d.getDate() + delta); return toISO(d); };
+
+/** Semana (domingo a sábado) que contém a data */
+export function weekDays(iso) {
+  const d = fromISO(iso);
+  const start = addDays(iso, -d.getDay());
+  return Array.from({ length: 7 }, (_, i) => {
+    const day = fromISO(addDays(start, i));
+    return { iso: toISO(day), day: day.getDate(), inMonth: true, weekday: day.getDay() };
+  });
+}
+
+/** "18 a 24 de outubro de 2026" ou "28 de setembro a 4 de outubro de 2026" */
+export function weekLabel(iso) {
+  const days = weekDays(iso);
+  const first = fromISO(days[0].iso);
+  const last = fromISO(days[6].iso);
+  const year = last.getFullYear();
+  if (first.getMonth() === last.getMonth()) return `${first.getDate()} a ${last.getDate()} de ${MONTHS[last.getMonth()]} de ${year}`;
+  const firstYear = first.getFullYear() !== year ? ` de ${first.getFullYear()}` : "";
+  return `${first.getDate()} de ${MONTHS[first.getMonth()]}${firstYear} a ${last.getDate()} de ${MONTHS[last.getMonth()]} de ${year}`;
+}

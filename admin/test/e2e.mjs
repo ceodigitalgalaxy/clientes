@@ -8,7 +8,7 @@ import http from "node:http";
 import { createPreviewServer } from "../server.mjs";
 import { createMemoryStore } from "./memory-store.mjs";
 import { createFakeSupabase } from "./fake-supabase.mjs";
-import { SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY } from "../../site/admin/js/config.js";
+import { SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY } from "../../site/js/config.js";
 
 const { chromium } = await import(process.env.PLAYWRIGHT || "playwright");
 const PORT = 5611;
@@ -51,7 +51,7 @@ await step("Página do painel tem CSP, noindex e nenhuma chave secreta", async (
   assert.match(r.body, /connect-src 'self' https:\/\/peieimwpkrattuldmjux\.supabase\.co;/);
   assert.match(r.body, /noindex/);
   assert.equal(r.headers["x-frame-options"], "DENY");
-  const config = await raw("/admin/js/config.js", { headers: host });
+  const config = await raw("/js/config.js", { headers: host });
   assert.doesNotMatch(config.body, /sb_secret_[A-Za-z0-9]|service_role|eyJ[A-Za-z0-9]/, "só a chave publicável vai para o navegador");
   assert.match(config.body, /sb_publishable_[A-Za-z0-9]/);
 });

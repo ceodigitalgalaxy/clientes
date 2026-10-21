@@ -1,15 +1,16 @@
 /* ==========================================================================
-   Calendário mensal (o centro do portal)
+   Calendário (o centro do portal): visão do mês ou da semana
    - Desktop: cada dia mostra as atividades como etiquetas; passar o mouse
      (ou focar a data pelo teclado) abre o resumo do dia num popover.
    - Celular: cada dia mostra pontinhos coloridos; tocar no dia abre a
      agenda do dia logo abaixo do calendário.
    - Clicar numa atividade abre o painel lateral com os detalhes.
+   - Semana: os mesmos cartões de dia, mais altos e com todas as atividades.
    ========================================================================== */
 
 import { esc, on, canHover } from "../lib/dom.js";
 import { icon } from "../lib/icons.js";
-import { monthGrid, WEEKDAYS_SHORT, todayISO, timeLabel, dayLabel, longDayLabel } from "../lib/dates.js";
+import { monthGrid, weekDays, WEEKDAYS_SHORT, todayISO, timeLabel, dayLabel, longDayLabel } from "../lib/dates.js";
 import { ACTIVITY_TYPES, STATUS } from "../domain/model.js";
 import { statusOf } from "../domain/status.js";
 import { typeBadge, statusBadge, statusMark } from "./badges.js";
@@ -33,10 +34,10 @@ function chip(activity, approvals) {
     </li>`;
 }
 
-function cell(day, items, approvals, selected) {
+function cell(day, items, approvals, selected, maxChips = MAX_CHIPS) {
   const today = day.iso === todayISO();
   const classes = ["cal__cell", day.inMonth ? "" : "is-out", today ? "is-today" : "", items.length ? "has-items" : "", day.iso === selected ? "is-selected" : "", day.weekday === 0 || day.weekday === 6 ? "is-weekend" : ""].filter(Boolean).join(" ");
-  const shown = items.slice(0, MAX_CHIPS);
+  const shown = items.slice(0, maxChips);
   const more = items.length - shown.length;
   const label = `${longDayLabel(day.iso)}${today ? " (hoje)" : ""}${items.length ? `, ${countLabel(items.length)}` : ", sem atividades"}`;
   const dots = items.slice(0, 4).map((a) => `<span class="dot type--${esc(a.type)}"></span>`).join("");
@@ -51,34 +52,50 @@ function cell(day, items, approvals, selected) {
     </div>`;
 }
 
-export function renderLegend(container, activities) {
+export function renderLegend(container, activities, statusKeys = ["aguardando", "aprovado", "ajustes"]) {
   const present = Object.keys(ACTIVITY_TYPES).filter((type) => activities.some((a) => a.type === type));
   const types = present.map((type) => `<li>${typeBadge(type)}</li>`).join("");
-  const statuses = ["aguardando", "aprovado", "ajustes"].map((s) => `<li class="legend__status">${statusMark(s)}<span>${STATUS[s].short}</span></li>`).join("");
+  const statuses = statusKeys.map((s) => `<li class="legend__status">${statusMark(s)}<span>${STATUS[s].short}</span></li>`).join("");
   container.innerHTML = types + (present.length ? `<li class="legend__sep" aria-hidden="true"></li>${statuses}` : "");
 }
 
-export function renderCalendar(container, { month, activities, approvals, selected, hasPlan }) {
+/**
+ * @param {HTMLElement} container
+ * @param {object} options
+ * @param {"month"|"week"} [options.view]  semana: a que contém options.selected
+ * @param {boolean} [options.live]        dados reais (textos do estado vazio)
+ * @param {boolean} [options.canSuggest]  mostra o botão "Compartilhar uma ideia"
+ */
+export function renderCalendar(container, { month, activities, approvals, selected, hasPlan, view = "month", live = false, canSuggest = true }) {
   const days = byDay(activities);
-  const grid = monthGrid(month);
+  const week = view === "week";
+  const grid = week ? weekDays(selected) : monthGrid(month);
   const empty = !activities.length;
+  const ideaButton = canSuggest ? `<button class="btn btn--ghost btn--sm" type="button" data-action="new-idea">${icon("sparkle")}Compartilhar uma ideia</button>` : "";
+  const emptyTitle = week ? "Nada programado nesta semana"
+    : live ? "Ainda não há conteúdos liberados para este mês"
+    : hasPlan ? "Os conteúdos deste mês estão a caminho" : "Ainda não há planejamento para este mês";
+  const emptyText = live
+    ? "Quando a nossa equipe liberar um conteúdo para você conferir, ele aparece aqui."
+    : "Quando a nossa equipe compartilhar, eles aparecem aqui. Enquanto isso, que tal mandar uma ideia?";
   container.innerHTML = `
-    <div class="cal${empty ? " is-empty" : ""}">
+    <div class="cal${week ? " cal--week" : ""}${empty ? " is-empty" : ""}">
       <div class="cal__head" aria-hidden="true">${WEEKDAYS_SHORT.map((d, i) => `<span class="${i === 0 || i === 6 ? "is-weekend" : ""}">${d}</span>`).join("")}</div>
-      <div class="cal__grid">${grid.map((day) => cell(day, day.inMonth ? days[day.iso] || [] : [], approvals, selected)).join("")}</div>
-      ${empty ? `
+      <div class="cal__grid">${grid.map((day) => cell(day, day.inMonth ? days[day.iso] || [] : [], approvals, selected, week ? Infinity : MAX_CHIPS)).join("")}</div>
+      ${empty && week ? `<p class="cal__week-empty">${icon("calendar")}${esc(emptyTitle)}</p>` : ""}
+      ${empty && !week ? `
         <div class="cal__empty">
           <span class="cal__empty-icon">${icon("calendar")}</span>
-          <p class="cal__empty-title">${hasPlan ? "Os conteúdos deste mês estão a caminho" : "Ainda não há planejamento para este mês"}</p>
-          <p class="cal__empty-text">Quando a nossa equipe compartilhar, eles aparecem aqui. Enquanto isso, que tal mandar uma ideia?</p>
-          <button class="btn btn--ghost btn--sm" type="button" data-action="new-idea">${icon("sparkle")}Compartilhar uma ideia</button>
+          <p class="cal__empty-title">${esc(emptyTitle)}</p>
+          <p class="cal__empty-text">${esc(emptyText)}</p>
+          ${ideaButton}
         </div>` : ""}
     </div>`;
 }
 
 /** Agenda do dia (aparece no celular, abaixo do calendário) */
-export function renderAgenda(container, { selected, month, activities, approvals }) {
-  if (!selected || !selected.startsWith(month)) { container.innerHTML = ""; return; }
+export function renderAgenda(container, { selected, month, activities, approvals, view = "month" }) {
+  if (!selected || (view === "month" && !selected.startsWith(month))) { container.innerHTML = ""; return; }
   const items = activities.filter((a) => a.date === selected);
   container.innerHTML = `
     <h3 class="agenda__title">${esc(longDayLabel(selected))}</h3>

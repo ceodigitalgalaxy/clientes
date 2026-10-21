@@ -12,8 +12,8 @@
 import { $, on } from "../../js/lib/dom.js";
 import { icon, brandMark } from "../../js/lib/icons.js";
 import { toast } from "../../js/ui/toast.js";
-import { SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY } from "./config.js";
-import { createAuth } from "./auth.js";
+import { SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY } from "../../js/config.js";
+import { createAuth } from "../../js/lib/auth.js";
 import { createSupabaseStore } from "./data/store.js";
 import { createApi } from "./api.js";
 import { validateContentFilters } from "./domain/rules.js";
@@ -28,7 +28,7 @@ document.body.classList.add("is-ready");
 
 const ROUTES = ["conteudos", "clientes"];
 
-const auth = createAuth({ url: SUPABASE_URL, apiKey: SUPABASE_PUBLISHABLE_KEY });
+const auth = createAuth({ url: SUPABASE_URL, apiKey: SUPABASE_PUBLISHABLE_KEY, kind: "equipe" });
 const store = createSupabaseStore({
   url: SUPABASE_URL,
   apiKey: SUPABASE_PUBLISHABLE_KEY,

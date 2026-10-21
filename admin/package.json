@@ -8,6 +8,6 @@
     "start": "node server.mjs",
     "equipe": "node equipe.mjs",
     "verify": "node verify.mjs",
-    "test": "node test/store.test.mjs && node test/e2e.mjs"
+    "test": "node test/store.test.mjs && node test/portal.test.mjs && node test/e2e.mjs && node test/portal-e2e.mjs"
   }
 }

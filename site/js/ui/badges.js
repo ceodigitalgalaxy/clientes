@@ -9,7 +9,7 @@ export const typeBadge = (type, long = false) => {
   return `<span class="type-badge type--${esc(type)}">${icon(t.icon)}${esc(long ? t.label : t.short)}</span>`;
 };
 
-const STATUS_ICON = { aguardando: "clock", aprovado: "check", ajustes: "edit" };
+const STATUS_ICON = { aguardando: "clock", aprovado: "check", ajustes: "edit", publicado: "send" };
 
 export const statusBadge = (status, long = true) => {
   if (!status) return "";

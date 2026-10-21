@@ -34,6 +34,8 @@
    @property {Media[]} media
    @property {boolean} requiresApproval
    @property {number} version        Sobe a cada edição do admin: aprovações valem só para a versão aprovada
+   @property {keyof STATUS} [status] Dados reais: status definido pela agência (sem ele, vale o calculado pelas aprovações)
+   @property {string} [notes]        Dados reais: observação da agência liberada para o cliente
    @property {string} updatedAt      ISO
 
    @typedef {Object} Media
@@ -104,7 +106,8 @@ export const PLATFORMS = {
 export const STATUS = {
   aguardando: { label: "Aguardando aprovação", short: "Aguardando" },
   aprovado:   { label: "Aprovado",             short: "Aprovado" },
-  ajustes:    { label: "Ajustes solicitados",  short: "Ajustes" }
+  ajustes:    { label: "Ajustes solicitados",  short: "Ajustes" },
+  publicado:  { label: "Publicado",            short: "Publicado" }
 };
 
 export const IDEA_STATUS = {

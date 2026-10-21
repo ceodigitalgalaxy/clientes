@@ -21,7 +21,7 @@ export class StoreError extends Error {
 }
 
 const CLIENT_FIELDS = "id,name,slug,segment,contact_name,contact_email,notes,active,created_at,updated_at";
-const CONTENT_FIELDS = "id,client_id,title,scheduled_date,scheduled_time,network,format,media_url,media_kind,caption,internal_notes,status,version,created_at,updated_at";
+const CONTENT_FIELDS = "id,client_id,title,scheduled_date,scheduled_time,network,format,media_url,media_kind,caption,internal_notes,client_notes,status,version,created_at,updated_at";
 
 /** Traduz erros do PostgREST/PostgreSQL para mensagens do painel */
 function translate(status, body, withSession) {
@@ -89,9 +89,13 @@ export function createSupabaseStore({ url, apiKey, secretKey, getToken, onUnauth
     kind: "supabase",
 
     async listClients() {
-      // contents(count): quantidade de conteúdos de cada cliente, numa consulta só
-      const rows = await request(`clients?select=${CLIENT_FIELDS},contents(count)&order=name.asc`);
-      return rows.map(({ contents, ...client }) => ({ ...client, contents_count: contents?.[0]?.count ?? 0 }));
+      // contents(count): quantidade de conteúdos de cada cliente; client_members: logins do portal
+      const rows = await request(`clients?select=${CLIENT_FIELDS},contents(count),client_members(username)&order=name.asc`);
+      return rows.map(({ contents, client_members: members, ...client }) => ({
+        ...client,
+        contents_count: contents?.[0]?.count ?? 0,
+        portal_users: (members || []).map((m) => m.username).sort()
+      }));
     },
 
     async getClient(id) {

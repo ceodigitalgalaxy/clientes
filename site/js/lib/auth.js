@@ -1,8 +1,10 @@
 /* ==========================================================================
-   Login da equipe (Supabase Auth, usuário e senha)
+   Login com usuário e senha (Supabase Auth)
+   Usado pelo painel da agência (kind "equipe") e pelo portal do cliente
+   (kind "cliente"); cada um guarda a própria sessão.
    --------------------------------------------------------------------------
    - O usuário digita o nome (ex.: "admdg"); o Supabase recebe o endereço
-     interno equipe+admdg@digitalgalaxy.com.br (veja domain/rules.js).
+     interno equipe+admdg@digitalgalaxy.com.br (veja domain/accounts.js).
    - A senha vai direto para o Supabase, que guarda só a versão criptografada.
      Este código nunca guarda a senha.
    - A sessão (token de acesso de 1 hora + token de renovação) fica no
@@ -10,9 +12,9 @@
      e a encerra no Supabase.
    ========================================================================== */
 
-import { parseUsername, loginEmail, usernameFromEmail } from "./domain/rules.js";
+import { parseUsername, loginEmail, usernameFromEmail, accountKind } from "../domain/accounts.js";
 
-const STORAGE_KEY = "dg-painel-sessao";
+const STORAGE_KEYS = { equipe: "dg-painel-sessao", cliente: "dg-portal-sessao" };
 const RENEW_BEFORE_MS = 60_000;   // renova o token 1 minuto antes de vencer
 
 export class AuthError extends Error {
@@ -40,8 +42,10 @@ function safeStorage() {
   }
 }
 
-export function createAuth({ url, apiKey, storage = safeStorage(), fetchImpl = globalThis.fetch.bind(globalThis), now = () => Date.now() }) {
+export function createAuth({ url, apiKey, kind = "equipe", storage = safeStorage(), fetchImpl = globalThis.fetch.bind(globalThis), now = () => Date.now() }) {
   const base = `${url.replace(/\/+$/, "")}/auth/v1`;
+  const STORAGE_KEY = STORAGE_KEYS[kind];
+  if (!STORAGE_KEY) throw new Error(`createAuth: tipo de conta desconhecido (${kind})`);
   let session = read();
   let refreshing = null;
   const listeners = new Set();
@@ -49,7 +53,8 @@ export function createAuth({ url, apiKey, storage = safeStorage(), fetchImpl = g
   function read() {
     try {
       const data = JSON.parse(storage.getItem(STORAGE_KEY) || "null");
-      return data && data.access_token && data.refresh_token && data.user?.id ? data : null;
+      // Sessão de outro tipo de conta (ex.: equipe no portal do cliente) não vale aqui
+      return data && data.access_token && data.refresh_token && data.user?.id && accountKind(data.user.email) === kind ? data : null;
     } catch { return null; }
   }
 
@@ -114,7 +119,7 @@ export function createAuth({ url, apiKey, storage = safeStorage(), fetchImpl = g
       const username = parseUsername(rawUsername);
       // Usuário em formato impossível: mesma mensagem de senha errada (não revela qual dos dois está errado)
       if (!username || !password) throw new AuthError(MESSAGES.invalid, "invalid");
-      const { response, data } = await post("token?grant_type=password", { email: loginEmail(username), password });
+      const { response, data } = await post("token?grant_type=password", { email: loginEmail(username, kind), password });
       if (response.ok && data?.access_token) { save(data); return this.user; }
       if (response.status === 429) throw new AuthError(MESSAGES.limited, "limited");
       if (response.status >= 500) throw new AuthError(MESSAGES.offline, "offline");

@@ -30,22 +30,7 @@
 .user-menu__out { display: inline-flex; align-items: center; gap: 8px; font-size: 14px; }
 .user-menu__out .icon { width: 18px; height: 18px; }
 
-/* A página só aparece depois de conferir que não está dentro de outro site (main.js) */
-body.admin:not(.is-ready) { visibility: hidden; }
-
-/* Tela de entrada */
-.login[hidden] { display: none; }
-.login { display: grid; place-items: center; min-height: 100vh; min-height: 100dvh; padding: 40px 16px; }
-.login__card { width: 100%; max-width: 400px; padding: 40px 32px; border: 1px solid var(--line); border-radius: var(--radius-xl); background: var(--surface); box-shadow: var(--shadow-pop); text-align: center; }
-.login__logo { display: inline-flex; color: var(--brand); }
-.login__logo svg { width: 48px; height: 48px; }
-.login__title { margin-top: 16px; font-family: var(--font-display); font-size: 26px; font-weight: 600; line-height: 1.2; }
-.login__text { margin-top: 8px; font-size: 14px; color: var(--text-muted); }
-.login__form { display: grid; gap: 16px; margin-top: 32px; text-align: left; }
-.login__submit { width: 100%; justify-content: center; }
-.login__help { display: inline-flex; align-items: center; gap: 8px; margin-top: 24px; font-size: 12px; color: var(--text-muted); text-align: left; }
-.login__help .icon { flex: none; width: 14px; height: 14px; }
-.form-error.is-info { color: var(--brand-deep); background: var(--brand-soft); }
+/* Tela de entrada, botão carregando e aviso de formulário: em site/css/style.css (comuns ao portal) */
 
 /* Estrutura das seções */
 .admin-main { padding-top: 40px; padding-bottom: 80px; max-width: calc(1280px + var(--gutter) * 2); }
@@ -95,6 +80,8 @@ body.admin:not(.is-ready) { visibility: hidden; }
 .client-card__meta { display: grid; gap: 4px; font-size: 14px; color: var(--text-muted); }
 .client-card__meta span { overflow-wrap: anywhere; }
 .client-card__foot { display: flex; align-items: center; justify-content: space-between; gap: 8px; padding-top: 16px; border-top: 1px solid var(--line); }
+.client-card__portal { display: inline-flex; align-items: center; gap: 4px; font-size: 12px; color: var(--text-muted); }
+.client-card__portal .icon { width: 14px; height: 14px; color: var(--brand); }
 .client-card__count { font-size: 12px; color: var(--text-subtle); }
 .client-card__actions { display: flex; gap: 8px; }
 .pill-off { display: inline-flex; align-items: center; height: 24px; padding: 0 8px; border-radius: 999px; font-size: 12px; color: var(--text-muted); background: var(--line); }
@@ -126,18 +113,12 @@ select.field__input { padding-right: 40px; appearance: none; background-image: u
 .radio-row[hidden] { display: none; }
 .check { display: inline-flex; align-items: center; gap: 8px; font-size: 14px; cursor: pointer; }
 .check input { width: 18px; height: 18px; accent-color: var(--brand); }
-.form-error { padding: 12px 16px; border-radius: var(--radius); font-size: 14px; color: var(--ajustes-ink); background: var(--ajustes-soft); }
 .btn--danger { color: #fff; background: var(--ajustes); }
 .btn--danger:hover:not(:disabled) { background: #C03A2E; }
-.btn.is-loading { position: relative; color: transparent; pointer-events: none; }
-.btn.is-loading::after { content: ""; position: absolute; inset: 0; margin: auto; width: 18px; height: 18px; border: 2px solid rgba(255, 255, 255, 0.5); border-top-color: #fff; border-radius: 50%; animation: spin 700ms linear infinite; }
-.btn--ghost.is-loading::after { border-color: var(--line-strong); border-top-color: var(--brand); }
-@keyframes spin { to { transform: rotate(360deg); } }
 
 /* Detalhes do conteúdo */
-.media-ref { margin-top: 24px; overflow: hidden; border-radius: var(--radius-lg); background: var(--surface-muted); }
-.media-ref img, .media-ref video { display: block; width: 100%; max-height: 420px; object-fit: contain; background: #0E0620; }
-.media-ref__link { display: flex; align-items: center; gap: 8px; padding: 12px 16px; font-size: 12px; color: var(--brand); overflow-wrap: anywhere; }
+/* Prévia da referência: a mesma do portal (js/ui/media.js) */
+.media-ref { margin-top: 24px; padding: 16px; border-radius: var(--radius-lg); background: linear-gradient(160deg, #F7F4FE, #EFEAFB); }
 .internal { margin-top: 24px; padding: 16px; border: 1px dashed var(--aguardando-line); border-radius: var(--radius); background: var(--aguardando-soft); }
 .internal__label { display: flex; align-items: center; gap: 8px; font-size: 12px; font-weight: 600; color: var(--aguardando-ink); }
 .internal__label .icon { width: 14px; height: 14px; }

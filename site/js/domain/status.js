@@ -13,8 +13,9 @@ export function latestDecision(activity, approvals) {
     .at(-1) || null;
 }
 
-/** "aguardando" | "aprovado" | "ajustes" | null (atividades que não pedem aprovação) */
+/** "aguardando" | "aprovado" | "ajustes" | "publicado" | null (atividades que não pedem aprovação) */
 export function statusOf(activity, approvals) {
+  if (activity.status) return activity.status;   // dados reais: status vem do painel da agência
   if (!activity.requiresApproval) return null;
   const decision = latestDecision(activity, approvals);
   return decision ? decision.decision : "aguardando";
@@ -23,7 +24,7 @@ export function statusOf(activity, approvals) {
 /** Indicadores do mês */
 export function summarize(activities, approvals) {
   const total = activities.filter((a) => ["post", "carrossel", "reels", "stories"].includes(a.type)).length;
-  const counts = { planejados: total, aguardando: 0, aprovado: 0, ajustes: 0 };
+  const counts = { planejados: total, aguardando: 0, aprovado: 0, ajustes: 0, publicado: 0 };
   activities.forEach((activity) => {
     const status = statusOf(activity, approvals);
     if (status) counts[status] += 1;
