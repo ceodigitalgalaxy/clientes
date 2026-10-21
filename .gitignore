@@ -1,0 +1,20 @@
+# Sistema
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# Editores
+.vscode/
+.idea/
+*.swp
+
+# Pacotes gerados para upload
+*.zip
+dist/
+
+# Configurações locais de ferramentas
+.claude/
+
+# Variáveis de ambiente e segredos (nunca versionar)
+.env
+.env.*

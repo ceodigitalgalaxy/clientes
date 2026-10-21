@@ -1,0 +1,151 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data: blob:; media-src 'self' blob:; font-src 'self'; connect-src 'self'; object-src 'none'; base-uri 'self'; form-action 'self'; frame-src 'none'; upgrade-insecure-requests">
+  <meta name="referrer" content="strict-origin-when-cross-origin">
+  <!-- Portal privado de clientes: fora das buscas -->
+  <meta name="robots" content="noindex, nofollow">
+  <title>Seu planejamento · Digital Galaxy</title>
+  <meta name="description" content="Portal de clientes da Digital Galaxy: calendário de conteúdos, aprovações e ideias em um só lugar.">
+  <meta name="theme-color" content="#F5F3FA">
+  <link rel="icon" href="images/logo/favicon.svg" type="image/svg+xml">
+  <link rel="icon" href="images/logo/icon-96.png" type="image/png" sizes="96x96">
+  <link rel="apple-touch-icon" href="images/logo/apple-touch-icon.png">
+  <link rel="preload" href="fonts/sora-latin-400-normal.woff2" as="font" type="font/woff2" crossorigin>
+  <link rel="preload" href="fonts/sora-latin-600-normal.woff2" as="font" type="font/woff2" crossorigin>
+  <link rel="stylesheet" href="css/style.css?v=4">
+  <link rel="stylesheet" href="css/responsive.css?v=4">
+  <script type="module" src="js/main.js?v=4"></script>
+</head>
+<body>
+  <a class="skip-link" href="#calendario">Pular para o calendário</a>
+
+  <!-- Aviso de demonstração: some quando houver dados reais (js/main.js) -->
+  <div class="demo-bar" id="demo-bar" hidden>
+    <span>Ambiente de demonstração com dados fictícios. O que você fizer fica salvo só neste navegador.</span>
+  </div>
+
+  <header class="topbar">
+    <div class="container topbar__inner">
+      <div class="topbar__brands">
+        <a class="brand" href="https://digitalgalaxy.com.br" target="_blank" rel="noopener" aria-label="Digital Galaxy (abre o site em nova aba)" title="Digital Galaxy">
+          <span class="brand__logo" data-slot="brand-mark"></span>
+        </a>
+        <span class="topbar__divider" aria-hidden="true"></span>
+        <span class="client-badge" id="client-badge"><span class="skeleton skeleton--text"></span></span>
+      </div>
+      <div class="topbar__actions">
+        <span class="month-chip" id="month-chip"></span>
+        <div class="profile">
+          <button class="profile__button" id="profile-button" type="button" aria-haspopup="menu" aria-expanded="false" aria-controls="profile-menu">
+            <span class="avatar avatar--sm" id="profile-avatar">·</span>
+            <span class="visually-hidden">Abrir menu do perfil</span>
+          </button>
+          <div class="profile__menu" id="profile-menu" role="menu" hidden>
+            <p class="profile__who" id="profile-who"></p>
+            <p class="profile__note">O acesso com login chega na próxima etapa.</p>
+            <button class="profile__item" type="button" role="menuitem" data-action="reset-demo" data-icon="refresh">Restaurar demonstração</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </header>
+
+  <main id="conteudo" class="container">
+    <!-- Boas-vindas -->
+    <section class="welcome" aria-labelledby="welcome-title">
+      <p class="welcome__hello" id="welcome-hello">Olá!</p>
+      <h1 class="welcome__title" id="welcome-title">Seu cronograma mensal com a Digital Galaxy</h1>
+    </section>
+
+    <!-- Resumo do mês: foco estratégico e indicadores discretos (js/ui/summary.js) -->
+    <section class="overview" id="overview" aria-label="Resumo do mês">
+      <div class="skeleton skeleton--block"></div>
+    </section>
+
+    <!-- Calendário: o centro do portal (js/ui/calendar.js) -->
+    <section class="planner" id="calendario" aria-labelledby="calendar-title">
+      <div class="planner__toolbar">
+        <div class="planner__month">
+          <h2 class="planner__title" id="calendar-title" aria-live="polite">&nbsp;</h2>
+          <div class="planner__nav">
+            <button class="icon-btn" type="button" data-nav="-1" aria-label="Mês anterior" data-icon="chevronLeft"></button>
+            <button class="icon-btn" type="button" data-nav="1" aria-label="Próximo mês" data-icon="chevronRight"></button>
+            <button class="btn btn--ghost btn--sm" type="button" data-nav="today">Hoje</button>
+          </div>
+        </div>
+        <div class="planner__actions">
+          <button class="btn btn--ghost btn--sm" type="button" data-action="show-ideas">
+            <span data-icon="lightbulb"></span>Suas ideias <span class="count-pill" id="ideas-count">0</span>
+          </button>
+          <button class="btn btn--primary btn--sm" type="button" data-action="new-idea">
+            <span data-icon="sparkle"></span>Compartilhar uma ideia
+          </button>
+        </div>
+      </div>
+      <ul class="legend" id="legend" aria-label="Tipos de atividade"></ul>
+      <div class="calendar" id="calendar">
+        <div class="skeleton skeleton--calendar"></div>
+      </div>
+      <!-- Celular: atividades do dia tocado -->
+      <div class="agenda" id="agenda" aria-live="polite"></div>
+    </section>
+
+    <!-- Ideias enviadas -->
+    <section class="ideas" id="ideias" aria-labelledby="ideas-title">
+      <div class="ideas__head">
+        <h2 class="section-title" id="ideas-title">Ideias que você compartilhou</h2>
+        <p class="ideas__text">Suas sugestões também fazem parte do nosso planejamento.</p>
+      </div>
+      <div class="ideas__list" id="ideas-list"></div>
+    </section>
+  </main>
+
+  <footer class="footer">
+    <div class="container footer__inner">
+      <p>Seu marketing organizado. Suas ideias conectadas. Tudo acontecendo em um só lugar.</p>
+      <p>© <span class="js-year">2026</span> Digital Galaxy</p>
+    </div>
+  </footer>
+
+  <!-- Resumo do dia no hover (desktop) -->
+  <div class="popover" id="day-popover" role="dialog" hidden></div>
+
+  <!-- Painel lateral com os detalhes do conteúdo (js/ui/drawer.js) -->
+  <dialog class="drawer" id="drawer" aria-labelledby="drawer-title"></dialog>
+
+  <!-- Compartilhar uma ideia (js/ui/ideas.js) -->
+  <dialog class="modal" id="idea-modal" aria-labelledby="idea-modal-title">
+    <form class="modal__form" id="idea-form" novalidate>
+      <div class="modal__head">
+        <span class="modal__icon" data-icon="lightbulb"></span>
+        <div>
+          <h2 class="modal__title" id="idea-modal-title">Teve uma ideia para sua marca?</h2>
+          <p class="modal__text">Conta pra gente! Suas sugestões também fazem parte do nosso planejamento.</p>
+        </div>
+        <button class="icon-btn modal__close" type="button" data-action="close-modal" aria-label="Fechar" data-icon="close"></button>
+      </div>
+      <label class="field">
+        <span class="field__label">Qual é a ideia?</span>
+        <input class="field__input" name="title" type="text" maxlength="90" required placeholder="Ex.: Aula de pão para crianças" autocomplete="off">
+      </label>
+      <label class="field">
+        <span class="field__label">Conta um pouco mais</span>
+        <textarea class="field__input field__input--area" name="description" rows="4" maxlength="800" required placeholder="O que você imaginou? Pode ser do seu jeito, a gente organiza."></textarea>
+      </label>
+      <label class="field field--half">
+        <span class="field__label">Data sugerida <span class="field__optional">(opcional)</span></span>
+        <input class="field__input" name="suggestedDate" type="date">
+      </label>
+      <div class="modal__actions">
+        <button class="btn btn--ghost" type="button" data-action="close-modal">Cancelar</button>
+        <button class="btn btn--primary" type="submit"><span data-icon="send"></span>Enviar ideia</button>
+      </div>
+    </form>
+  </dialog>
+
+  <div class="toasts" id="toasts" aria-live="polite" aria-atomic="false"></div>
+</body>
+</html>
