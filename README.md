@@ -42,7 +42,7 @@ node admin/equipe.mjs verificar       # confere se o cadastro aberto está desli
 
 A senha é digitada sem aparecer. Usuários da equipe só são criados por aqui.
 
-Senhas: pelo menos 10 caracteres, sem conter o nome do usuário. Ficam guardadas só no Supabase, criptografadas. **Nunca** envie o `admin/.env` para o GitHub nem cole a chave secreta ou senhas em chats ou páginas.
+Senhas: pelo menos 6 caracteres, sem conter o nome do usuário. Ficam guardadas só no Supabase, criptografadas. **Nunca** envie o `admin/.env` para o GitHub nem cole a chave secreta ou senhas em chats ou páginas.
 
 ### Conferir o banco e a proteção
 

@@ -461,7 +461,7 @@ await step("Equipe cria o acesso do cliente pelo painel e o cliente entra", asyn
   await admin.fill('#access-modal [name="password"]', "123");
   await admin.click("#access-modal [type=submit]");
   await admin.waitForSelector("#access-modal .field__error");
-  assert.match(await admin.textContent("#access-modal .field__error"), /pelo menos 10/);
+  assert.match(await admin.textContent("#access-modal .field__error"), /pelo menos 6/);
   await admin.click('#access-modal [data-access="generate"]');
   auroraPassword = await admin.inputValue('#access-modal [name="password"]');
   assert.equal(auroraPassword.length, 14);

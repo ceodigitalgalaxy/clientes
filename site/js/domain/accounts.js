@@ -12,7 +12,7 @@
    ========================================================================== */
 
 export const USERNAME_LIMITS = { min: 3, max: 32 };
-export const PASSWORD_LIMITS = { min: 10, max: 72 };
+export const PASSWORD_LIMITS = { min: 6, max: 72 };
 const USERNAME = /^[a-z0-9]+([._-][a-z0-9]+)*$/;
 const LOGIN_EMAIL = /^(equipe|cliente)\+([a-z0-9._-]+)@digitalgalaxy\.com\.br$/;
 export const ACCOUNT_KINDS = ["equipe", "cliente"];

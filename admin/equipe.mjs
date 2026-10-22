@@ -184,7 +184,7 @@ async function askUsername() {
 }
 
 async function askNewPassword(username) {
-  console.log("  A senha não aparece enquanto você digita. Use pelo menos 10 caracteres, misturando letras, números e símbolos.");
+  console.log("  A senha não aparece enquanto você digita. Use pelo menos 6 caracteres (de preferência misturando letras, números e símbolos).");
   for (;;) {
     const password = await ask("Senha nova: ", { hidden: true });
     const problem = passwordProblem(password, username);
