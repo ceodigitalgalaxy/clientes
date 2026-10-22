@@ -11,6 +11,12 @@ import { loginEmail, usernameFromEmail, accountKind } from "../../site/js/domain
 import { weekDays, weekLabel, addDays } from "../../site/js/lib/dates.js";
 import { createAuth } from "../../site/js/lib/auth.js";
 import { createTeamAdmin } from "../equipe.mjs";
+import { readFileSync } from "node:fs";
+import { createMemoryStore } from "./memory-store.mjs";
+import { createFakeSupabase } from "./fake-supabase.mjs";
+import { createHandler, keysFromEnv } from "../../supabase/functions/acesso-cliente/handler.js";
+import { generatePassword } from "../../site/admin/js/views/access.js";
+import { passwordProblem } from "../../site/js/domain/accounts.js";
 
 let checks = 0;
 const ok = (label, fn) => { fn(); checks += 1; };
@@ -171,6 +177,102 @@ ok("recursos que ainda não existem no banco ficam desligados", () => assert.dee
   await assert.rejects(team.setPassword("padaria", "Outra#Senha-88"), (e) => /equipe e um de cliente/.test(e.message));
   await team.setPassword("padaria", "Outra#Senha-88", "cliente");
   ok("troca a senha da conta certa quando o nome se repete", () => assert.equal(teamCalls.at(-1).key, "PUT /auth/v1/admin/users/user-1"));
+}
+
+/* ---------- Função acesso-cliente (código real sobre o Supabase de teste) ---------- */
+{
+  ok("cópia das regras de conta na função é idêntica à do site", () => {
+    assert.equal(readFileSync(new URL("../../supabase/functions/acesso-cliente/accounts.js", import.meta.url), "utf8"), readFileSync(new URL("../../site/js/domain/accounts.js", import.meta.url), "utf8"));
+  });
+  ok("chaves lidas do ambiente da função (novas e legadas)", () => {
+    const env = { SUPABASE_URL: "u", SUPABASE_SECRET_KEYS: '{"default":"sb_secret_x"}', SUPABASE_PUBLISHABLE_KEYS: '{"default":"sb_publishable_y"}' };
+    assert.deepEqual(keysFromEnv((k) => env[k]), { url: "u", secret: "sb_secret_x", publishable: "sb_publishable_y" });
+    const legacy = { SUPABASE_URL: "u", SUPABASE_SERVICE_ROLE_KEY: "eyJs", SUPABASE_ANON_KEY: "eyJa" };
+    assert.deepEqual(keysFromEnv((k) => legacy[k]), { url: "u", secret: "eyJs", publishable: "eyJa" });
+  });
+  ok("senha gerada é forte e varia", () => {
+    const a = generatePassword("loja"); const b = generatePassword("loja");
+    assert.equal(a.length, 14); assert.notEqual(a, b); assert.equal(passwordProblem(a, "loja"), null);
+  });
+
+  const KEY = "sb_publishable_TESTE";
+  const store = createMemoryStore();
+  const fake = createFakeSupabase({ store, publishableKey: KEY });
+  const loja = await store.createClient({ name: "Loja Teste", slug: "loja-teste", active: true });
+  const inativa = await store.createClient({ name: "Loja Inativa", slug: "loja-inativa", active: false });
+  fake.addUser("equipe1", "Senha-equipe-123");
+  fake.addUser("fora", "Senha-fora-12345", { member: false });
+  fake.addUser("cliente1", "Senha-cliente-123", { kind: "cliente", clientId: loja.id });
+  const URL_FN = "https://peieimwpkrattuldmjux.supabase.co/functions/v1/acesso-cliente";
+  const signIn = async (email, password) => JSON.parse((await fake.handle({ method: "POST", url: "https://peieimwpkrattuldmjux.supabase.co/auth/v1/token?grant_type=password", headers: { apikey: KEY }, body: JSON.stringify({ email, password }) })).body).access_token;
+  const team = await signIn("equipe+equipe1@digitalgalaxy.com.br", "Senha-equipe-123");
+  const outsider = await signIn("equipe+fora@digitalgalaxy.com.br", "Senha-fora-12345");
+  const customer = await signIn("cliente+cliente1@digitalgalaxy.com.br", "Senha-cliente-123");
+  const fn = async (body, { token = team, origin = "http://localhost:5612", method = "POST" } = {}) => {
+    const r = await fake.handle({ method, url: URL_FN, headers: { apikey: KEY, origin, "content-type": "application/json", ...(token ? { authorization: `Bearer ${token}` } : {}) }, body: JSON.stringify(body) });
+    return { status: r.status, body: r.body ? JSON.parse(r.body) : null, headers: r.headers };
+  };
+  const login = async (user, pass) => (await fake.handle({ method: "POST", url: "https://peieimwpkrattuldmjux.supabase.co/auth/v1/token?grant_type=password", headers: { apikey: KEY }, body: JSON.stringify({ email: `cliente+${user}@digitalgalaxy.com.br`, password: pass }) })).status;
+
+  const results = {
+    semToken: await fn({ action: "criar" }, { token: null }),
+    chaveNoLugarDoToken: await fn({ action: "criar" }, { token: "sb_publishable_TESTE" }),
+    tokenFalso: await fn({ action: "criar" }, { token: "eyJ.falso.x" }),
+    foraDaEquipe: await fn({ action: "criar", client_id: loja.id, username: "x-loja", password: "Galaxia#Roxa-77" }, { token: outsider }),
+    cliente: await fn({ action: "remover", username: "cliente1" }, { token: customer }),
+    outraOrigem: await fn({ action: "criar" }, { origin: "https://evil.example" }),
+    get: await fn({}, { method: "GET" }),
+    acaoDesconhecida: await fn({ action: "__proto__" }),
+    senhaFraca: await fn({ action: "criar", client_id: loja.id, username: "nova-loja", password: "123" }),
+    usuarioInvalido: await fn({ action: "criar", client_id: loja.id, username: "a", password: "Galaxia#Roxa-77" }),
+    clienteInativo: await fn({ action: "criar", client_id: inativa.id, username: "inativa", password: "Galaxia#Roxa-77" }),
+    usuarioRepetido: await fn({ action: "criar", client_id: loja.id, username: "cliente1", password: "Galaxia#Roxa-77" }),
+    criar: await fn({ action: "criar", client_id: loja.id, username: "Nova.Loja", password: "Galaxia#Roxa-77" })
+  };
+  ok("sem login, com chave no lugar do token ou com token falso: recusado", () => {
+    for (const k of ["semToken", "chaveNoLugarDoToken", "tokenFalso"]) assert.equal(results[k].status, 401, k);
+  });
+  ok("só a equipe usa a função (nem cliente, nem conta fora da equipe)", () => {
+    assert.equal(results.foraDaEquipe.status, 403);
+    assert.equal(results.cliente.status, 403);
+  });
+  ok("outra origem, outro método e ação desconhecida: recusados", () => {
+    assert.equal(results.outraOrigem.status, 403);
+    assert.equal(results.get.status, 405);
+    assert.equal(results.acaoDesconhecida.status, 400);
+  });
+  ok("validações: senha fraca, usuário inválido, cliente inativo, usuário repetido", () => {
+    assert.equal(results.senhaFraca.status, 422); assert.ok(results.senhaFraca.body.fields.password);
+    assert.equal(results.usuarioInvalido.status, 422); assert.ok(results.usuarioInvalido.body.fields.username);
+    assert.equal(results.clienteInativo.status, 409);
+    assert.equal(results.usuarioRepetido.status, 409); assert.ok(results.usuarioRepetido.body.fields.username);
+  });
+  ok("cria o login do cliente ligado ao cliente certo", () => {
+    assert.deepEqual(results.criar, { status: 200, body: { ok: true, username: "nova.loja", client_id: loja.id }, headers: results.criar.headers });
+    assert.equal(results.criar.headers["Access-Control-Allow-Origin"] || results.criar.headers["access-control-allow-origin"], "http://localhost:5612");
+    assert.deepEqual(store.findMembers({ username: "nova.loja" }).map((m) => m.client_id), [loja.id]);
+    assert.ok(!JSON.stringify(results.criar.body).includes("Galaxia"), "a resposta não devolve a senha");
+  });
+  assert.equal(await login("nova.loja", "Galaxia#Roxa-77"), 200);
+  const troca = await fn({ action: "senha", username: "nova.loja", password: "Outra#Senha-88" });
+  const [antiga, nova] = [await login("nova.loja", "Galaxia#Roxa-77"), await login("nova.loja", "Outra#Senha-88")];
+  ok("troca a senha: a antiga para de funcionar", () => assert.deepEqual([troca.status, antiga, nova], [200, 400, 200]));
+  const equipeComoCliente = await fn({ action: "senha", username: "equipe1", password: "Outra#Senha-88" });
+  const removerEquipe = await fn({ action: "remover", username: "equipe1" });
+  ok("nunca mexe em contas da equipe", () => {
+    assert.equal(equipeComoCliente.status, 404);
+    assert.equal(removerEquipe.status, 404);
+  });
+  assert.equal((await signIn("equipe+equipe1@digitalgalaxy.com.br", "Senha-equipe-123")) !== undefined, true, "senha da equipe intacta");
+  const remover = await fn({ action: "remover", username: "nova.loja" });
+  ok("remove o acesso: login e vínculo apagados", () => {
+    assert.equal(remover.status, 200);
+    assert.deepEqual(store.findMembers({ username: "nova.loja" }), []);
+  });
+  const depois = await login("nova.loja", "Outra#Senha-88");
+  ok("depois de removido, o login não entra mais", () => assert.equal(depois, 400));
+  const semConfig = await createHandler({ url: "", secret: "", publishable: "" })(new Request(URL_FN, { method: "POST", headers: { authorization: "Bearer x" } }));
+  ok("sem configuração a função recusa", () => assert.equal(semConfig.status, 500));
 }
 
 console.log(`portal: ${checks} verificações passaram`);

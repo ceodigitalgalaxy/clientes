@@ -80,7 +80,23 @@
 .client-card__meta { display: grid; gap: 4px; font-size: 14px; color: var(--text-muted); }
 .client-card__meta span { overflow-wrap: anywhere; }
 .client-card__foot { display: flex; align-items: center; justify-content: space-between; gap: 8px; padding-top: 16px; border-top: 1px solid var(--line); }
-.client-card__portal { display: inline-flex; align-items: center; gap: 4px; font-size: 12px; color: var(--text-muted); }
+/* Acesso do cliente ao portal (js/views/access.js) */
+.client-card__access { display: grid; justify-items: start; gap: 8px; padding: 12px 16px; border-radius: var(--radius); background: var(--surface-muted); }
+.client-card__portal { display: inline-flex; align-items: center; gap: 4px; font-size: 12px; font-weight: 600; color: var(--text-muted); }
+.portal-users { display: grid; gap: 4px; width: 100%; }
+.portal-user { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px; }
+.portal-user__name { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 13px; color: var(--brand-deep); overflow-wrap: anywhere; }
+.portal-user__actions { display: inline-flex; gap: 16px; }
+.portal-user__actions .link-btn { font-size: 12px; }
+.link-btn--danger { color: var(--ajustes-ink); }
+.password-row { display: flex; gap: 8px; }
+.password-row .field__input { flex: 1; min-width: 0; font-family: ui-monospace, SFMono-Regular, Menlo, monospace; }
+.password-row .btn { flex: none; }
+.password-row .btn .icon { width: 16px; height: 16px; }
+.access-card { display: grid; gap: 12px; margin-top: 24px; padding: 16px; border-radius: var(--radius-lg); background: var(--surface-muted); }
+.access-card dt { font-size: 12px; color: var(--text-subtle); }
+.access-card dd { margin-top: 2px; font-size: 15px; font-weight: 600; overflow-wrap: anywhere; }
+.access-card__secret { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; letter-spacing: 0.02em; }
 .client-card__portal .icon { width: 14px; height: 14px; color: var(--brand); }
 .client-card__count { font-size: 12px; color: var(--text-subtle); }
 .client-card__actions { display: flex; gap: 8px; }
@@ -148,6 +164,8 @@ select.field__input { padding-right: 40px; appearance: none; background-image: u
   .user-menu { gap: 12px; }
   .user-menu__name { max-width: 160px; }
   .login__card { padding: 32px 24px; }
+  .password-row { flex-wrap: wrap; }
+  .password-row .field__input { flex-basis: 100%; }
   .admin-nav { order: 3; width: 100%; }
   .admin-nav__link { flex: 1; justify-content: center; }
   .view__head { flex-direction: column; align-items: stretch; }

@@ -20,6 +20,7 @@ import { validateContentFilters } from "./domain/rules.js";
 import { createConfirm, showFieldErrors, setBusy } from "./ui/dialogs.js";
 import { setupClients } from "./views/clients.js";
 import { setupContents } from "./views/contents.js";
+import { setupAccess } from "./views/access.js";
 
 /* O painel não abre dentro de outro site (proteção contra clique disfarçado).
    A página fica invisível até esta checagem (veja .admin em admin.css). */
@@ -35,7 +36,12 @@ const store = createSupabaseStore({
   getToken: () => auth.accessToken(),
   onUnauthorized: () => auth.refresh()
 });
-const api = createApi({ store, onSessionLost: (message) => showLogin(message) });
+const api = createApi({
+  store,
+  onSessionLost: (message) => showLogin(message),
+  // Logins de cliente: função no Supabase que guarda a chave secreta (supabase/functions/acesso-cliente)
+  access: { url: `${SUPABASE_URL}/functions/v1/acesso-cliente`, apiKey: SUPABASE_PUBLISHABLE_KEY, getToken: () => auth.accessToken(), refresh: () => auth.refresh() }
+});
 
 const state = {
   route: "conteudos",
@@ -70,6 +76,7 @@ async function loadClients() {
 
 const clients = setupClients({ api, state, toast, confirm, navigate, onClientsChanged: async () => { await loadClients(); if (state.route === "conteudos") await contents.load(); } });
 const contents = setupContents({ api, state, toast, confirm, navigate });
+setupAccess({ api, state, toast, confirm, onChanged: () => loadClients() });
 
 /** Mostra a seção do endereço atual */
 async function showRoute() {

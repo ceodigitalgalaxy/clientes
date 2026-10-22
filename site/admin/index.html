@@ -14,8 +14,8 @@
   <link rel="preload" href="../fonts/sora-latin-600-normal.woff2" as="font" type="font/woff2" crossorigin>
   <!-- Mesmos tokens e componentes do portal do cliente -->
   <link rel="stylesheet" href="../css/style.css?v=6">
-  <link rel="stylesheet" href="css/admin.css?v=3">
-  <script type="module" src="js/main.js?v=3"></script>
+  <link rel="stylesheet" href="css/admin.css?v=4">
+  <script type="module" src="js/main.js?v=4"></script>
 </head>
 <body class="admin">
   <!-- Tela de entrada: aparece enquanto ninguém estiver logado -->
@@ -164,6 +164,57 @@
         <button class="btn btn--primary" type="submit"><span>Salvar cliente</span></button>
       </div>
     </form>
+  </dialog>
+
+  <!-- Acesso do cliente ao portal (js/views/access.js) -->
+  <dialog class="modal" id="access-modal" aria-labelledby="access-modal-title">
+    <form class="modal__form" method="dialog" novalidate>
+      <div class="modal__head">
+        <span class="modal__icon modal__icon--brand" data-icon="lock"></span>
+        <div>
+          <h2 class="modal__title" id="access-modal-title">Criar acesso ao portal</h2>
+          <p class="modal__text" id="access-modal-text"></p>
+        </div>
+        <button class="icon-btn modal__close" type="button" data-action="close-modal" aria-label="Fechar" data-icon="close"></button>
+      </div>
+      <label class="field">
+        <span class="field__label">Usuário</span>
+        <input class="field__input" name="username" maxlength="32" autocomplete="off" autocapitalize="none" spellcheck="false" aria-describedby="access-user-hint">
+        <span class="field__hint" id="access-user-hint">O cliente usa este nome para entrar. Letras minúsculas, números, ponto ou hífen.</span>
+      </label>
+      <div class="field">
+        <label class="field__label" for="access-password">Senha</label>
+        <div class="password-row">
+          <input class="field__input" id="access-password" name="password" type="password" maxlength="72" autocomplete="new-password" spellcheck="false" aria-describedby="access-pass-hint">
+          <button class="btn btn--ghost btn--sm" type="button" data-access="toggle" aria-pressed="false" data-icon="lock">Mostrar</button>
+          <button class="btn btn--ghost btn--sm" type="button" data-access="generate" data-icon="sparkle">Gerar senha</button>
+        </div>
+        <span class="field__hint" id="access-pass-hint">Pelo menos 10 caracteres, sem conter o usuário. Ela aparece uma vez para você enviar ao cliente e não fica salva no painel.</span>
+      </div>
+      <p class="form-error" role="alert" hidden></p>
+      <div class="modal__actions">
+        <button class="btn btn--ghost" type="button" data-action="close-modal">Cancelar</button>
+        <button class="btn btn--primary" type="submit"><span>Criar acesso</span></button>
+      </div>
+    </form>
+    <div class="modal__form access-done" hidden>
+      <div class="modal__head">
+        <span class="modal__icon modal__icon--brand" data-icon="check"></span>
+        <div>
+          <h2 class="modal__title" data-done-title>Acesso criado</h2>
+          <p class="modal__text">Envie estes dados ao cliente por um canal seguro. A senha não aparece de novo.</p>
+        </div>
+      </div>
+      <dl class="access-card">
+        <div><dt>Endereço</dt><dd>https://clientes.digitalgalaxy.com.br</dd></div>
+        <div><dt>Usuário</dt><dd data-done-user></dd></div>
+        <div><dt>Senha</dt><dd class="access-card__secret" data-done-password></dd></div>
+      </dl>
+      <div class="modal__actions">
+        <button class="btn btn--ghost" type="button" data-access="copy" data-icon="copy">Copiar dados de acesso</button>
+        <button class="btn btn--primary" type="button" data-access="finish">Concluir</button>
+      </div>
+    </div>
   </dialog>
 
   <!-- Cadastro e edição de conteúdo -->

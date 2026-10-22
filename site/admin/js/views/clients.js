@@ -5,6 +5,7 @@ import { icon } from "../../../js/lib/icons.js";
 import { validateClient, slugify } from "../domain/rules.js";
 import { closeDialog, wireDialog, showFieldErrors, setBusy } from "../ui/dialogs.js";
 import { stateBlock, loadingCards, button } from "../ui/states.js";
+import { portalBlock } from "./access.js";
 
 const initials = (name) => name.split(/\s+/).filter((w) => /^[\p{L}\p{N}]/u.test(w)).slice(0, 2).map((w) => w[0].toUpperCase()).join("") || "?";
 
@@ -46,10 +47,8 @@ export function setupClients({ api, state, toast, confirm, onClientsChanged, nav
           ${client.segment ? `<span>${esc(client.segment)}</span>` : ""}
           ${client.contact_name || client.contact_email ? `<span>${esc([client.contact_name, client.contact_email].filter(Boolean).join(" · "))}</span>` : '<span class="field__optional">Sem contato cadastrado</span>'}
           ${client.active ? "" : '<span><span class="pill-off">Inativo</span></span>'}
-          <span class="client-card__portal" title="Acesso do cliente ao portal">${icon("lock")}${(client.portal_users || []).length
-            ? `Portal: ${esc(client.portal_users.join(", "))}`
-            : "Sem acesso ao portal"}</span>
         </div>
+        ${portalBlock(client)}
         <div class="client-card__foot">
           <span class="client-card__count">${client.contents_count} ${client.contents_count === 1 ? "conteúdo" : "conteúdos"}</span>
           <div class="client-card__actions">

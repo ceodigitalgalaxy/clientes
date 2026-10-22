@@ -151,7 +151,7 @@ await step("Equipe entra no painel da agência", async () => {
   await admin.waitForSelector("#app:not([hidden])");
   await admin.click('[data-route="clientes"]');
   await admin.waitForSelector('.client-card:has-text("Padaria Central")');
-  assert.match(await admin.textContent('.client-card:has-text("Padaria Central") .client-card__portal'), /Portal: padaria/);
+  assert.equal(await admin.textContent('.client-card:has-text("Padaria Central") .portal-user__name'), "padaria");
   await admin.click('[data-route="conteudos"]');
 });
 
@@ -433,6 +433,86 @@ await step("Celular: agenda do dia e detalhes em folha, sem rolagem lateral", as
   await page.waitForSelector(".cal--week");
   assert.ok(await overflow() <= 0, "semana cabe na tela");
   await context.close();
+});
+
+const portalLogin = async (username, password) => {
+  const context = await newContext();
+  const page = await context.newPage();
+  watch(page, `portal-${username}`);
+  await page.goto(`${ORIGIN}/`);
+  await signIn(page, username, password);
+  await page.waitForFunction(() => !document.querySelector("#app").hidden || !document.querySelector("#login .form-error").hidden);
+  const hello = await page.isVisible("#app") ? await page.textContent("#welcome-hello") : null;
+  await context.close();
+  return hello;
+};
+
+let auroraPassword = "";
+await step("Equipe cria o acesso do cliente pelo painel e o cliente entra", async () => {
+  await store.createClient({ name: "Café Aurora", slug: "cafe-aurora", segment: "Cafeteria", active: true });
+  await admin.reload();
+  await admin.waitForSelector("#app:not([hidden])");
+  await admin.click('[data-route="clientes"]');
+  await admin.waitForSelector('.client-card:has-text("Café Aurora") [data-portal-create]');
+  assert.match(await admin.textContent('.client-card:has-text("Café Aurora") .client-card__portal'), /Sem acesso ao portal/);
+  await admin.click('.client-card:has-text("Café Aurora") [data-portal-create]');
+  await admin.waitForSelector("#access-modal[open]");
+  assert.equal(await admin.inputValue('#access-modal [name="username"]'), "cafe-aurora", "usuário sugerido pelo identificador");
+  await admin.fill('#access-modal [name="password"]', "123");
+  await admin.click("#access-modal [type=submit]");
+  await admin.waitForSelector("#access-modal .field__error");
+  assert.match(await admin.textContent("#access-modal .field__error"), /pelo menos 10/);
+  await admin.click('#access-modal [data-access="generate"]');
+  auroraPassword = await admin.inputValue('#access-modal [name="password"]');
+  assert.equal(auroraPassword.length, 14);
+  assert.equal(await admin.getAttribute('#access-modal [name="password"]', "type"), "text", "senha gerada fica visível para copiar");
+  await shot(admin, "a01-criar-acesso");
+  await admin.click("#access-modal [type=submit]");
+  await admin.waitForSelector("#access-modal .access-done:not([hidden])");
+  assert.equal(await admin.textContent("[data-done-user]"), "cafe-aurora");
+  assert.equal(await admin.textContent("[data-done-password]"), auroraPassword);
+  await shot(admin, "a02-acesso-criado");
+  await admin.click('[data-access="finish"]');
+  await admin.waitForSelector("#access-modal:not([open])", { state: "attached" });
+  assert.equal(await admin.textContent("[data-done-password]"), "", "a senha some da página ao fechar");
+  await admin.waitForSelector('.client-card:has-text("Café Aurora") .portal-user__name');
+  assert.equal(await admin.textContent('.client-card:has-text("Café Aurora") .portal-user__name'), "cafe-aurora");
+  assert.equal(await portalLogin("cafe-aurora", auroraPassword), "Olá, Café Aurora!");
+});
+
+await step("Usuário repetido é recusado com aviso no campo", async () => {
+  await admin.click('.client-card:has-text("Café Aurora") [data-portal-create]');
+  await admin.waitForSelector("#access-modal[open]");
+  await admin.fill('#access-modal [name="username"]', "padaria");
+  await admin.click('#access-modal [data-access="generate"]');
+  await admin.click("#access-modal [type=submit]");
+  await admin.waitForSelector("#access-modal .field__error");
+  assert.match(await admin.textContent("#access-modal .field__error"), /já existe/);
+  await admin.click('#access-modal form [data-action="close-modal"]');
+  await admin.waitForSelector("#access-modal:not([open])", { state: "attached" });
+});
+
+await step("Trocar a senha pelo painel: a antiga para de funcionar", async () => {
+  await admin.click('.client-card:has-text("Café Aurora") [data-portal-password="cafe-aurora"]');
+  await admin.waitForSelector("#access-modal[open]");
+  assert.equal(await admin.getAttribute('#access-modal [name="username"]', "readonly"), "", "usuário não muda ao trocar a senha");
+  await admin.fill('#access-modal [name="password"]', "Nova#Senha-Aurora-9");
+  await admin.click("#access-modal [type=submit]");
+  await admin.waitForSelector("#access-modal .access-done:not([hidden])");
+  await admin.click('[data-access="finish"]');
+  await admin.waitForSelector("#access-modal:not([open])", { state: "attached" });
+  assert.equal(await portalLogin("cafe-aurora", auroraPassword), null, "senha antiga recusada");
+  assert.equal(await portalLogin("cafe-aurora", "Nova#Senha-Aurora-9"), "Olá, Café Aurora!");
+});
+
+await step("Remover o acesso pelo painel pede confirmação e bloqueia o login", async () => {
+  await admin.click('.client-card:has-text("Café Aurora") [data-portal-remove="cafe-aurora"]');
+  await admin.waitForSelector("#confirm-modal[open]");
+  assert.match(await admin.textContent("#confirm-modal"), /Remover o acesso "cafe-aurora"/);
+  await admin.click('#confirm-modal [data-confirm="ok"]');
+  await admin.waitForFunction(() => /Sem acesso ao portal/.test([...document.querySelectorAll(".client-card")].find((c) => c.textContent.includes("Café Aurora"))?.querySelector(".client-card__portal")?.textContent || ""));
+  assert.equal(await portalLogin("cafe-aurora", "Nova#Senha-Aurora-9"), null);
+  await shot(admin, "a03-clientes");
 });
 
 await step("Sair do portal volta para a entrada", async () => {

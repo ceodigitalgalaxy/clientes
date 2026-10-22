@@ -5,10 +5,16 @@
    Imita as regras que importam para a tela: sem login → recusa; quem não é da
    equipe → não vê nada; token vencido → 401; token de renovação gira a cada uso.
    Portal do cliente: rpc/portal_profile e rpc/portal_contents só devolvem o
-   cliente ligado ao login e não aceitam outros parâmetros (como o PostgREST). */
+   cliente ligado ao login e não aceitam outros parâmetros (como o PostgREST).
+   Função acesso-cliente: roda o código REAL (supabase/functions/acesso-cliente)
+   com a chave secreta de mentira, sobre a API de administração de logins daqui. */
 
 import { randomUUID, randomBytes } from "node:crypto";
 import { loginEmail } from "../../site/admin/js/domain/rules.js";
+import { createHandler } from "../../supabase/functions/acesso-cliente/handler.js";
+
+/** Chave secreta de mentira: só o "servidor" (a função) conhece */
+export const FAKE_SECRET = "sb_secret_FAKE_SERVIDOR";
 
 const CORS = {
   "access-control-allow-origin": "*",
@@ -86,7 +92,26 @@ export function createFakeSupabase({ store, publishableKey }) {
     return { error: json(404, { code: "PGRST205", message: "not found" }) };
   }
 
-  return {
+  /** Pedidos feitos com a chave secreta (só a função): sem RLS */
+  async function serviceRest(method, table, params, body) {
+    if (table === "agency_members") {
+      const id = eq(params, "user_id");
+      const user = userById(id);
+      return user && user.member ? [{ user_id: id }] : [];
+    }
+    if (table === "clients" && method === "GET") {
+      const id = eq(params, "id");
+      try { const c = await store.getClient(id); return [{ id: c.id, name: c.name, active: c.active }]; } catch { return []; }
+    }
+    if (table === "client_members" && method === "GET") return store.findMembers({ username: eq(params, "username"), userId: eq(params, "user_id") });
+    if (table === "client_members" && method === "POST") {
+      try { store.addMember(body.user_id, body.client_id, body.username); return []; }
+      catch { return { error: json(409, { code: "23505", message: "duplicate key" }) }; }
+    }
+    return { error: json(404, { code: "PGRST205", message: "not found" }) };
+  }
+
+  const fake = {
     log,
     failAuthNext: 0,   // pedidos de login que devem dar "muitas tentativas"
     offline: false,    // simula internet caída (todo pedido falha)
@@ -109,8 +134,46 @@ export function createFakeSupabase({ store, publishableKey }) {
       if (this.offline) return "abort";
       const authorization = headers.authorization || "";
       log.push({ method, path: pathname, query: searchParams.toString(), hasToken: authorization.startsWith("Bearer ") });
-      if (headers.apikey !== publishableKey) return json(401, { message: "Invalid API key" });
+      // Funções do Supabase: não exigem apikey (a função confere quem chama)
+      if (pathname === "/functions/v1/acesso-cliente") return this.callFunction({ method, url, headers, body });
+      const secret = headers.apikey === FAKE_SECRET;
+      if (!secret && headers.apikey !== publishableKey) return json(401, { message: "Invalid API key" });
       const data = body ? JSON.parse(body) : undefined;
+
+      /* ---- Administração de logins (só com a chave secreta) ---- */
+      if (pathname === "/auth/v1/user" && method === "GET") {
+        const userId = accessTokens.get(authorization.slice(7));
+        const user = userId && userById(userId);
+        return user ? json(200, { id: user.id, email: user.email }) : json(401, { msg: "invalid JWT" });
+      }
+      if (pathname.startsWith("/auth/v1/admin/")) {
+        if (!secret) return json(401, { msg: "This endpoint requires a valid service role key" });
+        const id = pathname.split("/")[5];
+        if (method === "POST" && !id) {
+          if (users.has(data.email)) return json(422, { error_code: "email_exists", msg: "already registered" });
+          const user = { id: randomUUID(), email: data.email, password: data.password, name: data.user_metadata?.name || "", member: false };
+          users.set(user.email, user);
+          return json(200, { id: user.id, email: user.email });
+        }
+        const user = userById(id);
+        if (!user) return json(404, { error_code: "user_not_found" });
+        if (method === "PUT") {
+          user.password = data.password;
+          for (const [t, uid] of refreshTokens) if (uid === id) refreshTokens.delete(t);
+          return json(200, { id });
+        }
+        if (method === "DELETE") {
+          users.delete(user.email);
+          store.removeMember(id);
+          for (const map of [accessTokens, refreshTokens]) for (const [t, uid] of map) if (uid === id) map.delete(t);
+          return json(200, {});
+        }
+      }
+      if (secret && pathname.startsWith("/rest/v1/")) {
+        const result = await serviceRest(method, pathname.slice("/rest/v1/".length), searchParams, data);
+        if (result?.error) return result.error;
+        return json(method === "POST" ? 201 : 200, result);
+      }
 
       /* ---- Login ---- */
       if (pathname === "/auth/v1/token" && method === "POST") {
@@ -156,4 +219,21 @@ export function createFakeSupabase({ store, publishableKey }) {
       return json(404, { message: "not found" });
     }
   };
+
+  // A função de verdade, com a chave secreta de mentira, falando com este Supabase
+  const functionHandler = createHandler(
+    { url: "https://peieimwpkrattuldmjux.supabase.co", secret: FAKE_SECRET, publishable: publishableKey },
+    async (url, init = {}) => {
+      const headers = Object.fromEntries(Object.entries(init.headers || {}).map(([k, v]) => [k.toLowerCase(), v]));
+      const answer = await fake.handle({ method: init.method || "GET", url, headers, body: init.body });
+      if (answer === "abort") throw new TypeError("rede");
+      return new Response(answer.status === 204 ? null : answer.body, { status: answer.status, headers: answer.headers });
+    },
+    { allowedOrigins: ["http://localhost:5611", "http://localhost:5612", "http://localhost:5600"] }
+  );
+  fake.callFunction = async ({ method, url, headers, body }) => {
+    const response = await functionHandler(new Request(url, { method, headers, body: method === "GET" || method === "HEAD" ? undefined : body }));
+    return { status: response.status, headers: Object.fromEntries(response.headers), body: response.status === 204 ? "" : await response.text() };
+  };
+  return fake;
 }

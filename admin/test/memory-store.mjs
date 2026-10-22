@@ -77,7 +77,16 @@ export function createMemoryStore() {
     },
     async deleteContent(id) { await this.tick(); if (!contents.delete(id)) throw new StoreError(404, "Registro não encontrado.", "PGRST116"); },
     /* Portal do cliente: o mesmo que as funções portal_profile() e portal_contents() */
-    addMember(userId, clientId, username) { members.set(userId, { clientId, username }); },
+    addMember(userId, clientId, username) {
+      if ([...members.values()].some((m) => m.username === username)) throw new StoreError(409, "duplicado", "23505");
+      members.set(userId, { clientId, username });
+    },
+    removeMember(userId) { members.delete(userId); },
+    findMembers({ username, userId } = {}) {
+      return [...members.entries()]
+        .filter(([id, m]) => (!username || m.username === username) && (!userId || id === userId))
+        .map(([id, m]) => ({ user_id: id, client_id: m.clientId, username: m.username }));
+    },
     async portalProfile(userId) {
       await this.tick();
       const m = members.get(userId);

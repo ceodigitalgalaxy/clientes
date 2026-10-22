@@ -5,8 +5,10 @@
    nome de usuário, cada usuário vira um endereço interno fixo:
      equipe da agência → equipe+<usuario>@digitalgalaxy.com.br
      cliente           → cliente+<usuario>@digitalgalaxy.com.br
-   Nenhum e-mail é enviado para eles: as contas são criadas pelo comando
-   admin/equipe.mjs, já confirmadas. Sem dependências (navegador e Node).
+   Nenhum e-mail é enviado para eles: as contas são criadas já confirmadas,
+   pelo comando admin/equipe.mjs ou (logins de cliente) pelo painel, via a
+   função supabase/functions/acesso-cliente, que usa uma cópia deste arquivo.
+   Sem dependências (navegador, Node e Deno).
    ========================================================================== */
 
 export const USERNAME_LIMITS = { min: 3, max: 32 };

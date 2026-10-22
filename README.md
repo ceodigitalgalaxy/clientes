@@ -17,7 +17,16 @@ A pasta `admin/` tem as ferramentas que rodam **só no computador da agência** 
 
 Abra `https://clientes.digitalgalaxy.com.br/admin/` e entre com o usuário e a senha. O usuário é um nome (ex.: `admdg`), sem e-mail. "Sair", no topo, encerra a sessão. A sessão dura enquanto for usada; se a senha for trocada ou o usuário removido, ela acaba na próxima renovação (até 1 hora).
 
-### Criar usuários (equipe e clientes) e trocar senhas
+### Acesso dos clientes ao portal (pelo painel)
+
+Na seção **Clientes**, cada cartão tem o bloco **Acesso ao portal**:
+
+- **Criar acesso ao portal:** usuário (sugerido pelo identificador do cliente) e senha (digite ou use **Gerar senha**). Ao salvar, o painel mostra endereço, usuário e senha uma única vez, com o botão **Copiar dados de acesso** para enviar ao cliente. A senha não fica guardada no painel.
+- **Trocar senha** e **Remover** (com confirmação) para cada login do cliente.
+
+Isso passa pela função `supabase/functions/acesso-cliente` (Supabase Edge Function). Ela guarda a chave secreta no servidor, confere a cada pedido que quem chama é da equipe (`agency_members`) e só mexe em logins de **cliente**: nunca cria, altera ou remove usuários da equipe. Aceita pedidos só do site (`clientes.digitalgalaxy.com.br`) e da prévia local.
+
+### Criar usuários da equipe (e, se preferir, de clientes) pelo computador
 
 Só pelo computador da agência, com a chave secreta em `admin/.env`. Requer Node 22.12 ou mais novo, sem dependências para instalar.
 
@@ -31,7 +40,7 @@ node admin/equipe.mjs remover         # apaga o usuário (perde o acesso)
 node admin/equipe.mjs verificar       # confere se o cadastro aberto está desligado
 ```
 
-A senha é digitada sem aparecer. O cartão de cada cliente no painel mostra se ele já tem login no portal.
+A senha é digitada sem aparecer. Usuários da equipe só são criados por aqui.
 
 Senhas: pelo menos 10 caracteres, sem conter o nome do usuário. Ficam guardadas só no Supabase, criptografadas. **Nunca** envie o `admin/.env` para o GitHub nem cole a chave secreta ou senhas em chats ou páginas.
 
@@ -82,16 +91,20 @@ site/admin/                    ← publicado em /admin/
     ├── api.js                 Valida e chama o banco com a sessão
     ├── data/store.js          Leitura e escrita no Supabase (navegador e comandos locais)
     ├── domain/rules.js        Validações, regras de usuário e senha
-    ├── views/                 clients.js e contents.js
+    ├── views/                 clients.js, contents.js e access.js (acesso do cliente ao portal)
     └── ui/                    dialogs.js e states.js
 admin/                         ← só no computador da agência (não publicado)
 ├── equipe.mjs                 Criar usuários, trocar senha, listar, remover
 ├── verify.mjs                 Verificação no banco real
 ├── server.mjs                 Prévia local de site/
+├── test/fixtures/             Imagem e vídeo usados só nos testes
 ├── .env.example               Modelo de configuração (o .env de verdade fica fora do git)
 └── test/                      Testes automáticos (memory-store e fake-supabase são só para testes)
 supabase/migrations/           Estrutura do banco (tabelas, regras, segurança)
+supabase/functions/acesso-cliente/  Função que cria, troca a senha e remove logins de cliente (painel)
 ```
+
+Para publicar uma mudança na função: `supabase functions deploy acesso-cliente --no-verify-jwt` (ou pelo painel do Supabase). O arquivo `accounts.js` da função é cópia de `site/js/domain/accounts.js`; o teste `portal.test.mjs` avisa se os dois ficarem diferentes.
 
 ### Banco de dados (Supabase, projeto `digitalgalaxy-portal`, São Paulo)
 
@@ -111,16 +124,16 @@ Em cada conteúdo, **Observação para o cliente** (`client_notes`) aparece no p
 ```bash
 P=$(npm root -g)/playwright/index.mjs
 node admin/test/store.test.mjs                    # banco, login e equipe (sem rede)
-node admin/test/portal.test.mjs                   # links de mídia, repositório do portal, contas de cliente
+node admin/test/portal.test.mjs                   # links de mídia, repositório do portal, contas de cliente, função acesso-cliente
 PLAYWRIGHT=$P node admin/test/e2e.mjs             # painel da agência, ponta a ponta
 PLAYWRIGHT=$P node admin/test/portal-e2e.mjs      # painel → calendário do cliente, ponta a ponta
 ```
 
-Os testes de ponta a ponta usam um Supabase de mentira em memória (**só para teste**). O do portal abre o painel e o portal lado a lado e confere: imagem cadastrada na data certa e proporcional, vídeo do YouTube no player oficial, arquivo de vídeo, link do Instagram e imagem quebrada com aviso, mudança de data (inclusive para outro mês), edição e exclusão refletidas, atualização automática, outro cliente sem acesso, tentativas de trocar parâmetros, semana, carregando, erro, celular e a demonstração. O `admin/verify.mjs` repete o essencial no banco real.
+Os testes de ponta a ponta usam um Supabase de mentira em memória (**só para teste**). O do portal abre o painel e o portal lado a lado e confere: imagem cadastrada na data certa e proporcional, vídeo do YouTube no player oficial, arquivo de vídeo, link do Instagram e imagem quebrada com aviso, mudança de data (inclusive para outro mês), edição e exclusão refletidas, atualização automática, outro cliente sem acesso, tentativas de trocar parâmetros, semana, carregando, erro, celular, a demonstração e o acesso do cliente criado, trocado e removido pelo painel (rodando o código real da função). O `admin/verify.mjs` repete o essencial no banco real.
 
 ## Portal do cliente (`site/`)
 
-O cliente entra em `https://clientes.digitalgalaxy.com.br` com o usuário e a senha criados pelo `equipe.mjs criar-cliente` e vê o calendário com os conteúdos do cliente dele que estão **Aguardando aprovação**, **Aprovados** ou **Publicados**. Sem login, nenhum dado é pedido ao banco.
+O cliente entra em `https://clientes.digitalgalaxy.com.br` com o usuário e a senha criados no painel (Clientes → Acesso ao portal) ou pelo `equipe.mjs criar-cliente` e vê o calendário com os conteúdos do cliente dele que estão **Aguardando aprovação**, **Aprovados** ou **Publicados**. Sem login, nenhum dado é pedido ao banco.
 
 - **Calendário:** mês ou semana, com navegação; no celular, pontinhos no dia e agenda abaixo.
 - **Detalhes** (clique no conteúdo ou na data): título, prévia da mídia, legenda, rede social, data, status e a observação para o cliente. Data com vários conteúdos mostra a lista; data livre mostra "Nada programado para este dia".
