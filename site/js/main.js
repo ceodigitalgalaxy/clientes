@@ -11,11 +11,11 @@
 import { createSupabaseRepository } from "./data/supabase-repository.js";
 import { createAuth } from "./lib/auth.js";
 import { SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY } from "./config.js";
-import { $, esc, on, canHover, reduceMotion } from "./lib/dom.js";
+import { $, esc, on, reduceMotion } from "./lib/dom.js";
 import { icon, brandMark } from "./lib/icons.js";
 import { monthKey, addMonths, addDays, monthLabel, weekLabel, weekDays, todayISO, fromISO, daysInMonth } from "./lib/dates.js";
 import { summarize } from "./domain/status.js";
-import { renderSummary } from "./ui/summary.js";
+import { createHighlights, pickHighlights } from "./ui/highlights.js";
 import { renderCalendar, renderAgenda, renderLegend, setupDayPopover } from "./ui/calendar.js";
 import { createDrawer } from "./ui/drawer.js";
 import { renderIdeas, setupIdeaModal } from "./ui/ideas.js";
@@ -41,6 +41,7 @@ const state = {
   activities: [],
   approvals: [],
   ideas: [],
+  pool: [],               // conteúdos de 31 dias antes até 31 dias depois de hoje (destaques)
   selected: todayISO(),
   loaded: false
 };
@@ -97,12 +98,17 @@ async function loadData() {
   const seq = ++loadSeq;
   const [from, to] = viewRange();
   const months = [...new Set([from.slice(0, 7), to.slice(0, 7), state.month])];
-  const [plans, activities] = await Promise.all([Promise.all(months.map((m) => repo.getPlan(m))), fetchActivities(from, to)]);
+  const today = todayISO();
+  const [plans, activities, pool] = await Promise.all([
+    Promise.all(months.map((m) => repo.getPlan(m))),
+    fetchActivities(from, to),
+    fetchActivities(addDays(today, -31), addDays(today, 31))
+  ]);
   const planOf = Object.fromEntries(months.map((m, i) => [m, plans[i]]));
   // Quem decide o que aparece é o status definido pela agência (e, quando existir, o planejamento compartilhado)
   const visible = features.plans ? activities.filter((a) => planOf[a.date.slice(0, 7)]) : activities;
   const approvals = await repo.listApprovals(visible.map((a) => a.id));
-  return { seq, plan: planOf[state.month] || null, activities: visible, approvals };
+  return { seq, plan: planOf[state.month] || null, activities: visible, approvals, pool };
 }
 
 async function refreshApprovals() {
@@ -119,12 +125,12 @@ function renderView() {
   const weekIsos = week ? new Set(weekDays(state.selected).map((d) => d.iso)) : null;
   const viewItems = week ? state.activities.filter((a) => weekIsos.has(a.date)) : monthItems;
   el.title.textContent = week ? weekLabel(state.selected) : monthLabel(state.month);
-  renderSummary(el.overview, { plan: state.plan, counts: summarize(monthItems, state.approvals), month: state.month, live: true, hasActivities: monthItems.length > 0 });
+  const today = todayISO();
+  highlights.render({ highlights: pickHighlights(state.pool, today), counts: summarize(monthItems, state.approvals), month: state.month, today });
   renderLegend(el.legend, viewItems, ["aguardando", "ajustes", "aprovado", "publicado"]);
   renderCalendar(el.calendar, { ...state, activities: viewItems, hasPlan: Boolean(state.plan), live: true, canSuggest: features.ideas });
   el.calendar.removeAttribute("aria-busy");
   renderAgenda(el.agenda, state);
-  const today = todayISO();
   const showingToday = week ? weekIsos.has(today) : state.month === monthKey(new Date());
   document.querySelector('[data-nav="today"]').disabled = showingToday && state.selected === today;
   document.querySelectorAll("[data-view-mode]").forEach((button) => button.setAttribute("aria-pressed", String(button.dataset.viewMode === state.view)));
@@ -170,6 +176,11 @@ function hydrateIcons(root = document) {
 }
 
 /* ---------- Interações ---------- */
+/** Layout de celular (agenda abaixo do calendário) */
+const agendaVisible = () => getComputedStyle(el.agenda).display !== "none";
+
+const highlights = createHighlights({ container: el.overview });
+
 const drawer = createDrawer({
   dialog: $("#drawer"),
   repo,
@@ -199,7 +210,7 @@ async function navigate(changes = {}, dir = 0) {
   const token = ++navToken;
   Object.assign(state, changes);
   if (state.view === "week") state.month = monthKey(fromISO(state.selected));
-  const targets = [el.calendar, el.title, el.overview, el.legend];
+  const targets = [el.calendar, el.title, el.legend];
   let done = false;
   const loading = loadData().finally(() => { done = true; });
   loading.catch(() => {});   // o erro é tratado abaixo
@@ -271,7 +282,7 @@ async function refreshQuietly({ announce = false } = {}) {
   try {
     const data = await loadData();
     if (token !== navToken || !state.loaded) return;
-    const changed = signature(data.activities) !== signature(state.activities);
+    const changed = signature(data.activities) !== signature(state.activities) || signature(data.pool) !== signature(state.pool);
     if (!applyData(data)) return;
     if (changed) {
       popover.hide();
@@ -309,6 +320,20 @@ function setupEvents() {
     popover.hide();
     drawer.open(button.dataset.activity);
   });
+  // Destaque: leva o calendário até o dia do conteúdo e abre os detalhes
+  on(el.overview, "click", "[data-highlight]", async (event, button) => {
+    const id = button.dataset.highlight;
+    const item = state.pool.find((a) => a.id === id);
+    if (!item) return;
+    if (!state.activities.some((a) => a.id === id)) {
+      const month = item.date.slice(0, 7);
+      await navigate({ month, selected: item.date }, month > state.month ? 1 : -1);
+    } else if (state.selected !== item.date) {
+      state.selected = item.date;
+      renderView();
+    }
+    drawer.open(id);
+  });
   on(el.calendar, "click", "[data-select]", (event, button) => {
     const iso = button.dataset.select;
     // Dia de outro mês (cinza): vai para aquele mês
@@ -318,7 +343,7 @@ function setupEvents() {
     }
     state.selected = iso;
     renderView();
-    if (canHover()) {
+    if (!agendaVisible()) {
       // Computador: abre os detalhes do dia (ou o aviso de dia livre)
       popover.hide();
       drawer.openDay(iso);
@@ -329,6 +354,12 @@ function setupEvents() {
     }
   });
   on(el.calendar, "click", '[data-action="retry-load"]', () => navigate({}));
+  // Agenda (celular): "Próximo: dia X" seleciona aquele dia
+  on(el.agenda, "click", "[data-agenda-go]", (event, button) => {
+    state.selected = button.dataset.agendaGo;
+    renderView();
+    el.calendar.querySelector(`[data-select="${state.selected}"].cal__date`)?.scrollIntoView({ block: "center", behavior: reduceMotion() ? "auto" : "smooth" });
+  });
   on(document, "click", '[data-action="refresh"]', () => refreshQuietly({ announce: true }));
   on(document, "click", '[data-action="new-idea"]', () => ideaModal.open());
   on(el.ideasList, "click", "[data-edit-idea]", (event, button) => {
@@ -380,6 +411,8 @@ function showLogin(message = "", { info = false } = {}) {
   state.client = null;
   state.activities = [];
   state.approvals = [];
+  state.pool = [];
+  highlights.reset();
   popover.hide();
   document.querySelectorAll("dialog[open]").forEach((dialog) => dialog.close());
   el.calendar.innerHTML = '<div class="skeleton skeleton--calendar"></div>';

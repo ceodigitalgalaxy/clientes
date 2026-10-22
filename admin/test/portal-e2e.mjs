@@ -188,7 +188,7 @@ await step("Detalhes: título, imagem proporcional, legenda, rede, data, status 
   assert.ok(text.includes(`${Number(D(10).slice(8))} de`), "data");
   assert.ok(!text.includes("SEGREDO"));
   assert.equal(await portal.locator('#drawer [data-form="comment"]').count(), 0, "comentários (ainda não gravam no banco) ficam escondidos");
-  assert.equal(await portal.locator('#drawer [data-do="confirm"]').count(), 1, "aguardando aprovação: o cliente pode aprovar");
+  assert.equal(await portal.locator('#drawer .drawer__body [data-do="confirm"]').count(), 1, "aguardando aprovação: o cliente pode aprovar");
   await shot(portal, "p01-detalhes-imagem");
 });
 
@@ -418,9 +418,12 @@ await step("Celular: agenda do dia e detalhes em folha, sem rolagem lateral", as
   assert.ok(await overflow() <= 0, "calendário cabe na tela");
   await page.tap(`.cal__cell[data-day="${D(3)}"] .cal__date`);
   await page.waitForSelector(".agenda__empty");
-  assert.equal(await page.textContent(".agenda__empty"), "Nada programado para este dia.");
+  assert.match(await page.textContent(".agenda__empty"), /Nada programado para este dia\./);
+  // Dia vazio aponta o próximo dia com conteúdo
+  assert.match(await page.textContent(".agenda__empty [data-agenda-go]"), /Próximo:/);
   await page.tap(`.cal__cell[data-day="${D(12)}"] .cal__date`);
   await page.waitForFunction(() => document.querySelectorAll(".agenda__item").length === 2);
+  assert.equal(await page.locator("#day-popover.is-visible").count(), 0, "no toque, o resumo flutuante (de mouse) não aparece");
   await shot(page, "p05-celular-agenda");
   await page.tap('.agenda__item:has-text("Reels dos bastidores")');
   await page.waitForSelector("#drawer[open] .media--embed iframe");
@@ -432,6 +435,45 @@ await step("Celular: agenda do dia e detalhes em folha, sem rolagem lateral", as
   await page.tap('[data-view-mode="week"]');
   await page.waitForSelector(".cal--week");
   assert.ok(await overflow() <= 0, "semana cabe na tela");
+  await context.close();
+});
+
+await step("Destaques: carrossel com o que aprovar primeiro, passa sozinho e abre os detalhes", async () => {
+  const iso = (delta) => { const d = new Date(); d.setDate(d.getDate() + delta); return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`; };
+  const cafe = await store.createClient({ name: "Teste Destaques", slug: "teste-destaques", active: true });
+  fake.addUser("destaques", "Senha-destaques-123", { kind: "cliente", clientId: cafe.id });
+  const add = async (title, delta, status) => {
+    const c = await store.createContent(validateContent({ client_id: cafe.id, title, scheduled_date: iso(delta), network: "instagram", format: "post", status: "em_producao" }).value);
+    await store.setContentStatus(c.id, status);
+  };
+  await add("Já foi ao ar", -2, "publicado");
+  await add("Segundo para aprovar", 5, "aguardando_aprovacao");
+  await add("Primeiro para aprovar", 2, "aguardando_aprovacao");
+  await add("Ainda em produção", 3, "em_producao");
+  const context = await newContext();
+  const page = await context.newPage();
+  watch(page, "portal-destaques");
+  await page.goto(`${ORIGIN}/`);
+  await signIn(page, "destaques", "Senha-destaques-123");
+  await page.waitForSelector(".spot .slide");
+  assert.equal(await page.textContent(".spot__title"), "Você tem 2 conteúdos para aprovar");
+  const titles = await page.$$eval(".slide__title", (n) => n.map((x) => x.textContent));
+  assert.deepEqual(titles, ["Primeiro para aprovar", "Segundo para aprovar", "Já foi ao ar"], "o que aprovar vem primeiro; o que está em produção não aparece");
+  assert.match(await page.textContent(".slide.is-active .slide__cta"), /Ver e aprovar/);
+  assert.match(await page.textContent(".mini-stats"), /2\s*para aprovar/);
+  assert.match(await page.textContent(".spot__queue"), /Segundo para aprovar/);
+  // Passa sozinho (com o mouse fora)
+  await page.mouse.move(5, 890);
+  await page.waitForFunction(() => document.querySelector(".spot__count")?.textContent === "2 de 3", null, { timeout: 9000 });
+  // Setas e pontos
+  await page.click('[data-spot-nav="1"]');
+  await page.waitForFunction(() => document.querySelector(".spot__count")?.textContent === "3 de 3");
+  await page.click('.spot__dot[data-dot="0"]');
+  await page.waitForFunction(() => document.querySelector(".spot__count")?.textContent === "1 de 3");
+  await shot(page, "p08-destaques");
+  await page.click(".slide.is-active .slide__cta");
+  await page.waitForSelector("#drawer[open]");
+  assert.equal(await page.textContent("#drawer-title"), "Primeiro para aprovar");
   await context.close();
 });
 

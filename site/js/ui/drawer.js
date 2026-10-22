@@ -43,8 +43,7 @@ export function createDrawer({ dialog, repo, getContext, onChange }) {
       ["calendar", "Data", longDayLabel(activity.date)],
       activity.time ? ["clock", "Horário", timeLabel(activity.time)] : null,
       [t.icon, "Formato", t.label],
-      ["target", "Rede social", activity.platforms.map((p) => PLATFORMS[p] || p).join(", ")],
-      activity.status ? ["check", "Status", STATUS[activity.status]?.label || ""] : null
+      ["target", "Rede social", activity.platforms.map((p) => PLATFORMS[p] || p).join(", ")]
     ].filter(Boolean);
     return `<dl class="facts">${rows.map(([ic, label, value]) => `
       <div class="facts__row"><dt>${icon(ic)}${label}</dt><dd>${esc(value)}</dd></div>`).join("")}</dl>`;
@@ -215,6 +214,13 @@ export function createDrawer({ dialog, repo, getContext, onChange }) {
       </div>`;
   };
 
+  /** Celular: aprovar ou pedir alteração sempre à mão, presos embaixo da folha */
+  const quickBar = (status) => features.approvals && activity.requiresApproval && status === "aguardando" && mode === "idle" ? `
+    <footer class="drawer__quick">
+      <button class="btn btn--ghost" type="button" data-do="request">${icon("edit")}Pedir alteração</button>
+      <button class="btn btn--primary" type="button" data-do="confirm">${icon("check")}Aprovar</button>
+    </footer>` : "";
+
   const render = (keepScroll = false) => {
     if (view === "day") return renderDay();
     const body = dialog.querySelector(".drawer__body");
@@ -244,6 +250,7 @@ export function createDrawer({ dialog, repo, getContext, onChange }) {
           ${features.comments ? commentsBlock() : ""}
           <p class="drawer__version">Versão ${activity.version} · atualizada em ${esc(stampLabel(activity.updatedAt))}</p>
         </div>
+        ${quickBar(status)}
       </div>`;
     if (keepScroll) dialog.querySelector(".drawer__body").scrollTop = scroll;
   };

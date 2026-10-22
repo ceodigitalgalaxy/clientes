@@ -138,6 +138,7 @@ node admin/test/portal.test.mjs                   # links de mídia, repositóri
 PLAYWRIGHT=$P node admin/test/e2e.mjs             # painel da agência, ponta a ponta
 PLAYWRIGHT=$P node admin/test/portal-e2e.mjs      # painel → calendário do cliente, ponta a ponta
 PLAYWRIGHT=$P node admin/test/review-e2e.mjs      # foto, arte final, aprovação/ajuste e importação, ponta a ponta
+PLAYWRIGHT=$P UX_SHOTS=pasta node admin/test/ux-shots.mjs   # só capturas do portal (computador e celular) para revisão visual
 ```
 
 Os testes de ponta a ponta usam um Supabase de mentira em memória (**só para teste**). O do portal abre o painel e o portal lado a lado e confere: imagem cadastrada na data certa e proporcional, vídeo do YouTube no player oficial, arquivo de vídeo, link do Instagram e imagem quebrada com aviso, mudança de data (inclusive para outro mês), edição e exclusão refletidas, atualização automática, outro cliente sem acesso, tentativas de trocar parâmetros, semana, carregando, erro, celular, a demonstração removida e o acesso do cliente criado, trocado e removido pelo painel (rodando o código real da função). O de revisão confere foto do cliente, envio e ordem da arte final, tipo de arquivo recusado, carrossel no portal (inclusive no celular), pedido de ajuste com mensagem, nova versão, aprovação de versão antiga recusada, aprovação, marcar como publicado, outro cliente sem acesso e a importação (.xlsx e .csv). O `admin/verify.mjs` repete o essencial no banco real, inclusive as aprovações.
@@ -146,7 +147,8 @@ Os testes de ponta a ponta usam um Supabase de mentira em memória (**só para t
 
 O cliente entra em `https://clientes.digitalgalaxy.com.br` com o usuário e a senha criados no painel (Clientes → Acesso ao portal) ou pelo `equipe.mjs criar-cliente` e vê o calendário com os conteúdos do cliente dele que estão **Aguardando aprovação**, **Aprovados** ou **Publicados**. Sem login, nenhum dado é pedido ao banco.
 
-- **Calendário:** mês ou semana, com navegação; no celular, pontinhos no dia e agenda abaixo.
+- **Destaques:** carrossel no topo que passa sozinho com o que o cliente tem para aprovar, os ajustes em andamento, os aprovados e os já publicados; cada destaque abre os detalhes. Os números do mês ficam embaixo, pequenos.
+- **Calendário:** mês ou semana, com navegação; no celular, pontinhos no dia (dia com algo para aprovar fica âmbar), agenda abaixo com miniaturas e botões de aprovar sempre à mão nos detalhes.
 - **Detalhes** (clique no conteúdo ou na data): título, prévia da mídia, legenda, rede social, data, status e a observação para o cliente. Data com vários conteúdos mostra a lista; data livre mostra "Nada programado para este dia".
 - **Atualização:** busca de novo a cada 30 segundos, ao voltar para a aba e no botão **Atualizar**. O que a agência muda no painel aparece sozinho, inclusive no painel de detalhes aberto.
 - **Ainda não gravam no banco:** aprovar, pedir ajuste, observações do cliente e ideias. Os componentes dessas ações estão no código (`ui/drawer.js`, `ui/ideas.js`) e ficam escondidos até a próxima etapa.
@@ -189,7 +191,7 @@ site/
 │   ├── data/
 │   │   └── supabase-repository.js  Dados do portal (funções portal_profile / portal_contents)
 │   ├── lib/                    Datas em pt-BR, utilitários de DOM, ícones, login (auth.js)
-│   └── ui/                     Componentes: calendar, drawer, summary, ideas, preview, media, badges, toast
+│   └── ui/                     Componentes: calendar, drawer, highlights (destaques), ideas, preview, media, badges, toast
 ├── fonts/                      Sora e Orbitron (locais, as mesmas do site)
 └── images/logo/                Favicons da marca
 ```

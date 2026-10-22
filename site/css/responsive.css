@@ -13,10 +13,8 @@
 
 @media (max-width: 1100px) {
   .welcome__title { font-size: 48px; }
-  .overview { grid-template-columns: minmax(0, 1fr); }
-  .stats { grid-template-columns: repeat(4, minmax(0, 1fr)); border-left: 0; border-top: 1px solid var(--line); }
-  .stat:nth-child(n) { border-top: 0; border-left: 1px solid var(--line); }
-  .stat:first-child { border-left: 0; }
+  .slide { grid-template-columns: 200px minmax(0, 1fr); gap: 24px; }
+  .slide__title { font-size: 24px; }
   .cal__cell { min-height: 128px; }
 }
 
@@ -30,29 +28,45 @@
   .topbar__divider { height: 24px; }
   .avatar--client { width: 36px; height: 36px; border-radius: 10px; font-size: 12px; }
 
-  .welcome { padding: 40px 0 32px; }
-  .welcome__hello { height: 32px; font-size: 12px; }
-  .welcome__title { margin-top: 16px; font-size: 32px; }
+  /* Topo enxuto: o que importa (destaques e calendário) aparece logo */
+  .welcome { padding: 24px 0 16px; text-align: left; }
+  .welcome__hello { height: 28px; padding: 0 12px; font-size: 12px; }
+  .welcome__title { margin: 12px 0 0; font-size: 22px; line-height: 1.25; text-wrap: pretty; }
 
-  .focus { padding: 24px; }
-  .focus__title { font-size: 20px; }
-  .focus__text { font-size: 14px; }
-  .stats { grid-template-columns: repeat(2, minmax(0, 1fr)); }
-  .stat { padding: 16px 24px; }
-  .stat:nth-child(odd) { border-left: 0; }
-  .stat:nth-child(n + 3) { border-top: 1px solid var(--line); }
-  .stat__value { font-size: 32px; }
-  .stat__label { font-size: 12px; }
+  /* Destaques: imagem em cima, texto embaixo; arrasta com o dedo */
+  .spot { padding: 20px 16px 12px; border-radius: var(--radius-lg); }
+  .spot__head { align-items: flex-start; }
+  .spot__title { font-size: 18px; }
+  .spot__controls .icon-btn { display: none; }
+  .spot__count { min-width: 0; padding-top: 4px; }
+  .spot__viewport { margin: 16px -8px 0; }
+  .slide { grid-template-columns: minmax(0, 1fr); gap: 12px; }
+  .slide__media { aspect-ratio: auto; height: 220px; }
+  .slide__body { padding: 0 4px; gap: 6px; }
+  .slide__title { margin-top: 4px; font-size: 20px; }
+  .slide__meta { font-size: 13px; }
+  .slide__text { font-size: 14px; -webkit-line-clamp: 2; }
+  .slide__body .slide__cta { width: 100%; justify-content: center; margin-top: 8px; min-height: 44px; }
+  .spot__dots { margin-top: 8px; }
+  .mini-stats { gap: 8px; padding: 0; }
+  .mini-stats__label { width: 100%; }
+  .mini-stats__list { flex-wrap: nowrap; overflow-x: auto; margin: 0 -16px; padding: 0 16px 4px; scrollbar-width: none; }
+  .mini-stats__list::-webkit-scrollbar { display: none; }
+  .mini-stat { flex: none; height: 30px; font-size: 12px; }
 
   .planner { margin-top: 16px; padding: 16px; border-radius: var(--radius-lg); }
-  .planner__month { width: 100%; justify-content: space-between; gap: 8px; }
-  .planner__title { min-width: 0; font-size: 24px; }
-  /* No celular o mês fica à esquerda e os botões presos à direita */
-  .planner__nav { order: 0; }
-  .planner__actions { width: 100%; }
+  /* Linha 1: mês + setas e "Hoje". Linha 2: Mês/Semana + atualizar (só o ícone) */
+  .planner__toolbar { gap: 12px; }
+  .planner__month { flex-wrap: nowrap; width: 100%; justify-content: space-between; gap: 8px; }
+  .planner__title { min-width: 0; font-size: 20px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .planner__nav { order: 0; flex: none; gap: 4px; }
+  .planner__nav .btn { padding: 0 12px; }
+  .planner__actions { flex-wrap: nowrap; width: 100%; }
   .planner__actions .btn { flex: 1 1 0; padding: 0 8px; }
-  .view-toggle { flex: 1 1 100%; }
-  .view-toggle__btn { flex: 1; }
+  .planner__actions .planner__refresh { flex: none; width: 44px; padding: 0; }
+  .planner__refresh .btn__label { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+  .view-toggle { flex: 1 1 auto; }
+  .view-toggle__btn { flex: 1; min-height: 36px; }
   .cal--week .cal__cell { min-height: 72px; }
   .login__card { padding: 32px 24px; }
   .preview { padding: 16px; }
@@ -70,6 +84,8 @@
   .cal__date { position: static; width: 32px; height: 32px; margin: 0; }
   .cal__num { font-size: 14px; }
   .cal__date::after { content: ""; position: absolute; inset: 0; }
+  /* Dia com conteúdo para aprovar: cartão âmbar (mesma cor de "Aguardando") */
+  .cal__cell.has-pending:not(.is-selected) { border-color: var(--aguardando-line); background: var(--aguardando-soft); }
   .cal__items,
   .cal__more { display: none; }
   .cal__dots { display: flex; flex-wrap: wrap; justify-content: center; gap: 3px; max-width: 32px; pointer-events: none; }
@@ -83,15 +99,20 @@
 
   .agenda { display: block; margin-top: 24px; }
   .agenda:empty { display: none; }
-  .agenda__title { font-size: 16px; font-weight: 600; }
-  .agenda__list { display: grid; gap: 8px; margin-top: 16px; }
-  .agenda__item { display: flex; align-items: center; gap: 16px; width: 100%; padding: 16px; border: 1px solid var(--line); border-radius: var(--radius-lg); text-align: left; background: var(--surface); transition: background-color 200ms var(--ease), border-color 200ms var(--ease); }
+  .agenda__title { display: flex; align-items: baseline; justify-content: space-between; gap: 8px; font-size: 16px; font-weight: 600; }
+  .agenda__count { flex: none; font-size: 12px; font-weight: 500; color: var(--text-muted); }
+  .agenda__list { display: grid; gap: 8px; margin-top: 12px; }
+  .agenda__item { display: flex; align-items: center; gap: 12px; width: 100%; padding: 10px 12px 10px 10px; border: 1px solid var(--line); border-radius: var(--radius-lg); text-align: left; background: var(--surface); transition: background-color 200ms var(--ease), border-color 200ms var(--ease); }
+  .agenda__item.is-pending { border-color: var(--aguardando-line); }
   .agenda__item:active { background: var(--surface-hover); }
-  .agenda__time { flex: none; width: 48px; font-size: 12px; font-weight: 600; color: var(--text-muted); }
-  .agenda__body { display: grid; justify-items: start; gap: 8px; flex: 1; min-width: 0; }
-  .agenda__name { font-size: 14px; font-weight: 600; line-height: 1.4; }
-  .agenda__go { color: var(--text-subtle); }
-  .agenda__empty { margin-top: 8px; padding: 24px; border: 1px dashed var(--line-strong); border-radius: var(--radius-lg); font-size: 14px; text-align: center; color: var(--text-muted); }
+  .agenda__thumb { position: relative; display: grid; place-items: center; flex: none; width: 56px; height: 56px; border-radius: var(--radius); overflow: hidden; color: var(--t-ink, var(--brand)); background: var(--t-soft, var(--brand-soft)); }
+  .agenda__thumb img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; }
+  .agenda__thumb .icon { width: 20px; height: 20px; }
+  .agenda__body { display: grid; justify-items: start; gap: 4px; flex: 1; min-width: 0; }
+  .agenda__meta { font-size: 12px; font-weight: 600; color: var(--text-muted); }
+  .agenda__name { max-width: 100%; overflow: hidden; font-size: 14px; font-weight: 600; line-height: 1.35; text-overflow: ellipsis; white-space: nowrap; }
+  .agenda__go { flex: none; color: var(--text-subtle); }
+  .agenda__empty { display: grid; justify-items: center; gap: 12px; margin-top: 12px; padding: 20px; border: 1px dashed var(--line-strong); border-radius: var(--radius-lg); font-size: 14px; text-align: center; color: var(--text-muted); }
 
   .idea-list { grid-template-columns: minmax(0, 1fr); }
   .idea { padding: 16px; }
@@ -106,6 +127,8 @@
   .drawer__body { padding: 16px 16px 40px; }
   .drawer__title { font-size: 20px; }
   .facts { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); }
+  .drawer__quick { display: flex; gap: 8px; padding: 12px 16px calc(12px + env(safe-area-inset-bottom)); border-top: 1px solid var(--line); background: var(--surface); box-shadow: 0 -12px 24px -16px rgba(22, 11, 46, 0.2); }
+  .drawer__quick .btn { flex: 1 1 0; min-height: 48px; }
 
   .modal { width: calc(100% - 16px); }
   .modal__form { padding: 24px; }
@@ -116,9 +139,7 @@
 }
 
 @media (max-width: 480px) {
-  .welcome__title { font-size: 28px; }
   .planner__actions .btn { font-size: 12px; }
   .cal__cell { min-height: 56px; }
-  .facts { grid-template-columns: minmax(0, 1fr); }
   .decision { padding: 16px 12px; }
 }

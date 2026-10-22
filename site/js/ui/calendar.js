@@ -14,6 +14,7 @@ import { monthGrid, weekDays, WEEKDAYS_SHORT, todayISO, timeLabel, dayLabel, lon
 import { ACTIVITY_TYPES, STATUS } from "../domain/model.js";
 import { statusOf } from "../domain/status.js";
 import { typeBadge, statusBadge, statusMark } from "./badges.js";
+import { cover } from "./highlights.js";
 
 const MAX_CHIPS = 3;
 
@@ -36,10 +37,11 @@ function chip(activity, approvals) {
 
 function cell(day, items, approvals, selected, maxChips = MAX_CHIPS) {
   const today = day.iso === todayISO();
-  const classes = ["cal__cell", day.inMonth ? "" : "is-out", today ? "is-today" : "", items.length ? "has-items" : "", day.iso === selected ? "is-selected" : "", day.weekday === 0 || day.weekday === 6 ? "is-weekend" : ""].filter(Boolean).join(" ");
+  const pending = items.filter((a) => statusOf(a, approvals) === "aguardando").length;
+  const classes = ["cal__cell", day.inMonth ? "" : "is-out", today ? "is-today" : "", items.length ? "has-items" : "", pending ? "has-pending" : "", day.iso === selected ? "is-selected" : "", day.weekday === 0 || day.weekday === 6 ? "is-weekend" : ""].filter(Boolean).join(" ");
   const shown = items.slice(0, maxChips);
   const more = items.length - shown.length;
-  const label = `${longDayLabel(day.iso)}${today ? " (hoje)" : ""}${items.length ? `, ${countLabel(items.length)}` : ", sem atividades"}`;
+  const label = `${longDayLabel(day.iso)}${today ? " (hoje)" : ""}${items.length ? `, ${countLabel(items.length)}` : ", sem atividades"}${pending ? `, ${pending} para aprovar` : ""}`;
   const dots = items.slice(0, 4).map((a) => `<span class="dot type--${esc(a.type)}"></span>`).join("");
   return `
     <div class="${classes}" data-day="${day.iso}">
@@ -97,21 +99,34 @@ export function renderCalendar(container, { month, activities, approvals, select
 export function renderAgenda(container, { selected, month, activities, approvals, view = "month" }) {
   if (!selected || (view === "month" && !selected.startsWith(month))) { container.innerHTML = ""; return; }
   const items = activities.filter((a) => a.date === selected);
+  // Dia vazio: aponta o próximo dia com conteúdo (ou o anterior, se não houver)
+  const later = activities.filter((a) => a.date > selected).sort((a, b) => a.date.localeCompare(b.date))[0];
+  const earlier = activities.filter((a) => a.date < selected).sort((a, b) => b.date.localeCompare(a.date))[0];
+  const jump = later || earlier;
   container.innerHTML = `
-    <h3 class="agenda__title">${esc(longDayLabel(selected))}</h3>
-    ${items.length ? `<ul class="agenda__list">${items.map((a) => `
+    <h3 class="agenda__title">${esc(longDayLabel(selected))}${items.length ? `<span class="agenda__count">${countLabel(items.length).replace("atividade", "conteúdo")}</span>` : ""}</h3>
+    ${items.length ? `<ul class="agenda__list">${items.map((a) => {
+      const src = cover(a);
+      const t = ACTIVITY_TYPES[a.type] || ACTIVITY_TYPES.outro;
+      return `
       <li>
-        <button class="agenda__item" type="button" data-activity="${esc(a.id)}">
-          <span class="agenda__time">${a.time ? timeLabel(a.time) : "Dia todo"}</span>
+        <button class="agenda__item${statusOf(a, approvals) === "aguardando" ? " is-pending" : ""}" type="button" data-activity="${esc(a.id)}">
+          <span class="agenda__thumb type--${esc(a.type)}">${src ? `<img src="${esc(src)}" alt="" loading="lazy" referrerpolicy="no-referrer" data-agenda-img>` : ""}${icon(t.icon)}</span>
           <span class="agenda__body">
-            ${typeBadge(a.type)}
+            <span class="agenda__meta">${a.time ? timeLabel(a.time) : "Sem horário"} · ${esc(t.short)}</span>
             <span class="agenda__name">${esc(a.title)}</span>
             ${statusBadge(statusOf(a, approvals))}
           </span>
           ${icon("chevronRight", "icon agenda__go")}
         </button>
-      </li>`).join("")}</ul>`
-    : `<p class="agenda__empty">Nada programado para este dia.</p>`}`;
+      </li>`;
+    }).join("")}</ul>`
+    : `<div class="agenda__empty">
+        <p>Nada programado para este dia.</p>
+        ${jump ? `<button class="btn btn--ghost btn--sm" type="button" data-agenda-go="${esc(jump.date)}">${icon(later ? "arrowRight" : "chevronLeft")}${later ? "Próximo" : "Último"}: ${esc(dayLabel(jump.date))}</button>` : ""}
+      </div>`}`;
+  // Imagem que não abre: fica o ícone
+  container.querySelectorAll("[data-agenda-img]").forEach((img) => img.addEventListener("error", () => img.remove(), { once: true }));
 }
 
 /* ---------- Popover do dia (só com mouse) ---------- */
@@ -175,7 +190,8 @@ export function setupDayPopover({ calendar, popover, getState, onOpenActivity })
   };
 
   calendar.addEventListener("pointerover", (event) => {
-    if (!canHover()) return;
+    // Só com mouse: no toque o resumo flutuante atrapalharia (o celular usa a agenda)
+    if (!canHover() || event.pointerType !== "mouse") return;
     const cellEl = event.target.closest(".cal__cell.has-items");
     if (cellEl) show(cellEl);
     else scheduleHide();
@@ -183,10 +199,12 @@ export function setupDayPopover({ calendar, popover, getState, onOpenActivity })
   calendar.addEventListener("pointerleave", scheduleHide);
   popover.addEventListener("pointerenter", () => clearTimeout(hideTimer));
   popover.addEventListener("pointerleave", scheduleHide);
-  // Teclado: focar a data mostra o mesmo resumo
+  // Teclado: focar a data mostra o mesmo resumo (não depois de um toque na tela)
+  let lastTouch = 0;
+  document.addEventListener("pointerdown", (event) => { if (event.pointerType !== "mouse") lastTouch = Date.now(); }, true);
   calendar.addEventListener("focusin", (event) => {
     const date = event.target.closest(".cal__date");
-    if (date && canHover()) show(date.closest(".cal__cell"));
+    if (date && canHover() && Date.now() - lastTouch > 1500) show(date.closest(".cal__cell"));
   });
   calendar.addEventListener("focusout", (event) => {
     if (!popover.contains(event.relatedTarget)) scheduleHide();
