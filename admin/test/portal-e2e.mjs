@@ -53,7 +53,7 @@ async function newContext(options = {}) {
   const context = await browser.newContext({ viewport: { width: 1360, height: 900 }, ...options });
   await context.route(`${SUPABASE_URL}/**`, async (route) => {
     const req = route.request();
-    const answer = await fake.handle({ method: req.method(), url: req.url(), headers: await req.allHeaders(), body: req.postData() });
+    const answer = await fake.handle({ method: req.method(), url: req.url(), headers: await req.allHeaders(), body: req.postData(), bodyBuffer: req.postDataBuffer() });
     if (answer === "abort") return route.abort("failed");
     return route.fulfill(answer);
   });
@@ -187,7 +187,8 @@ await step("Detalhes: título, imagem proporcional, legenda, rede, data, status 
   for (const part of ["Chegou o pão que você pediu!", "Instagram", "Aguardando aprovação", "Confira a cor da embalagem.", "10h30"]) assert.ok(text.includes(part), part);
   assert.ok(text.includes(`${Number(D(10).slice(8))} de`), "data");
   assert.ok(!text.includes("SEGREDO"));
-  assert.equal(await portal.locator('#drawer [data-do="confirm"], #drawer [data-form="comment"]').count(), 0, "ações que ainda não gravam no banco ficam escondidas");
+  assert.equal(await portal.locator('#drawer [data-form="comment"]').count(), 0, "comentários (ainda não gravam no banco) ficam escondidos");
+  assert.equal(await portal.locator('#drawer [data-do="confirm"]').count(), 1, "aguardando aprovação: o cliente pode aprovar");
   await shot(portal, "p01-detalhes-imagem");
 });
 

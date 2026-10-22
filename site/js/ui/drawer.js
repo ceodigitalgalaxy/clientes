@@ -14,7 +14,7 @@ import { longDayLabel, timeLabel, stampLabel } from "../lib/dates.js";
 import { ACTIVITY_TYPES, PLATFORMS, STATUS } from "../domain/model.js";
 import { statusOf, latestDecision } from "../domain/status.js";
 import { typeBadge, statusBadge } from "./badges.js";
-import { renderPreview } from "./preview.js";
+import { renderPreview, renderFinal, wireCarousel } from "./preview.js";
 import { wireMediaFallbacks } from "./media.js";
 import { toast } from "./toast.js";
 
@@ -32,6 +32,7 @@ export function createDrawer({ dialog, repo, getContext, onChange }) {
   let view = "detail"; // detail | day
   const features = { approvals: true, comments: true, ...(repo.features || {}) };
   wireMediaFallbacks(dialog);
+  wireCarousel(dialog);
 
   const approvalsFor = () => getContext().approvals.filter((a) => a.activityId === activity.id);
 
@@ -63,6 +64,21 @@ export function createDrawer({ dialog, repo, getContext, onChange }) {
     }
     if (!activity.requiresApproval) {
       return `<div class="decision decision--info">${icon("calendar")}<p>Esta atividade não precisa de aprovação. Se quiser comentar algo, deixe uma observação abaixo.</p></div>`;
+    }
+    // Dados reais: depois de aprovado, com ajuste pedido ou publicado, a próxima ação é da equipe
+    if (activity.status && activity.status !== "aguardando" && mode === "idle") {
+      const decision = activity.decision;
+      if (activity.status === "publicado") {
+        return `<div class="decision decision--aprovado"><span class="decision__icon">${icon("send")}</span><div><p class="decision__title">Conteúdo publicado</p><p class="decision__text">Este conteúdo já foi ao ar.</p></div></div>`;
+      }
+      if (activity.status === "aprovado") {
+        return `<div class="decision decision--aprovado"><span class="decision__icon">${icon("check")}</span><div><p class="decision__title">Conteúdo aprovado</p><p class="decision__text">${decision?.decision === "aprovado" ? `Você aprovou em ${esc(stampLabel(decision.createdAt))}. ` : ""}Ele segue para publicação na data programada.</p></div></div>`;
+      }
+      return `<div class="decision decision--ajustes"><span class="decision__icon">${icon("edit")}</span><div>
+        <p class="decision__title">Ajustes solicitados</p>
+        ${decision?.decision === "ajustes" ? `<p class="decision__text">Seu pedido em ${esc(stampLabel(decision.createdAt))}:</p><blockquote class="decision__quote">${esc(decision.message)}</blockquote>` : ""}
+        <p class="decision__text">Nossa equipe vai preparar uma nova versão, e ela aparece aqui para você aprovar.</p>
+      </div></div>`;
     }
     const approvals = approvalsFor();
     const status = statusOf(activity, approvals);
@@ -216,7 +232,10 @@ export function createDrawer({ dialog, repo, getContext, onChange }) {
         <div class="drawer__body">
           <h2 class="drawer__title" id="drawer-title">${esc(activity.title)}</h2>
           ${meta()}
-          <div class="preview">${renderPreview(activity, client.name)}</div>
+          ${activity.final?.length
+            ? `<section class="detail detail--final"><div class="detail__head"><h3 class="detail__title">${activity.status === "aguardando" ? "Conteúdo para você aprovar" : "Conteúdo final"}</h3>${activity.final.length > 1 ? `<span class="detail__hint">${activity.final.length} itens</span>` : ""}</div><div class="preview preview--final">${renderFinal(activity)}</div></section>
+               ${activity.media?.length ? section("Referência", `<div class="preview preview--ref">${renderPreview(activity)}</div>`) : ""}`
+            : `<div class="preview">${renderPreview(activity, client.name)}</div>`}
           ${section("Objetivo", activity.objective ? `<p class="detail__text">${esc(activity.objective)}</p>` : "")}
           ${section("A ideia", activity.description ? `<p class="detail__text">${esc(activity.description)}</p>` : "")}
           ${section("Legenda", activity.caption ? `<p class="detail__text detail__caption">${esc(activity.caption)}</p>` : (features.approvals ? "" : `<p class="detail__text detail__muted">A legenda ainda está sendo preparada.</p>`), copy)}
@@ -250,11 +269,8 @@ export function createDrawer({ dialog, repo, getContext, onChange }) {
     }
     if (action === "approve") {
       button.disabled = true;
-      const approval = await repo.addApproval({ activityId: activity.id, version: activity.version, decision: "aprovado" });
-      mode = "idle";
-      await onChange({ approval });
-      render(true);
-      toast("Conteúdo aprovado. Obrigado!");
+      button.classList.add("is-loading");
+      await decide({ decision: "aprovado" }, "Conteúdo aprovado. Obrigado!");
     }
   });
 
@@ -269,11 +285,7 @@ export function createDrawer({ dialog, repo, getContext, onChange }) {
     }
     form.querySelector("[type=submit]").disabled = true;
     if (form.dataset.form === "change") {
-      const approval = await repo.addApproval({ activityId: activity.id, version: activity.version, decision: "ajustes", message: field.value });
-      mode = "idle";
-      await onChange({ approval });
-      render(true);
-      toast("Pedido de alteração enviado");
+      await decide({ decision: "ajustes", message: field.value }, "Pedido de alteração enviado");
     } else {
       comments.push(await repo.addComment({ activityId: activity.id, text: field.value }));
       await onChange({});
@@ -287,6 +299,25 @@ export function createDrawer({ dialog, repo, getContext, onChange }) {
   dialog.addEventListener("input", (event) => { if (event.target.value.trim()) event.target.removeAttribute("aria-invalid"); });
 
   on(dialog, "click", "[data-day-item]", (event, button) => { showActivity(button.dataset.dayItem); });
+
+  /** Aprovar ou pedir ajuste; depois recarrega para mostrar o status novo */
+  async function decide({ decision, message = "" }, success) {
+    const id = activity.id;
+    try {
+      const approval = await repo.addApproval({ activityId: id, version: activity.version, decision, message });
+      mode = "idle";
+      await onChange({ approval });
+      activity = getContext().activities.find((a) => a.id === id) || activity;
+      render(true);
+      toast(success);
+    } catch (error) {
+      mode = "idle";
+      await onChange({}).catch(() => {});
+      activity = getContext().activities.find((a) => a.id === id) || activity;
+      render(true);
+      toast(error.message || "Não foi possível enviar agora. Tente de novo.", "info");
+    }
+  }
 
   async function showActivity(id) {
     activity = getContext().activities.find((a) => a.id === id);

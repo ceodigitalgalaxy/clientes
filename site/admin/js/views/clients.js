@@ -18,8 +18,46 @@ export function setupClients({ api, state, toast, confirm, onClientsChanged, nav
   let editing = null;          // cliente em edição (null = novo)
   let slugTouched = false;     // identificador escrito à mão não é mais gerado pelo nome
   let saving = false;
+  let logoFile = null;         // foto escolhida (enviada depois de salvar o cliente)
+  let logoRemoved = false;     // "Tirar a foto"
+  let previewUrl = null;
 
   wireDialog(dialog, { canClose: () => !saving });
+
+  const logoInput = form.elements.logo;
+  const logoPreview = form.querySelector("[data-logo-preview]");
+  const logoRemove = form.querySelector("[data-logo-remove]");
+
+  function showLogo(src) {
+    if (previewUrl && previewUrl !== src) { URL.revokeObjectURL(previewUrl); previewUrl = null; }
+    logoPreview.innerHTML = src ? `<img src="${esc(src)}" alt="">` : icon("image");
+    logoRemove.hidden = !src;
+  }
+  logoInput.addEventListener("change", () => {
+    const file = logoInput.files?.[0];
+    if (!file) return;
+    if (!["image/png", "image/jpeg", "image/webp"].includes(file.type)) {
+      showFieldErrors(form, { logo: "Use uma imagem PNG, JPG ou WebP." });
+      logoInput.value = "";
+      return;
+    }
+    logoFile = file;
+    logoRemoved = false;
+    previewUrl = URL.createObjectURL(file);
+    showLogo(previewUrl);
+  });
+  logoRemove.addEventListener("click", () => {
+    logoFile = null;
+    logoRemoved = true;
+    logoInput.value = "";
+    showLogo(null);
+  });
+  dialog.addEventListener("close", () => { if (previewUrl) { URL.revokeObjectURL(previewUrl); previewUrl = null; } });
+
+  /** Avatar do cartão: foto, se houver, ou as iniciais */
+  const avatar = (client) => client.logo_path
+    ? `<img class="avatar avatar--client avatar--photo" src="${esc(api.logoUrl(client.logo_path))}" alt="" loading="lazy">`
+    : `<span class="avatar avatar--client" aria-hidden="true">${esc(initials(client.name))}</span>`;
 
   function render() {
     list.setAttribute("aria-busy", "false");
@@ -37,7 +75,7 @@ export function setupClients({ api, state, toast, confirm, onClientsChanged, nav
     list.innerHTML = clients.map((client) => `
       <article class="client-card${client.active ? "" : " is-inactive"}" data-client-card="${esc(client.id)}">
         <div class="client-card__head">
-          <span class="avatar avatar--client" aria-hidden="true">${esc(initials(client.name))}</span>
+          ${avatar(client)}
           <div>
             <h2 class="client-card__name">${esc(client.name)}</h2>
             <span class="client-card__slug" title="Identificador">${esc(client.slug)}</span>
@@ -79,6 +117,9 @@ export function setupClients({ api, state, toast, confirm, onClientsChanged, nav
     showFieldErrors(form, {});
     dialog.querySelector(".modal__title").textContent = client ? "Editar cliente" : "Novo cliente";
     submit.querySelector("span").textContent = client ? "Salvar alterações" : "Cadastrar cliente";
+    logoFile = null;
+    logoRemoved = false;
+    showLogo(client?.logo_path ? api.logoUrl(client.logo_path) : null);
     if (client) {
       ["name", "slug", "segment", "contact_name", "contact_email", "notes"].forEach((name) => { form.elements[name].value = client[name] || ""; });
       form.elements.active.checked = client.active;
@@ -95,16 +136,25 @@ export function setupClients({ api, state, toast, confirm, onClientsChanged, nav
   form.addEventListener("submit", async (event) => {
     event.preventDefault();
     const data = Object.fromEntries(new FormData(form));
+    delete data.logo;
     data.active = form.elements.active.checked;
     const { errors } = validateClient(data);
     if (Object.keys(errors).length) { showFieldErrors(form, errors); return; }
     saving = true;
     setBusy(submit, true);
     try {
-      if (editing) await api.updateClient(editing.id, data);
-      else await api.createClient(data);
+      const saved = editing ? await api.updateClient(editing.id, data) : await api.createClient(data);
+      // A foto vai depois do cadastro (o caminho do arquivo usa o id do cliente)
+      let logoError = null;
+      try {
+        if (logoFile) await api.setClientLogo(saved, logoFile);
+        else if (logoRemoved && saved.logo_path) await api.removeClientLogo(saved);
+      } catch (error) {
+        logoError = error;
+      }
       closeDialog(dialog);
       toast(editing ? "Cliente atualizado" : "Cliente cadastrado");
+      if (logoError) toast(`A foto não foi salva: ${logoError.message}`, "error");
       await onClientsChanged();
     } catch (error) {
       showFieldErrors(form, error.fields || {}, error.message);

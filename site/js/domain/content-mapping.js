@@ -12,7 +12,7 @@
    ========================================================================== */
 
 /** Status do banco → status mostrado ao cliente (domain/model.js → STATUS) */
-const STATUS_FROM_DB = { aguardando_aprovacao: "aguardando", aprovado: "aprovado", publicado: "publicado" };
+const STATUS_FROM_DB = { aguardando_aprovacao: "aguardando", ajustes: "ajustes", aprovado: "aprovado", publicado: "publicado" };
 
 /**
  * @param {object} row  linha de portal_contents() ou de client_calendar_items
@@ -35,7 +35,11 @@ export function activityFromContent(row) {
     media: row.media_url ? [{ kind: row.media_kind === "video" ? "video" : "image", src: row.media_url, alt: row.title }] : [],
     // Observação que a agência liberou para o cliente (as internas nunca chegam aqui)
     notes: row.client_notes || "",
-    // Status definido pela agência no painel
+    // Arte final (arquivos ganham o link assinado no repositório; links vêm prontos)
+    final: (Array.isArray(row.assets) ? row.assets : []).map((a) => ({ kind: a.kind === "video" ? "video" : "image", storagePath: a.storage_path || null, src: a.url || null })),
+    // Última decisão do cliente sobre a versão atual (aprovado / ajustes + mensagem)
+    decision: row.decision ? { decision: row.decision.decision, message: row.decision.message || "", version: row.decision.version, createdAt: row.decision.created_at } : null,
+    // Status definido pela agência no painel (ou pela decisão do cliente)
     status: STATUS_FROM_DB[row.status] || "aguardando",
     requiresApproval: true,
     version: row.version,

@@ -8,9 +8,19 @@ import { renderMedia, wireMediaFallbacks } from "../../../js/ui/media.js";
 import { CONTENT_STATUS, CLIENT_VISIBLE_STATUS, NETWORKS, FORMATS, LIMITS, validateContent, validateContentFilters } from "../domain/rules.js";
 import { closeDialog, wireDialog, showFieldErrors, setBusy } from "../ui/dialogs.js";
 import { stateBlock, loadingRows, button } from "../ui/states.js";
+import { reviewSections, mountReview } from "./content-review.js";
+import { describeMedia } from "../../../js/ui/media.js";
 
 const shortDate = (iso) => iso.split("-").reverse().join("/");
 const statusChip = (status) => `<span class="content-status cs--${esc(status)}">${esc(CONTENT_STATUS[status]?.label || status)}</span>`;
+/** Miniatura da referência na lista: imagem pequena ou ícone do tipo de link */
+function refThumb(content) {
+  if (!content.media_url) return `<span class="row__thumb row__thumb--empty" title="Sem referência">${icon("image")}</span>`;
+  const media = describeMedia(content.media_url, content.media_kind || "image");
+  if (media.type === "image") return `<span class="row__thumb"><img src="${esc(media.src)}" alt="" loading="lazy" referrerpolicy="no-referrer" data-thumb></span>`;
+  return `<span class="row__thumb row__thumb--video" title="${esc(media.provider || "Vídeo de referência")}">${icon("play")}</span>`;
+}
+
 const options = (entries, selected = "") => entries.map(([value, label]) => `<option value="${esc(value)}"${value === selected ? " selected" : ""}>${esc(label)}</option>`).join("");
 
 export function setupContents({ api, state, toast, confirm, navigate }) {
@@ -22,6 +32,14 @@ export function setupContents({ api, state, toast, confirm, navigate }) {
   const submit = form.querySelector("[type=submit]");
   const drawer = $("#content-drawer");
   wireMediaFallbacks(drawer);
+  // Miniatura que não carrega vira o ícone
+  list.addEventListener("error", (event) => {
+    const img = event.target;
+    if (!(img instanceof HTMLImageElement) || !img.matches("[data-thumb]")) return;
+    const box = img.closest(".row__thumb");
+    box.classList.add("row__thumb--empty");
+    box.innerHTML = icon("image");
+  }, true);
   const mediaKind = form.querySelector("[data-media-kind]");
   const captionCount = $("#caption-count");
   let contents = [];
@@ -106,7 +124,7 @@ export function setupContents({ api, state, toast, confirm, navigate }) {
         <div class="row" data-row="${esc(c.id)}">
           <span class="row__date">${esc(shortDate(c.scheduled_date))}<span class="row__time">${esc(c.scheduled_time ? timeLabel(c.scheduled_time.slice(0, 5)) : "Sem horário")}</span></span>
           <span class="row__client">${esc(clientName(c.client_id))}</span>
-          <button class="row__title" type="button" data-view-content="${esc(c.id)}">${esc(c.title)}</button>
+          <span class="row__titlecell">${refThumb(c)}<button class="row__title" type="button" data-view-content="${esc(c.id)}">${esc(c.title)}</button>${c.assets_count ? `<span class="row__art" title="Itens na arte final">${icon("layers")}${esc(c.assets_count)}</span>` : ""}</span>
           <span class="row__network">${esc(NETWORKS[c.network] || c.network)}</span>
           <span class="row__format">${typeBadge(c.format)}</span>
           <span class="row__status">${statusChip(c.status)}</span>
@@ -118,12 +136,17 @@ export function setupContents({ api, state, toast, confirm, navigate }) {
   }
 
   /* ---------- Detalhes ---------- */
-  function openDetails(content) {
-    const visible = CLIENT_VISIBLE_STATUS.includes(content.status);
+  const versionLine = (c) => `${CLIENT_VISIBLE_STATUS.includes(c.status) ? "Visível no calendário do cliente" : "Ainda não aparece para o cliente"} · versão ${c.version}`;
+  let openId = null;
+  function openDetails(content, { keepScroll = false } = {}) {
+    const body = $("#drawer-body");
+    const scroll = keepScroll ? body.scrollTop : 0;
+    openId = content.id;
+    requestAnimationFrame(() => { body.scrollTop = scroll; });
     $("#drawer-badges").innerHTML = `${typeBadge(content.format, true)}${statusChip(content.status)}`;
     // A mesma prévia que o cliente vê no calendário
     const media = content.media_url
-      ? `<div class="media-ref">${renderMedia({ url: content.media_url, kind: content.media_kind || "image", title: content.title })}</div>`
+      ? `<div class="detail"><h3 class="detail__title">Referência</h3><div class="media-ref">${renderMedia({ url: content.media_url, kind: content.media_kind || "image", title: content.title })}</div></div>`
       : "";
     $("#drawer-body").innerHTML = `
       <h2 class="drawer__title" id="drawer-title">${esc(content.title)}</h2>
@@ -137,12 +160,30 @@ export function setupContents({ api, state, toast, confirm, navigate }) {
       <div class="detail"><h3 class="detail__title">Legenda</h3><p class="caption-text">${content.caption ? esc(content.caption) : '<span class="field__optional">Sem legenda ainda.</span>'}</p></div>
       ${content.client_notes ? `<div class="detail"><h3 class="detail__title">Observação para o cliente</h3><p class="caption-text">${esc(content.client_notes)}</p></div>` : ""}
       ${content.internal_notes ? `<div class="internal"><p class="internal__label">${icon("lock")}Observações internas · só a agência vê</p><p class="internal__text">${esc(content.internal_notes)}</p></div>` : ""}
-      <p class="drawer__version">${visible ? "Visível no calendário do cliente" : "Ainda não aparece para o cliente"} · versão ${esc(content.version)}</p>
+      <p class="drawer__version">${esc(versionLine(content))}</p>
       <div class="drawer__actions">
         <button class="btn btn--primary btn--sm" type="button" data-edit-content="${esc(content.id)}">${icon("edit")}<span>Editar</span></button>
         <button class="btn btn--ghost btn--sm" type="button" data-delete-content="${esc(content.id)}">${icon("trash")}<span>Excluir</span></button>
       </div>`;
-    drawer.showModal();
+    // Arte final e aprovação: um bloco novo a cada abertura (os eventos ficam presos a ele)
+    const review = document.createElement("div");
+    review.className = "review";
+    review.innerHTML = reviewSections();
+    $("#drawer-body").querySelector(".drawer__version").before(review);
+    const reviewer = mountReview({
+      root: review, content, api, toast, confirm,
+      onChanged: async (updated) => {
+        const fresh = updated || await api.getContent(content.id).catch(() => null);
+        await load();
+        if (fresh && drawer.open && openId === content.id && review.isConnected) {
+          // Atualiza só status e versão; a seção de arte final continua como está
+          $("#drawer-badges").innerHTML = `${typeBadge(fresh.format, true)}${statusChip(fresh.status)}`;
+          $("#drawer-body .drawer__version").textContent = versionLine(fresh);
+          reviewer.update(fresh);
+        }
+      }
+    });
+    if (!drawer.open) drawer.showModal();
   }
 
   /* ---------- Formulário ---------- */

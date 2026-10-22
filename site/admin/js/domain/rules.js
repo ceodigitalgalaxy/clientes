@@ -12,12 +12,13 @@ export const CONTENT_STATUS = {
   planejado:            { label: "Planejado" },
   em_producao:          { label: "Em produção" },
   aguardando_aprovacao: { label: "Aguardando aprovação" },
+  ajustes:              { label: "Ajustes solicitados" },
   aprovado:             { label: "Aprovado" },
   publicado:            { label: "Publicado" }
 };
 
 /** Status que aparecem no calendário do cliente (mesma regra da view client_calendar_items) */
-export const CLIENT_VISIBLE_STATUS = ["aguardando_aprovacao", "aprovado", "publicado"];
+export const CLIENT_VISIBLE_STATUS = ["aguardando_aprovacao", "ajustes", "aprovado", "publicado"];
 
 /** Redes: mesmas chaves de PLATFORMS (site/js/domain/model.js) */
 export const NETWORKS = {

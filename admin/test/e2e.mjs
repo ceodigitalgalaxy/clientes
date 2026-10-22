@@ -62,7 +62,7 @@ const context = await browser.newContext({ viewport: { width: 1360, height: 900 
 // Pedidos ao Supabase respondidos pelo Supabase de mentira (nada sai para a internet)
 await context.route(`${SUPABASE_URL}/**`, async (route) => {
   const req = route.request();
-  const answer = await fake.handle({ method: req.method(), url: req.url(), headers: await req.allHeaders(), body: req.postData() });
+  const answer = await fake.handle({ method: req.method(), url: req.url(), headers: await req.allHeaders(), body: req.postData(), bodyBuffer: req.postDataBuffer() });
   if (answer === "abort") return route.abort("failed");
   return route.fulfill(answer);
 });
@@ -439,7 +439,8 @@ await step("Celular: lista e formulário cabem na tela", async () => {
   await signIn(TEAM.username, TEAM.password);
   await page.waitForSelector(".row[data-row]");
   const overflow = await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth);
-  assert.ok(overflow <= 0, `rolagem lateral de ${overflow}px`);
+  const wide = overflow > 0 ? await page.evaluate(() => [...document.querySelectorAll("body *")].filter((n) => n.getBoundingClientRect().right > document.documentElement.clientWidth + 1).slice(0, 5).map((n) => `${n.tagName.toLowerCase()}.${[...n.classList].join(".")}`).join(", ")) : "";
+  assert.ok(overflow <= 0, `rolagem lateral de ${overflow}px (${wide})`);
   await shot("10-celular");
 });
 

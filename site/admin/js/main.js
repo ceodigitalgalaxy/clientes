@@ -14,6 +14,7 @@ import { icon, brandMark } from "../../js/lib/icons.js";
 import { toast } from "../../js/ui/toast.js";
 import { SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY } from "../../js/config.js";
 import { createAuth } from "../../js/lib/auth.js";
+import { createStorage } from "../../js/lib/storage.js";
 import { createSupabaseStore } from "./data/store.js";
 import { createApi } from "./api.js";
 import { validateContentFilters } from "./domain/rules.js";
@@ -21,13 +22,15 @@ import { createConfirm, showFieldErrors, setBusy } from "./ui/dialogs.js";
 import { setupClients } from "./views/clients.js";
 import { setupContents } from "./views/contents.js";
 import { setupAccess } from "./views/access.js";
+import { setupImport } from "./views/import.js";
 
 /* O painel não abre dentro de outro site (proteção contra clique disfarçado).
    A página fica invisível até esta checagem (veja .admin em admin.css). */
 if (window.top !== window.self) throw new Error("O painel não pode ser aberto dentro de outra página.");
 document.body.classList.add("is-ready");
 
-const ROUTES = ["conteudos", "clientes"];
+const ROUTES = ["conteudos", "clientes", "importar"];
+const TITLES = { conteudos: "Conteúdos", clientes: "Clientes", importar: "Importar conteúdos" };
 
 const auth = createAuth({ url: SUPABASE_URL, apiKey: SUPABASE_PUBLISHABLE_KEY, kind: "equipe" });
 const store = createSupabaseStore({
@@ -36,8 +39,11 @@ const store = createSupabaseStore({
   getToken: () => auth.accessToken(),
   onUnauthorized: () => auth.refresh()
 });
+// Arquivos (foto do cliente e arte final), sempre com a sessão da equipe
+const storage = createStorage({ url: SUPABASE_URL, apiKey: SUPABASE_PUBLISHABLE_KEY, getToken: () => auth.accessToken(), refresh: () => auth.refresh() });
 const api = createApi({
   store,
+  storage,
   onSessionLost: (message) => showLogin(message),
   // Logins de cliente: função no Supabase que guarda a chave secreta (supabase/functions/acesso-cliente)
   access: { url: `${SUPABASE_URL}/functions/v1/acesso-cliente`, apiKey: SUPABASE_PUBLISHABLE_KEY, getToken: () => auth.accessToken(), refresh: () => auth.refresh() }
@@ -77,6 +83,7 @@ async function loadClients() {
 const clients = setupClients({ api, state, toast, confirm, navigate, onClientsChanged: async () => { await loadClients(); if (state.route === "conteudos") await contents.load(); } });
 const contents = setupContents({ api, state, toast, confirm, navigate });
 setupAccess({ api, state, toast, confirm, onChanged: () => loadClients() });
+const importer = setupImport({ api, state, toast, navigate });
 
 /** Mostra a seção do endereço atual */
 async function showRoute() {
@@ -89,7 +96,7 @@ async function showRoute() {
     if (link.dataset.route === state.route) link.setAttribute("aria-current", "page");
     else link.removeAttribute("aria-current");
   });
-  document.title = `${state.route === "clientes" ? "Clientes" : "Conteúdos"} · Painel da agência`;
+  document.title = `${TITLES[state.route]} · Painel da agência`;
   if (!state.clientsLoaded) {
     clients.renderLoading();
     if (state.route === "conteudos") contents.renderLoading();
@@ -97,6 +104,7 @@ async function showRoute() {
     if (!ok && state.route === "conteudos") { await contents.load(); return; }
   }
   if (state.route === "conteudos") await contents.load();
+  if (state.route === "importar") importer.show();
 }
 
 /* ---------- Entrada e saída ---------- */

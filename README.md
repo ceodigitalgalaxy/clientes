@@ -63,8 +63,10 @@ Serve a pasta `site/` como o GitHub Pages. Não usa chave nenhuma: entra com usu
 ### O que faz
 
 - **Login da equipe** com usuário e senha; quem não faz parte da equipe é recusado.
-- **Clientes:** cadastrar, editar, inativar e excluir (só quem não tem conteúdos; com conteúdos, inative). Cada cliente tem um identificador único (`slug`).
-- **Conteúdos:** cliente, título, data e horário, rede social, formato (imagem, carrossel, vídeo, stories ou outro), URL de referência da mídia (imagem ou vídeo), legenda, observações internas e status (planejado, em produção, aguardando aprovação, aprovado, publicado).
+- **Clientes:** cadastrar, editar, inativar e excluir (só quem não tem conteúdos; com conteúdos, inative). Cada cliente tem um identificador único (`slug`) e pode ter uma **foto/logo** (PNG, JPG ou WebP, reduzida para 512 px), que aparece no topo do portal dele.
+- **Conteúdos:** cliente, título, data e horário, rede social, formato (imagem, carrossel, vídeo, stories ou outro), link da **referência** (imagem ou vídeo, com prévia na lista e nos detalhes), legenda, observação para o cliente, observações internas e status (planejado, em produção, aguardando aprovação, ajustes solicitados, aprovado, publicado).
+- **Arte final:** nos detalhes do conteúdo, enviar arquivos (imagem, GIF ou vídeo MP4/WebM/MOV, até 50 MB cada) e/ou links de vídeo, na ordem do carrossel (setas para reordenar). Depois, **Enviar para aprovação**: o cliente vê a arte final no portal e aprova ou pede ajuste com uma mensagem. O histórico das respostas aparece no painel; aprovado, dá para **Marcar como publicado**. Se a arte mudar depois da aprovação, o painel avisa para enviar de novo.
+- **Importar:** escolher o cliente e uma planilha (.xlsx ou .csv; há um modelo para baixar). O painel mostra a prévia linha a linha (pronto, com erro, parece repetido), com a miniatura da referência, e importa só as linhas marcadas, de uma vez. Colunas: Título, Data, Horário, Rede social, Formato, Link da referência, Legenda, Observação para o cliente, Observações internas e Status (vazio = planejado).
 - Criar, ver detalhes, editar e excluir (com confirmação).
 - Filtros por cliente, período e status, guardados no endereço da página.
 - Estados de carregamento, sucesso, erro (com "Tentar novamente") e lista vazia.
@@ -82,7 +84,8 @@ Serve a pasta `site/` como o GitHub Pages. Não usa chave nenhuma: entra com usu
 
 ```
 site/admin/                    ← publicado em /admin/
-├── index.html                 Entrada (login) + painel (Conteúdos e Clientes, modais, detalhes)
+├── index.html                 Entrada (login) + painel (Conteúdos, Clientes e Importar, modais, detalhes)
+├── modelo-importacao-conteudos.xlsx  Modelo da planilha de importação
 ├── css/admin.css              Estilos do painel (reaproveita o style.css do portal)
 └── js/
     ├── main.js                Entrada, checagem da equipe, navegação e estado
@@ -91,7 +94,10 @@ site/admin/                    ← publicado em /admin/
     ├── api.js                 Valida e chama o banco com a sessão
     ├── data/store.js          Leitura e escrita no Supabase (navegador e comandos locais)
     ├── domain/rules.js        Validações, regras de usuário e senha
-    ├── views/                 clients.js, contents.js e access.js (acesso do cliente ao portal)
+    ├── lib/spreadsheet.js     Leitor de .xlsx e .csv (sem bibliotecas externas)
+    ├── domain/import.js       Planilha → conteúdos (colunas, datas, apelidos, erros, repetidos)
+    ├── views/                 clients.js, contents.js, content-review.js (arte final e aprovação),
+    │                          import.js (Importar) e access.js (acesso do cliente ao portal)
     └── ui/                    dialogs.js e states.js
 admin/                         ← só no computador da agência (não publicado)
 ├── equipe.mjs                 Criar usuários, trocar senha, listar, remover
@@ -114,8 +120,12 @@ Para publicar uma mudança na função: `supabase functions deploy acesso-client
 | `contents` | Conteúdos de cada cliente (campos acima) e `version`, que sobe quando muda algo que o cliente vê |
 | `agency_members` | Quem da equipe pode entrar no painel (preenchida pelo `equipe.mjs`) |
 | `client_members` | Login de cada cliente no portal, ligado a **um** cliente (preenchida pelo `equipe.mjs criar-cliente`) |
+| `content_assets` | Arte final de cada conteúdo, em ordem: arquivo no armazenamento ou link de vídeo |
+| `content_approvals` | Respostas do cliente: versão, aprovado ou ajustes, mensagem e quem respondeu |
 | `client_calendar_items` (visão) | Calendário do cliente para a equipe: sem observações internas e só com status aguardando aprovação, aprovado ou publicado |
-| `portal_profile()` e `portal_contents(p_from, p_to)` | **As únicas portas do cliente.** Descobrem o cliente pela sessão (não recebem id de cliente) e devolvem só os conteúdos liberados dele, sem observações internas. O cliente não tem nenhum acesso direto às tabelas |
+| `portal_client()`, `portal_calendar(p_from, p_to)` e `portal_decide(conteúdo, versão, decisão, mensagem)` | **As únicas portas do cliente.** Descobrem o cliente pela sessão (não recebem id de cliente): devolvem só os conteúdos liberados dele (com arte final e a última resposta), sem observações internas, e registram a aprovação ou o pedido de ajuste só se o conteúdo for dele, estiver aguardando aprovação e a versão for a atual. O cliente não tem nenhum acesso direto às tabelas |
+
+**Armazenamento (Supabase Storage):** `client-logos` (público, 2 MB, só fotos/logos) e `content-media` (privado, 50 MB por arquivo). A arte final é aberta por links temporários de 1 hora; o cliente só consegue gerar link para arquivos de conteúdos dele já liberados. Só a equipe envia ou apaga arquivos. No plano gratuito do Supabase o armazenamento total é de 1 GB.
 
 Em cada conteúdo, **Observação para o cliente** (`client_notes`) aparece no portal; **Observações internas** (`internal_notes`) nunca saem do painel.
 
@@ -127,9 +137,10 @@ node admin/test/store.test.mjs                    # banco, login e equipe (sem r
 node admin/test/portal.test.mjs                   # links de mídia, repositório do portal, contas de cliente, função acesso-cliente
 PLAYWRIGHT=$P node admin/test/e2e.mjs             # painel da agência, ponta a ponta
 PLAYWRIGHT=$P node admin/test/portal-e2e.mjs      # painel → calendário do cliente, ponta a ponta
+PLAYWRIGHT=$P node admin/test/review-e2e.mjs      # foto, arte final, aprovação/ajuste e importação, ponta a ponta
 ```
 
-Os testes de ponta a ponta usam um Supabase de mentira em memória (**só para teste**). O do portal abre o painel e o portal lado a lado e confere: imagem cadastrada na data certa e proporcional, vídeo do YouTube no player oficial, arquivo de vídeo, link do Instagram e imagem quebrada com aviso, mudança de data (inclusive para outro mês), edição e exclusão refletidas, atualização automática, outro cliente sem acesso, tentativas de trocar parâmetros, semana, carregando, erro, celular, a demonstração removida e o acesso do cliente criado, trocado e removido pelo painel (rodando o código real da função). O `admin/verify.mjs` repete o essencial no banco real.
+Os testes de ponta a ponta usam um Supabase de mentira em memória (**só para teste**). O do portal abre o painel e o portal lado a lado e confere: imagem cadastrada na data certa e proporcional, vídeo do YouTube no player oficial, arquivo de vídeo, link do Instagram e imagem quebrada com aviso, mudança de data (inclusive para outro mês), edição e exclusão refletidas, atualização automática, outro cliente sem acesso, tentativas de trocar parâmetros, semana, carregando, erro, celular, a demonstração removida e o acesso do cliente criado, trocado e removido pelo painel (rodando o código real da função). O de revisão confere foto do cliente, envio e ordem da arte final, tipo de arquivo recusado, carrossel no portal (inclusive no celular), pedido de ajuste com mensagem, nova versão, aprovação de versão antiga recusada, aprovação, marcar como publicado, outro cliente sem acesso e a importação (.xlsx e .csv). O `admin/verify.mjs` repete o essencial no banco real, inclusive as aprovações.
 
 ## Portal do cliente (`site/`)
 
@@ -194,11 +205,11 @@ site/
 | `Comment` | Observação vinculada a uma atividade (do cliente ou da agência) | Activity |
 | `Idea` | Sugestão enviada pelo cliente, com data sugerida opcional e status | Client |
 
-Hoje só `Client` e `Activity` vêm do banco. `Plan`, `Approval`, `Comment` e `Idea` são o desenho da próxima etapa. O status mostrado é o definido pela agência no painel; quando as aprovações existirem, uma aprovação vale só para a versão aprovada (`domain/status.js`), e a edição do conteúdo sobe a `version`.
+Hoje `Client`, `Activity` (com a arte final) e `Approval` vêm do banco. `Plan`, `Comment` e `Idea` são o desenho de uma próxima etapa. Uma aprovação vale só para a versão aprovada: qualquer mudança que o cliente vê (inclusive na arte final) sobe a `version`.
 
 ## Próximas etapas (preparadas, não implementadas)
 
-1. **Aprovações, observações e ideias do cliente no banco**, para o cliente aprovar ou pedir ajuste pelo portal. Depois: upload de mídias e "foco do mês".
+1. **Comentários e ideias do cliente no banco** e "foco do mês".
 2. **Exportar cronograma em PDF.** Gerar no admin a partir de `Plan` + `Activity[]` do mês, com a identidade da Digital Galaxy (impressão de uma página própria do cronograma ou geração no servidor).
 3. **Compartilhar via WhatsApp.** Link `https://wa.me/?text=...` com a mensagem e o link do planejamento. Anexar o PDF automaticamente exige a API oficial do WhatsApp Business; sem ela, o PDF é enviado manualmente.
 

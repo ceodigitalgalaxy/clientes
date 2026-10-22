@@ -4,6 +4,8 @@
 
 import assert from "node:assert/strict";
 import { describeMedia } from "../../site/js/ui/media.js";
+import { readSpreadsheet } from "../../site/admin/js/lib/spreadsheet.js";
+import { mapRows, parseDate, parseTime } from "../../site/admin/js/domain/import.js";
 import { createSupabaseRepository } from "../../site/js/data/supabase-repository.js";
 import { activityFromContent } from "../../site/js/domain/content-mapping.js";
 import { statusOf } from "../../site/js/domain/status.js";
@@ -110,8 +112,8 @@ const repo = createSupabaseRepository({ url: "https://exemplo.supabase.co", apiK
 responses = [{ status: 200, body: [{ client_id: "c1", name: "Padaria Central Ltda", segment: "Alimentação" }] }];
 const client = await repo.getClient();
 ok("perfil do cliente", () => {
-  assert.deepEqual(client, { id: "c1", name: "Padaria Central Ltda", segment: "Alimentação", initials: "PC" });
-  assert.equal(calls.at(-1).url, "https://exemplo.supabase.co/rest/v1/rpc/portal_profile");
+  assert.deepEqual(client, { id: "c1", name: "Padaria Central Ltda", segment: "Alimentação", initials: "PC", logoUrl: null });
+  assert.equal(calls.at(-1).url, "https://exemplo.supabase.co/rest/v1/rpc/portal_client");
   assert.deepEqual(calls.at(-1).body, {}, "não envia id de cliente");
   assert.equal(calls.at(-1).headers.Authorization, "Bearer token-cliente");
   assert.equal(calls.at(-1).headers.apikey, "sb_publishable_TESTE");
@@ -122,7 +124,7 @@ await assert.rejects(repo.getClient(), (e) => e.reason === "no_access");
 responses = [{ status: 200, body: [{ id: "a", title: "T", scheduled_date: "2026-02-03", scheduled_time: null, network: "instagram", format: "post", media_url: null, media_kind: null, caption: null, client_notes: null, status: "aprovado", version: 1, updated_at: "x" }] }];
 const items = await repo.listActivities("2026-02");
 ok("conteúdos do mês", () => {
-  assert.equal(calls.at(-1).url, "https://exemplo.supabase.co/rest/v1/rpc/portal_contents");
+  assert.equal(calls.at(-1).url, "https://exemplo.supabase.co/rest/v1/rpc/portal_calendar");
   assert.deepEqual(calls.at(-1).body, { p_from: "2026-02-01", p_to: "2026-02-28" }, "só o período; o cliente vem do login");
   assert.equal(items[0].status, "aprovado");
 });
@@ -135,7 +137,20 @@ responses = [{ status: 500, body: {} }];
 await assert.rejects(repo.listActivities("2026-02"), (e) => e.status === 502);
 const offline = createSupabaseRepository({ url: "https://exemplo.supabase.co", apiKey: "k", auth: fakeAuth, fetchImpl: async () => { throw new TypeError("rede"); } });
 await assert.rejects(offline.listActivities("2026-02"), (e) => e.reason === "offline");
-ok("recursos que ainda não existem no banco ficam desligados", () => assert.deepEqual(repo.features, { approvals: false, comments: false, ideas: false, plans: false }));
+ok("aprovação ligada; o que ainda não existe no banco fica desligado", () => assert.deepEqual(repo.features, { approvals: true, comments: false, ideas: false, plans: false }));
+
+responses = [{ status: 200, body: [{ new_status: "aprovado", new_version: 3 }] }];
+const decided = await repo.addApproval({ activityId: "a", version: 3, decision: "aprovado" });
+ok("aprovar chama portal_decide só com conteúdo, versão e decisão", () => {
+  assert.equal(calls.at(-1).url, "https://exemplo.supabase.co/rest/v1/rpc/portal_decide");
+  assert.deepEqual(calls.at(-1).body, { p_content_id: "a", p_version: 3, p_decision: "aprovado", p_message: null });
+  assert.equal(decided.status, "aprovado");
+});
+for (const [key, pattern] of [["versao_desatualizada", /atualizou este conteúdo/], ["nao_aguarda_aprovacao", /./], ["mensagem_obrigatoria", /./]]) {
+  responses = [{ status: 400, body: { code: "P0001", message: key } }];
+  await assert.rejects(repo.addApproval({ activityId: "a", version: 1, decision: "aprovado" }), (e) => pattern.test(e.message) && !e.message.includes(key));
+}
+ok("recusas do banco viram mensagens em português", () => {});
 
 /* ---------- Sessões separadas: equipe x cliente ---------- */
 {
@@ -273,6 +288,43 @@ ok("recursos que ainda não existem no banco ficam desligados", () => assert.dee
   ok("depois de removido, o login não entra mais", () => assert.equal(depois, 400));
   const semConfig = await createHandler({ url: "", secret: "", publishable: "" })(new Request(URL_FN, { method: "POST", headers: { authorization: "Bearer x" } }));
   ok("sem configuração a função recusa", () => assert.equal(semConfig.status, 500));
+}
+
+
+/* ---------- Importação de planilha ---------- */
+{
+  const asFile = (name, buffer) => ({ name, size: buffer.length, arrayBuffer: async () => buffer.buffer.slice(buffer.byteOffset, buffer.byteOffset + buffer.length) });
+  const xlsx = await readSpreadsheet(asFile("importacao.xlsx", readFileSync(new URL("./fixtures/importacao.xlsx", import.meta.url))));
+  ok("lê .xlsx (linhas, textos e números)", () => {
+    assert.ok(xlsx.rows.length >= 4);
+    assert.ok(xlsx.rows.some((r) => r.some((v) => typeof v === "number")), "datas do Excel chegam como número");
+  });
+  const csv = await readSpreadsheet(asFile("c.csv", Buffer.from('\ufeffTítulo;Data;Legenda\n"Post; com ponto e vírgula";21/10/2026;"Linha 1\nLinha 2"\n')));
+  ok("lê .csv com ponto e vírgula, aspas e quebra de linha", () => assert.deepEqual(csv.rows[1], ["Post; com ponto e vírgula", "21/10/2026", "Linha 1\nLinha 2"]));
+  await assert.rejects(readSpreadsheet(asFile("velha.xls", Buffer.from("x"))), /\.xlsx/);
+  await assert.rejects(readSpreadsheet(asFile("falsa.xlsx", Buffer.from("não é zip"))), /não parece/);
+  ok("recusa .xls antigo e arquivo que não é planilha", () => {});
+  ok("datas e horários", () => {
+    assert.equal(parseDate(46316).value, "2026-10-21");
+    assert.equal(parseDate("21/10/2026").value, "2026-10-21");
+    assert.equal(parseDate("2026-10-21").value, "2026-10-21");
+    assert.ok(parseDate("31/02/2026").error);
+    assert.equal(parseTime(0.4375).value, "10:30");
+    assert.equal(parseTime("14h").value, "14:00");
+    assert.equal(parseTime("10h30").value, "10:30");
+  });
+  const mapped = mapRows([["Título", "Data", "Rede", "Formato", "Status"], ["Post A", "21/10/2026", "Insta", "Reels", ""], ["", "22/10/2026", "", "", ""], ["Post B", "data ruim", "", "", ""], ["Post C", "23/10/2026", "TikTok", "vídeo", "publicado"]], { clientId: "11111111-1111-4111-8111-111111111111", existing: [{ title: "post a", scheduled_date: "2026-10-21" }] });
+  ok("organiza as linhas: cliente escolhido, rede/formato por apelido, erros e repetidos", () => {
+    const [a, b, c, d] = mapped.items;
+    assert.equal(a.value.client_id, "11111111-1111-4111-8111-111111111111");
+    assert.equal(a.value.network, "instagram");
+    assert.equal(a.value.format, "reels");
+    assert.equal(a.value.status, "planejado", "sem status: planejado (não aparece para o cliente)");
+    assert.ok(a.duplicate && a.valid);
+    assert.ok(!b.valid && !c.valid);
+    assert.ok(c.errors.some((e) => /data/i.test(e)));
+    assert.ok(d.valid && d.value.status === "publicado");
+  });
 }
 
 console.log(`portal: ${checks} verificações passaram`);

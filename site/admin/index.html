@@ -4,7 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <!-- Só arquivos deste site; dados só do Supabase do painel; nada embutido no HTML -->
-  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data: https:; media-src 'self' https:; font-src 'self'; connect-src 'self' https://peieimwpkrattuldmjux.supabase.co; frame-src https://www.youtube-nocookie.com https://player.vimeo.com https://www.tiktok.com https://drive.google.com; object-src 'none'; base-uri 'self'; form-action 'none'">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data: blob: https:; media-src 'self' blob: https:; font-src 'self'; connect-src 'self' https://peieimwpkrattuldmjux.supabase.co; frame-src https://www.youtube-nocookie.com https://player.vimeo.com https://www.tiktok.com https://drive.google.com; object-src 'none'; base-uri 'self'; form-action 'none'">
   <meta name="referrer" content="no-referrer">
   <meta name="robots" content="noindex, nofollow">
   <title>Painel da agência · Digital Galaxy</title>
@@ -13,9 +13,9 @@
   <link rel="preload" href="../fonts/sora-latin-400-normal.woff2" as="font" type="font/woff2" crossorigin>
   <link rel="preload" href="../fonts/sora-latin-600-normal.woff2" as="font" type="font/woff2" crossorigin>
   <!-- Mesmos tokens e componentes do portal do cliente -->
-  <link rel="stylesheet" href="../css/style.css?v=6">
-  <link rel="stylesheet" href="css/admin.css?v=4">
-  <script type="module" src="js/main.js?v=5"></script>
+  <link rel="stylesheet" href="../css/style.css?v=8">
+  <link rel="stylesheet" href="css/admin.css?v=6">
+  <script type="module" src="js/main.js?v=7"></script>
 </head>
 <body class="admin">
   <!-- Tela de entrada: aparece enquanto ninguém estiver logado -->
@@ -58,6 +58,7 @@
       <nav class="admin-nav" aria-label="Seções do painel">
         <a class="admin-nav__link" href="#/conteudos" data-route="conteudos" data-icon="calendar">Conteúdos</a>
         <a class="admin-nav__link" href="#/clientes" data-route="clientes" data-icon="users">Clientes</a>
+        <a class="admin-nav__link" href="#/importar" data-route="importar" data-icon="layers">Importar</a>
       </nav>
       <div class="user-menu">
         <span class="user-menu__name" id="user-name" data-icon="user"></span>
@@ -113,6 +114,33 @@
       <p class="list-count" id="clients-count" aria-live="polite"></p>
       <div class="client-grid" id="clients-list" aria-busy="true"></div>
     </section>
+
+    <!-- Importar planilha (js/views/import.js) -->
+    <section class="view" id="view-importar" data-view="importar" aria-labelledby="importar-title" hidden>
+      <div class="view__head">
+        <div>
+          <h1 class="view__title" id="importar-title">Importar conteúdos</h1>
+          <p class="view__text">Envie uma planilha do Excel (.xlsx) ou .csv com os conteúdos de um cliente. Antes de gravar, o painel mostra uma prévia e aponta o que precisa de correção.</p>
+        </div>
+        <a class="btn btn--ghost" href="modelo-importacao-conteudos.xlsx" download data-icon="arrowRight">Baixar modelo (.xlsx)</a>
+      </div>
+      <form class="import-form" id="import-form" novalidate>
+        <label class="field">
+          <span class="field__label">1. Cliente</span>
+          <select class="field__input" name="client_id"><option value="">Escolha o cliente</option></select>
+        </label>
+        <div class="field">
+          <span class="field__label">2. Planilha</span>
+          <label class="import-drop">
+            <input class="visually-hidden" type="file" name="file" accept=".xlsx,.csv,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,text/csv">
+            <span class="import-drop__icon" data-icon="layers"></span>
+            <span class="import-drop__text"><b>Escolher planilha</b><span data-file-name>Nenhum arquivo escolhido</span></span>
+          </label>
+          <span class="field__hint">Colunas: Título, Data, Horário, Rede social, Formato, Link da referência, Legenda, Observação para o cliente, Observações internas e Status. Só Título, Data, Rede social e Formato são obrigatórias.</span>
+        </div>
+      </form>
+      <div class="import-preview" id="import-preview" aria-live="polite"></div>
+    </section>
   </main>
   </div>
 
@@ -149,6 +177,20 @@
           <span class="field__label">E-mail do contato <span class="field__optional">(opcional)</span></span>
           <input class="field__input" name="contact_email" type="email" autocomplete="off">
         </label>
+        <div class="field form-grid__wide">
+          <span class="field__label">Foto ou logo <span class="field__optional">(opcional)</span></span>
+          <div class="logo-picker">
+            <span class="logo-picker__preview" data-logo-preview aria-hidden="true"></span>
+            <div class="logo-picker__actions">
+              <label class="btn btn--ghost btn--sm logo-picker__choose">
+                <input class="visually-hidden" type="file" name="logo" accept="image/png,image/jpeg,image/webp">
+                <span data-icon="image">Escolher imagem</span>
+              </label>
+              <button class="link-btn link-btn--danger" type="button" data-logo-remove hidden>Tirar a foto</button>
+            </div>
+          </div>
+          <span class="field__hint">Aparece no portal do cliente. PNG, JPG ou WebP; a imagem é reduzida automaticamente.</span>
+        </div>
         <label class="field form-grid__wide">
           <span class="field__label">Observações internas <span class="field__optional">(opcional)</span></span>
           <textarea class="field__input field__input--area" name="notes" rows="3" maxlength="2000"></textarea>

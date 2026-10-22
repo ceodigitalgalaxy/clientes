@@ -81,7 +81,20 @@ async function fetchActivities(from, to) {
   return lists.flat();
 }
 
+/* Cada busca leva um número. Uma resposta mais antiga que a já exibida é
+   descartada (ex.: atualização automática que termina depois de uma recarga). */
+let loadSeq = 0;
+let shownSeq = 0;
+function applyData(data) {
+  if (data.seq < shownSeq) return false;
+  shownSeq = data.seq;
+  const { seq, ...rest } = data;
+  Object.assign(state, rest);
+  return true;
+}
+
 async function loadData() {
+  const seq = ++loadSeq;
   const [from, to] = viewRange();
   const months = [...new Set([from.slice(0, 7), to.slice(0, 7), state.month])];
   const [plans, activities] = await Promise.all([Promise.all(months.map((m) => repo.getPlan(m))), fetchActivities(from, to)]);
@@ -89,7 +102,7 @@ async function loadData() {
   // Quem decide o que aparece é o status definido pela agência (e, quando existir, o planejamento compartilhado)
   const visible = features.plans ? activities.filter((a) => planOf[a.date.slice(0, 7)]) : activities;
   const approvals = await repo.listApprovals(visible.map((a) => a.id));
-  return { plan: planOf[state.month] || null, activities: visible, approvals };
+  return { seq, plan: planOf[state.month] || null, activities: visible, approvals };
 }
 
 async function refreshApprovals() {
@@ -107,7 +120,7 @@ function renderView() {
   const viewItems = week ? state.activities.filter((a) => weekIsos.has(a.date)) : monthItems;
   el.title.textContent = week ? weekLabel(state.selected) : monthLabel(state.month);
   renderSummary(el.overview, { plan: state.plan, counts: summarize(monthItems, state.approvals), month: state.month, live: true, hasActivities: monthItems.length > 0 });
-  renderLegend(el.legend, viewItems, ["aguardando", "aprovado", "publicado"]);
+  renderLegend(el.legend, viewItems, ["aguardando", "ajustes", "aprovado", "publicado"]);
   renderCalendar(el.calendar, { ...state, activities: viewItems, hasPlan: Boolean(state.plan), live: true, canSuggest: features.ideas });
   el.calendar.removeAttribute("aria-busy");
   renderAgenda(el.agenda, state);
@@ -128,10 +141,13 @@ function renderIdeasArea() {
 
 function renderHeader() {
   const { client } = state;
-  $("#client-badge").innerHTML = `<span class="avatar avatar--client" aria-hidden="true">${esc(client.initials)}</span><span class="client-badge__text"><span class="client-badge__name"></span><span class="client-badge__segment"></span></span>`;
+  // Foto/logo do cliente (cadastrada no painel) ou as iniciais
+  const photo = client.logoUrl ? `<img class="avatar avatar--client avatar--photo" src="${esc(client.logoUrl)}" alt="">` : `<span class="avatar avatar--client" aria-hidden="true">${esc(client.initials)}</span>`;
+  $("#client-badge").innerHTML = `${photo}<span class="client-badge__text"><span class="client-badge__name"></span><span class="client-badge__segment"></span></span>`;
   $(".client-badge__name").textContent = client.name;
   $(".client-badge__segment").textContent = client.segment;
-  $("#profile-avatar").textContent = client.initials;
+  $("#profile-avatar").innerHTML = client.logoUrl ? `<img src="${esc(client.logoUrl)}" alt="">` : esc(client.initials);
+  $("#profile-avatar").classList.toggle("avatar--has-photo", Boolean(client.logoUrl));
   $("#profile-who").textContent = client.name;
   $("#welcome-hello").textContent = `Olá, ${client.name}!`;
   el.monthChip.innerHTML = `${icon("calendar")}<span></span>`;
@@ -158,7 +174,8 @@ const drawer = createDrawer({
   dialog: $("#drawer"),
   repo,
   getContext: () => state,
-  onChange: async () => { await refreshApprovals(); renderView(); }
+  // Depois de aprovar ou pedir ajuste: busca de novo (o status mudou no banco)
+  onChange: async () => { if (applyData(await loadData())) renderView(); }
 });
 
 const ideaModal = setupIdeaModal({
@@ -211,8 +228,7 @@ async function navigate(changes = {}, dir = 0) {
     return;
   }
   clearTimeout(skeleton);
-  if (token !== navToken) return;
-  Object.assign(state, data);
+  if (token !== navToken || !applyData(data)) return;
   if (state.view === "month" && !state.selected.startsWith(state.month)) {
     state.selected = state.month === monthKey(new Date()) ? todayISO() : (state.activities.find((a) => a.date.startsWith(state.month))?.date || `${state.month}-01`);
   }
@@ -256,7 +272,7 @@ async function refreshQuietly({ announce = false } = {}) {
     const data = await loadData();
     if (token !== navToken || !state.loaded) return;
     const changed = signature(data.activities) !== signature(state.activities);
-    Object.assign(state, data);
+    if (!applyData(data)) return;
     if (changed) {
       popover.hide();
       renderView();
@@ -372,6 +388,8 @@ function showLogin(message = "", { info = false } = {}) {
   el.overview.innerHTML = '<div class="skeleton skeleton--block"></div>';
   $("#client-badge").innerHTML = '<span class="skeleton skeleton--text"></span>';
   $("#welcome-hello").textContent = "Olá!";
+  $("#profile-avatar").textContent = "·";
+  $("#profile-avatar").classList.remove("avatar--has-photo");
   el.app.hidden = true;
   el.login.hidden = false;
   document.title = "Entrar · Portal de clientes Digital Galaxy";

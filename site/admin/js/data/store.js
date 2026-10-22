@@ -20,7 +20,7 @@ export class StoreError extends Error {
   }
 }
 
-const CLIENT_FIELDS = "id,name,slug,segment,contact_name,contact_email,notes,active,created_at,updated_at";
+const CLIENT_FIELDS = "id,name,slug,segment,contact_name,contact_email,notes,active,logo_path,created_at,updated_at";
 const CONTENT_FIELDS = "id,client_id,title,scheduled_date,scheduled_time,network,format,media_url,media_kind,caption,internal_notes,client_notes,status,version,created_at,updated_at";
 
 /** Traduz erros do PostgREST/PostgreSQL para mensagens do painel */
@@ -115,12 +115,48 @@ export function createSupabaseStore({ url, apiKey, secretKey, getToken, onUnauth
     },
 
     async listContents(filters = {}) {
-      const query = [`select=${CONTENT_FIELDS}`, "order=scheduled_date.asc,scheduled_time.asc.nullslast,created_at.asc"];
+      // content_assets(count): quantos itens de arte final cada conteúdo tem
+      const query = [`select=${CONTENT_FIELDS},content_assets(count)`, "order=scheduled_date.asc,scheduled_time.asc.nullslast,created_at.asc"];
       if (filters.client_id) query.push(`client_id=eq.${enc(filters.client_id)}`);
       if (filters.status) query.push(`status=eq.${enc(filters.status)}`);
       if (filters.from) query.push(`scheduled_date=gte.${enc(filters.from)}`);
       if (filters.to) query.push(`scheduled_date=lte.${enc(filters.to)}`);
-      return request(`contents?${query.join("&")}`);
+      const rows = await request(`contents?${query.join("&")}`);
+      return rows.map(({ content_assets: assets, ...row }) => ({ ...row, assets_count: assets?.[0]?.count ?? 0 }));
+    },
+
+    /** Vários conteúdos de uma vez (importação): tudo ou nada, numa única gravação */
+    async createContents(values) {
+      return request(`contents?select=${CONTENT_FIELDS}`, { method: "POST", body: values, prefer: "return=representation" });
+    },
+
+    /** Só o status (ex.: "Enviar para aprovação"); não muda a versão */
+    async setContentStatus(id, status) {
+      return request(`contents?select=${CONTENT_FIELDS}&id=eq.${enc(id)}`, { method: "PATCH", body: { status }, single: true, prefer: "return=representation" });
+    },
+
+    /** Foto do cliente (caminho no bucket client-logos, ou null para tirar) */
+    async setClientLogo(id, logoPath) {
+      return request(`clients?select=${CLIENT_FIELDS}&id=eq.${enc(id)}`, { method: "PATCH", body: { logo_path: logoPath }, single: true, prefer: "return=representation" });
+    },
+
+    /* Arte final (content_assets): arquivos ou links, na ordem do carrossel */
+    async listAssets(contentId) {
+      return request(`content_assets?select=id,content_id,kind,storage_path,url,position,created_at&content_id=eq.${enc(contentId)}&order=position.asc,created_at.asc`);
+    },
+    async addAsset(value) {
+      return request("content_assets?select=id,content_id,kind,storage_path,url,position,created_at", { method: "POST", body: value, single: true, prefer: "return=representation" });
+    },
+    async moveAsset(id, position) {
+      return request(`content_assets?select=id,position&id=eq.${enc(id)}`, { method: "PATCH", body: { position }, single: true, prefer: "return=representation" });
+    },
+    async deleteAsset(id) {
+      return request(`content_assets?select=id,storage_path&id=eq.${enc(id)}`, { method: "DELETE", single: true, prefer: "return=representation" });
+    },
+
+    /** Histórico de decisões do cliente, mais recente primeiro */
+    async listApprovals(contentId) {
+      return request(`content_approvals?select=id,version,decision,message,created_at&content_id=eq.${enc(contentId)}&order=created_at.desc`);
     },
 
     async getContent(id) {

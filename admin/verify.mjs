@@ -125,8 +125,8 @@ try {
   const headers = { apikey: SUPABASE_PUBLISHABLE_KEY, Authorization: `Bearer ${token}`, "Content-Type": "application/json" };
   const rpc = (name, body) => fetch(`${env.SUPABASE_URL}/rest/v1/rpc/${name}`, { method: "POST", headers, body: JSON.stringify(body) });
   const get = (q) => fetch(`${env.SUPABASE_URL}/rest/v1/${q}`, { headers }).then(async (r) => ({ ok: r.ok, body: await r.json().catch(() => null) }));
-  check("Função não aceita id de outro cliente", !(await rpc("portal_contents", { p_from: "2099-05-01", p_to: "2099-05-31", p_client_id: b.id })).ok);
-  for (const q of [`contents?select=*&client_id=eq.${b.id}`, `contents?select=internal_notes`, "clients?select=*", "client_members?select=*", "client_calendar_items?select=*"]) {
+  check("Função não aceita id de outro cliente", !(await rpc("portal_calendar", { p_from: "2099-05-01", p_to: "2099-05-31", p_client_id: b.id })).ok);
+  for (const q of [`contents?select=*&client_id=eq.${b.id}`, `contents?select=internal_notes`, "clients?select=*", "client_members?select=*", "client_calendar_items?select=*", "content_assets?select=*", "content_approvals?select=*"]) {
     const r = await get(q);
     check(`Sem acesso direto: ${q.split("?")[0]}`, !r.ok || (Array.isArray(r.body) && r.body.length === 0));
   }
@@ -141,6 +141,15 @@ try {
   await authB.signIn(userB, password);
   const itemsB = await createSupabaseRepository({ url: env.SUPABASE_URL, apiKey: SUPABASE_PUBLISHABLE_KEY, auth: authB }).listActivitiesBetween("2099-05-01", "2099-05-31");
   check("Cliente B vê só o dele", itemsB.length === 1 && itemsB[0].title === "B liberado");
+
+  // Aprovação: só do próprio conteúdo, só da versão atual, e o banco confere tudo
+  const refused = async (args) => { try { await portalA.addApproval(args); return false; } catch { return true; } };
+  check("Cliente A não aprova conteúdo do cliente B", await refused({ activityId: other.id, version: other.version, decision: "aprovado" }));
+  check("Aprovar versão antiga é recusado", await refused({ activityId: visible.id, version: visible.version - 1 || 999, decision: "aprovado" }));
+  check("Pedir ajuste sem mensagem é recusado", await refused({ activityId: visible.id, version: itemsA[0].version, decision: "ajustes" }));
+  await portalA.addApproval({ activityId: visible.id, version: itemsA[0].version, decision: "aprovado" });
+  check("Cliente A aprova o conteúdo dele", (await store.getContent(visible.id)).status === "aprovado");
+  check("Aprovar duas vezes é recusado", await refused({ activityId: visible.id, version: itemsA[0].version, decision: "aprovado" }));
 
   // Agência muda a data, edita e exclui: o cliente vê na próxima consulta
   await store.updateContent(visible.id, validateContent({ ...base, client_id: a.id, title: "A liberado (editado)", status: "aguardando_aprovacao", scheduled_date: "2099-05-20", client_notes: "Nota para A" }).value);
@@ -166,5 +175,5 @@ try {
   if (created.clients.length) check("Limpeza: clientes, conteúdos e logins de teste apagados", cleaned);
 }
 
-console.log(ok ? "\nTudo certo: o painel grava, consulta, edita, filtra e exclui no banco, e cada cliente vê só o que é dele." : "\nAlgum passo falhou. Veja as linhas marcadas com ✘.");
+console.log(ok ? "\nTudo certo: o painel grava, consulta, edita, filtra e exclui no banco, e cada cliente vê e aprova só o que é dele." : "\nAlgum passo falhou. Veja as linhas marcadas com ✘.");
 process.exit(ok ? 0 : 1);

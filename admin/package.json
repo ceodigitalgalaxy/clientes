@@ -3,11 +3,13 @@
   "private": true,
   "description": "Ferramentas locais do painel da agência: prévia do site, equipe (usuários) e verificação do banco.",
   "type": "module",
-  "engines": { "node": ">=22.12" },
+  "engines": {
+    "node": ">=22.12"
+  },
   "scripts": {
     "start": "node server.mjs",
     "equipe": "node equipe.mjs",
     "verify": "node verify.mjs",
-    "test": "node test/store.test.mjs && node test/portal.test.mjs && node test/e2e.mjs && node test/portal-e2e.mjs"
+    "test": "node test/store.test.mjs && node test/portal.test.mjs && node test/e2e.mjs && node test/portal-e2e.mjs && node test/review-e2e.mjs"
   }
 }
