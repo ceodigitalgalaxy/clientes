@@ -219,4 +219,4 @@ Hoje `Client`, `Activity` (com a arte final) e `Approval` vêm do banco. `Plan`,
 
 ## Publicação
 
-O workflow `.github/workflows/pages.yml` publica a pasta `site/` (portal e `site/admin/`) no GitHub Pages a cada push na `main`, em `https://clientes.digitalgalaxy.com.br`. As páginas têm `noindex`. A pasta `admin/` (ferramentas locais) não é publicada. Antes de publicar mudanças no painel, deixe o cadastro aberto do Supabase desligado (`node admin/equipe.mjs verificar`).
+Antes de publicar uma mudança de CSS ou JS, rode `node admin/versao.mjs` (coloca a mesma versão em todos os arquivos, para o navegador nunca misturar arquivo novo com antigo do cache). O workflow `.github/workflows/pages.yml` publica a pasta `site/` (portal e `site/admin/`) no GitHub Pages a cada push na `main`, em `https://clientes.digitalgalaxy.com.br`. As páginas têm `noindex`. A pasta `admin/` (ferramentas locais) não é publicada. Antes de publicar mudanças no painel, deixe o cadastro aberto do Supabase desligado (`node admin/equipe.mjs verificar`).

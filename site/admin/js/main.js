@@ -9,20 +9,20 @@
    O banco aplica as mesmas regras (RLS): esconder a tela não é a proteção.
    ========================================================================== */
 
-import { $, on } from "../../js/lib/dom.js";
-import { icon, brandMark } from "../../js/lib/icons.js";
-import { toast } from "../../js/ui/toast.js";
-import { SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY } from "../../js/config.js";
-import { createAuth } from "../../js/lib/auth.js";
-import { createStorage } from "../../js/lib/storage.js";
-import { createSupabaseStore } from "./data/store.js";
-import { createApi } from "./api.js";
-import { validateContentFilters } from "./domain/rules.js";
-import { createConfirm, showFieldErrors, setBusy } from "./ui/dialogs.js";
-import { setupClients } from "./views/clients.js";
-import { setupContents } from "./views/contents.js";
-import { setupAccess } from "./views/access.js";
-import { setupImport } from "./views/import.js";
+import { $, on } from "../../js/lib/dom.js?v=fd0ca6eef6";
+import { icon, brandMark } from "../../js/lib/icons.js?v=fd0ca6eef6";
+import { toast } from "../../js/ui/toast.js?v=fd0ca6eef6";
+import { SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY } from "../../js/config.js?v=fd0ca6eef6";
+import { createAuth } from "../../js/lib/auth.js?v=fd0ca6eef6";
+import { createStorage } from "../../js/lib/storage.js?v=fd0ca6eef6";
+import { createSupabaseStore } from "./data/store.js?v=fd0ca6eef6";
+import { createApi } from "./api.js?v=fd0ca6eef6";
+import { validateContentFilters } from "./domain/rules.js?v=fd0ca6eef6";
+import { createConfirm, showFieldErrors, setBusy } from "./ui/dialogs.js?v=fd0ca6eef6";
+import { setupClients } from "./views/clients.js?v=fd0ca6eef6";
+import { setupContents } from "./views/contents.js?v=fd0ca6eef6";
+import { setupAccess } from "./views/access.js?v=fd0ca6eef6";
+import { setupImport } from "./views/import.js?v=fd0ca6eef6";
 
 /* O painel não abre dentro de outro site (proteção contra clique disfarçado).
    A página fica invisível até esta checagem (veja .admin em admin.css). */

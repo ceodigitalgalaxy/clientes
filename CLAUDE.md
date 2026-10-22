@@ -31,4 +31,4 @@ Site estático, sem build (HTML, CSS e módulos ES nativos), no mesmo padrão do
 
 ## Publicação
 - `.github/workflows/pages.yml` publica `site/` no GitHub Pages. Não fazer commit, push ou deploy sem autorização.
-- Ao mudar CSS ou JS, aumentar o `?v=` no `<head>` do `site/index.html` (portal) ou do `site/admin/index.html` (painel).
+- Ao mudar qualquer CSS ou JS, rodar `node admin/versao.mjs` antes do commit: põe a mesma versão (hash do conteúdo) nas páginas e em todos os imports, para o cache do GitHub Pages nunca misturar arquivo novo com antigo. `npm test` falha se esquecer. Não editar `?v=` à mão.

@@ -4,11 +4,11 @@
    - Aprovação: "Enviar para aprovação" deixa o conteúdo aguardando o cliente;
      o histórico mostra o que ele respondeu e em qual versão. */
 
-import { esc, on } from "../../../js/lib/dom.js";
-import { icon } from "../../../js/lib/icons.js";
-import { stampLabel } from "../../../js/lib/dates.js";
-import { renderMedia, mediaFallback } from "../../../js/ui/media.js";
-import { UPLOAD_LIMITS } from "../../../js/lib/storage.js";
+import { esc, on } from "../../../js/lib/dom.js?v=fd0ca6eef6";
+import { icon } from "../../../js/lib/icons.js?v=fd0ca6eef6";
+import { stampLabel } from "../../../js/lib/dates.js?v=fd0ca6eef6";
+import { renderMedia, mediaFallback } from "../../../js/ui/media.js?v=fd0ca6eef6";
+import { UPLOAD_LIMITS } from "../../../js/lib/storage.js?v=fd0ca6eef6";
 
 const ACCEPT = UPLOAD_LIMITS.mediaTypes.join(",");
 /** Última arte final vista de cada conteúdo: o painel redesenhado já começa com ela (sem piscar) */

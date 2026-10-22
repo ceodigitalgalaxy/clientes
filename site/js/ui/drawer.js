@@ -8,15 +8,15 @@
    que ainda não existem no banco ficam escondidas.
    ========================================================================== */
 
-import { esc, on, reduceMotion } from "../lib/dom.js";
-import { icon } from "../lib/icons.js";
-import { longDayLabel, timeLabel, stampLabel } from "../lib/dates.js";
-import { ACTIVITY_TYPES, PLATFORMS, STATUS } from "../domain/model.js";
-import { statusOf, latestDecision } from "../domain/status.js";
-import { typeBadge, statusBadge } from "./badges.js";
-import { renderPreview, renderFinal, wireCarousel } from "./preview.js";
-import { wireMediaFallbacks } from "./media.js";
-import { toast } from "./toast.js";
+import { esc, on, reduceMotion } from "../lib/dom.js?v=fd0ca6eef6";
+import { icon } from "../lib/icons.js?v=fd0ca6eef6";
+import { longDayLabel, timeLabel, stampLabel } from "../lib/dates.js?v=fd0ca6eef6";
+import { ACTIVITY_TYPES, PLATFORMS, STATUS } from "../domain/model.js?v=fd0ca6eef6";
+import { statusOf, latestDecision } from "../domain/status.js?v=fd0ca6eef6";
+import { typeBadge, statusBadge } from "./badges.js?v=fd0ca6eef6";
+import { renderPreview, renderFinal, wireCarousel } from "./preview.js?v=fd0ca6eef6";
+import { wireMediaFallbacks } from "./media.js?v=fd0ca6eef6";
+import { toast } from "./toast.js?v=fd0ca6eef6";
 
 const LIVE_STATUS_TEXT = {
   aguardando: ["Este conteúdo espera a sua aprovação", "Confira a prévia e a legenda. Para aprovar ou pedir ajustes, fale com a nossa equipe pelo canal de sempre."],

@@ -8,18 +8,18 @@
    para a aba e no botão "Atualizar").
    ========================================================================== */
 
-import { createSupabaseRepository } from "./data/supabase-repository.js";
-import { createAuth } from "./lib/auth.js";
-import { SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY } from "./config.js";
-import { $, esc, on, reduceMotion } from "./lib/dom.js";
-import { icon, brandMark } from "./lib/icons.js";
-import { monthKey, addMonths, addDays, monthLabel, weekLabel, weekDays, todayISO, fromISO, daysInMonth } from "./lib/dates.js";
-import { summarize } from "./domain/status.js";
-import { createHighlights, pickHighlights } from "./ui/highlights.js";
-import { renderCalendar, renderAgenda, renderLegend, setupDayPopover } from "./ui/calendar.js";
-import { createDrawer } from "./ui/drawer.js";
-import { renderIdeas, setupIdeaModal } from "./ui/ideas.js";
-import { toast } from "./ui/toast.js";
+import { createSupabaseRepository } from "./data/supabase-repository.js?v=fd0ca6eef6";
+import { createAuth } from "./lib/auth.js?v=fd0ca6eef6";
+import { SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY } from "./config.js?v=fd0ca6eef6";
+import { $, esc, on, reduceMotion } from "./lib/dom.js?v=fd0ca6eef6";
+import { icon, brandMark } from "./lib/icons.js?v=fd0ca6eef6";
+import { monthKey, addMonths, addDays, monthLabel, weekLabel, weekDays, todayISO, fromISO, daysInMonth } from "./lib/dates.js?v=fd0ca6eef6";
+import { summarize } from "./domain/status.js?v=fd0ca6eef6";
+import { createHighlights, pickHighlights } from "./ui/highlights.js?v=fd0ca6eef6";
+import { renderCalendar, renderAgenda, renderLegend, setupDayPopover } from "./ui/calendar.js?v=fd0ca6eef6";
+import { createDrawer } from "./ui/drawer.js?v=fd0ca6eef6";
+import { renderIdeas, setupIdeaModal } from "./ui/ideas.js?v=fd0ca6eef6";
+import { toast } from "./ui/toast.js?v=fd0ca6eef6";
 
 /* O portal não abre dentro de outro site (proteção contra clique disfarçado).
    A página fica invisível até esta checagem (body.portal em style.css). */

@@ -1,15 +1,15 @@
 /* Seção Conteúdos: filtros, lista, detalhes, cadastro, edição e exclusão */
 
-import { $, esc, on } from "../../../js/lib/dom.js";
-import { icon } from "../../../js/lib/icons.js";
-import { longDayLabel, timeLabel, todayISO } from "../../../js/lib/dates.js";
-import { typeBadge } from "../../../js/ui/badges.js";
-import { renderMedia, wireMediaFallbacks } from "../../../js/ui/media.js";
-import { CONTENT_STATUS, CLIENT_VISIBLE_STATUS, NETWORKS, FORMATS, LIMITS, validateContent, validateContentFilters } from "../domain/rules.js";
-import { closeDialog, wireDialog, showFieldErrors, setBusy } from "../ui/dialogs.js";
-import { stateBlock, loadingRows, button } from "../ui/states.js";
-import { reviewSections, mountReview } from "./content-review.js";
-import { describeMedia, mediaCover, coverHtml } from "../../../js/ui/media.js";
+import { $, esc, on } from "../../../js/lib/dom.js?v=fd0ca6eef6";
+import { icon } from "../../../js/lib/icons.js?v=fd0ca6eef6";
+import { longDayLabel, timeLabel, todayISO } from "../../../js/lib/dates.js?v=fd0ca6eef6";
+import { typeBadge } from "../../../js/ui/badges.js?v=fd0ca6eef6";
+import { renderMedia, wireMediaFallbacks } from "../../../js/ui/media.js?v=fd0ca6eef6";
+import { CONTENT_STATUS, CLIENT_VISIBLE_STATUS, NETWORKS, FORMATS, LIMITS, validateContent, validateContentFilters } from "../domain/rules.js?v=fd0ca6eef6";
+import { closeDialog, wireDialog, showFieldErrors, setBusy } from "../ui/dialogs.js?v=fd0ca6eef6";
+import { stateBlock, loadingRows, button } from "../ui/states.js?v=fd0ca6eef6";
+import { reviewSections, mountReview } from "./content-review.js?v=fd0ca6eef6";
+import { describeMedia, mediaCover, coverHtml } from "../../../js/ui/media.js?v=fd0ca6eef6";
 
 const shortDate = (iso) => iso.split("-").reverse().join("/");
 const statusChip = (status) => `<span class="content-status cs--${esc(status)}">${esc(CONTENT_STATUS[status]?.label || status)}</span>`;
