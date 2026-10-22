@@ -64,6 +64,7 @@ async function newContext(options = {}) {
     if (url.includes("video.webm")) return route.fulfill({ status: 200, contentType: "video/webm", body: FIXTURES.webm });
     return route.fulfill({ status: 404, body: "não encontrado" });
   });
+  await context.route("https://www.instagram.com/**", (route) => route.fulfill({ status: 200, contentType: "text/html", body: "<!doctype html><title>post</title><p>Post do Instagram</p>" }));
   await context.route("https://www.youtube-nocookie.com/**", (route) => route.fulfill({ status: 200, contentType: "text/html", body: "<!doctype html><title>player</title><p>Player do YouTube</p>" }));
   return context;
 }
@@ -230,15 +231,27 @@ await step("Arquivo de vídeo: reprodução no player do navegador", async () =>
   await portal.waitForSelector("#drawer:not([open])", { state: "attached" });
 });
 
+await step("Reel do Instagram aparece pelo player oficial do Instagram", async () => {
+  await store.createContent(validateContent({ client_id: padaria.id, title: "Reel do Instagram", scheduled_date: D(16), network: "instagram", format: "reels", media_url: "https://www.instagram.com/padariacentral/reel/Cabc123/", media_kind: "video", status: "aguardando_aprovacao" }).value);
+  await portalRefocus();
+  await portal.waitForSelector(`.cal__cell[data-day="${D(16)}"] .chip`);
+  await portal.click(`.cal__cell[data-day="${D(16)}"] .chip:has-text("Reel do Instagram")`);
+  await portal.waitForSelector("#drawer[open] .media--instagram iframe");
+  assert.equal(await portal.getAttribute("#drawer .media--instagram iframe", "src"), "https://www.instagram.com/p/Cabc123/embed/");
+  assert.equal(await portal.getAttribute("#drawer .media--instagram a.media__open", "href"), "https://www.instagram.com/padariacentral/reel/Cabc123/");
+  await portal.click('#drawer [data-do="close"]');
+  await portal.waitForSelector("#drawer:not([open])", { state: "attached" });
+});
+
 await step("Link que não pode ser incorporado e imagem quebrada: aviso amigável com o link original", async () => {
-  await store.createContent(validateContent({ client_id: padaria.id, title: "Post do Instagram", scheduled_date: D(14), network: "instagram", format: "reels", media_url: "https://www.instagram.com/reel/Cabc123/", media_kind: "video", status: "aguardando_aprovacao" }).value);
+  await store.createContent(validateContent({ client_id: padaria.id, title: "Vídeo do Facebook", scheduled_date: D(14), network: "facebook", format: "reels", media_url: "https://www.facebook.com/watch/?v=123", media_kind: "video", status: "aguardando_aprovacao" }).value);
   await store.createContent(validateContent({ client_id: padaria.id, title: "Arte com link quebrado", scheduled_date: D(15), network: "facebook", format: "post", media_url: "https://cdn.exemplo.com/sumiu.jpg", status: "aguardando_aprovacao" }).value);
   await portalRefocus();
   await portal.waitForSelector(`.cal__cell[data-day="${D(15)}"] .chip`);
   await portal.click(`.cal__cell[data-day="${D(14)}"] .chip`);
   await portal.waitForSelector("#drawer[open] .media-fallback");
-  assert.match(await portal.textContent("#drawer .media-fallback"), /Instagram não permite/);
-  assert.equal(await portal.getAttribute("#drawer .media-fallback a", "href"), "https://www.instagram.com/reel/Cabc123/");
+  assert.match(await portal.textContent("#drawer .media-fallback"), /Facebook não permite/);
+  assert.equal(await portal.getAttribute("#drawer .media-fallback a", "href"), "https://www.facebook.com/watch/?v=123");
   assert.equal(await portal.getAttribute("#drawer .media-fallback a", "rel"), "noopener noreferrer");
   assert.equal(await portal.locator("#drawer iframe").count(), 0, "não presume que o link é incorporável");
   await portal.click('#drawer [data-do="close"]');
@@ -403,8 +416,10 @@ await step("Carregando e erro com nova tentativa ao trocar de mês", async () =>
   await portal.waitForSelector(".load-error");
   assert.match(await portal.textContent(".load-error"), /Não foi possível conectar/);
   fake.offline = false;
-  await portal.click('[data-action="retry-load"]');
+  // "Tentar de novo" (a atualização automática também pode recuperar sozinha antes do clique)
+  await portal.click('[data-action="retry-load"]', { timeout: 3000 }).catch(() => {});
   await portal.waitForSelector(`.cal__cell[data-day="${D(12)}"] .chip`);
+  assert.equal(await portal.locator(".load-error").count(), 0, "o erro some quando a conexão volta");
 });
 
 await step("Celular: agenda do dia e detalhes em folha, sem rolagem lateral", async () => {

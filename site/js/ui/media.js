@@ -5,9 +5,11 @@
    - Imagem: mostrada inteira e proporcional (sem cortar nem esticar).
    - Vídeo de plataforma suportada: player OFICIAL de incorporação
        YouTube (youtube-nocookie.com), Vimeo, TikTok e Google Drive.
+   - Post ou reel público do Instagram: página oficial de incorporação
+       (instagram.com/p/<código>/embed), sem scripts do Instagram no site.
    - Arquivo de vídeo (.mp4, .webm, .ogg, .m4v, .mov): player do navegador,
      sem tocar sozinho.
-   - Qualquer outro link (Instagram, Facebook, páginas, links encurtados...)
+   - Qualquer outro link (Facebook, perfil do Instagram, páginas, links encurtados...)
      NÃO é incorporado: aparece um aviso amigável e o link para abrir.
    Se a imagem ou o arquivo de vídeo falhar ao carregar, a prévia vira o mesmo
    aviso (wireMediaFallbacks). Players incorporados não avisam quando falham
@@ -15,8 +17,8 @@
    A política de conteúdo (CSP) das páginas libera só esses players.
    ========================================================================== */
 
-import { esc } from "../lib/dom.js?v=fd0ca6eef6";
-import { icon } from "../lib/icons.js?v=fd0ca6eef6";
+import { esc } from "../lib/dom.js?v=b3c5769ca7";
+import { icon } from "../lib/icons.js?v=b3c5769ca7";
 
 const VIDEO_FILE = /\.(mp4|webm|ogv|ogg|m4v|mov)$/i;
 const YOUTUBE_ID = /^[A-Za-z0-9_-]{11}$/;
@@ -24,7 +26,7 @@ const host = (url) => url.hostname.replace(/^(www|m|mobile)\./, "");
 
 /** Plataformas que não oferecem player incorporável sem scripts de terceiros */
 const LINK_ONLY = {
-  "instagram.com": "Instagram", "facebook.com": "Facebook", "fb.watch": "Facebook",
+  "facebook.com": "Facebook", "fb.watch": "Facebook",
   "vm.tiktok.com": "TikTok", "vt.tiktok.com": "TikTok", "linkedin.com": "LinkedIn",
   "x.com": "X (Twitter)", "twitter.com": "X (Twitter)", "pinterest.com": "Pinterest",
   "canva.com": "Canva", "dropbox.com": "Dropbox", "wa.me": "WhatsApp"
@@ -62,6 +64,18 @@ function tiktok(url) {
   return { type: "embed", provider: "TikTok", ratio: "vertical", src: `https://www.tiktok.com/player/v1/${match[1]}` };
 }
 
+/** Post ou reel: instagram.com/p/<código>, /reel/<código>, /tv/<código> (com ou sem o @perfil antes) */
+function instagram(url) {
+  if (host(url) !== "instagram.com") return null;
+  const parts = url.pathname.split("/").filter(Boolean);
+  const index = parts.findIndex((p) => ["p", "reel", "reels", "tv"].includes(p));
+  const code = index >= 0 ? parts[index + 1] : null;
+  if (!code || !/^[A-Za-z0-9_-]{5,40}$/.test(code)) {
+    return { type: "link", provider: "Instagram", reason: "Para mostrar aqui, use o link de um post ou reel (instagram.com/p/... ou instagram.com/reel/...). Perfis e stories só abrem no Instagram." };
+  }
+  return { type: "embed", provider: "Instagram", ratio: "instagram", src: `https://www.instagram.com/p/${code}/embed/`, hint: "Só aparece se o post for público." };
+}
+
 function drive(url) {
   if (url.hostname !== "drive.google.com") return null;
   const id = url.pathname.match(/\/file\/d\/([A-Za-z0-9_-]{10,})/)?.[1] || url.searchParams.get("id");
@@ -81,14 +95,14 @@ export function describeMedia(rawUrl, kind = "image") {
   if (!["https:", "http:"].includes(url.protocol)) return { type: "invalid", reason: "O link da referência não é um endereço da web." };
   const original = url.href;
 
-  const known = youtube(url) || vimeo(url) || tiktok(url) || drive(url);
+  const known = youtube(url) || vimeo(url) || tiktok(url) || instagram(url) || drive(url);
   if (known) return { ...known, original };
 
   const linkOnly = LINK_ONLY[host(url)] || LINK_ONLY[url.hostname];
   if (linkOnly) return { type: "link", provider: linkOnly, original, reason: `O ${linkOnly} não permite mostrar este conteúdo dentro do portal.` };
 
   if (VIDEO_FILE.test(url.pathname)) return { type: "video", src: original, original };
-  if (kind === "video") return { type: "link", original, reason: "Este link de vídeo não pode ser mostrado aqui. Links aceitos: YouTube, Vimeo, TikTok, Google Drive ou arquivo de vídeo (.mp4, .webm)." };
+  if (kind === "video") return { type: "link", original, reason: "Este link de vídeo não pode ser mostrado aqui. Links aceitos: YouTube, Vimeo, TikTok, Google Drive, post ou reel do Instagram, ou arquivo de vídeo (.mp4, .webm)." };
   return { type: "image", src: original, original };
 }
 
@@ -155,7 +169,7 @@ export function renderMedia({ url, kind = "image", title = "" }) {
     return `
       <figure class="media media--embed media--${media.ratio}" data-provider="${esc(media.provider)}">
         <div class="media__frame">
-          <iframe src="${esc(media.src)}" title="${esc(`Vídeo do ${media.provider}: ${title || "referência"}`)}" loading="lazy"
+          <iframe src="${esc(media.src)}" title="${esc(`${media.provider === "Instagram" ? "Post do Instagram" : `Vídeo do ${media.provider}`}: ${title || "referência"}`)}" loading="lazy"
             allow="encrypted-media; picture-in-picture; fullscreen" allowfullscreen
             referrerpolicy="strict-origin-when-cross-origin"
             sandbox="allow-scripts allow-same-origin allow-presentation allow-popups allow-popups-to-escape-sandbox"></iframe>

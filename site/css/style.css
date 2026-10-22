@@ -674,6 +674,8 @@ body.admin:not(.is-ready) { visibility: hidden; }
 .media__frame { position: relative; width: 100%; overflow: hidden; border-radius: var(--radius); background: #000; box-shadow: 0 24px 40px -24px rgba(22, 11, 46, 0.45); }
 .media--wide .media__frame { aspect-ratio: 16 / 9; }
 .media--vertical .media__frame { max-width: 320px; aspect-ratio: 9 / 16; }
+/* Instagram: o post vem com o cabeçalho e o rodapé do próprio Instagram (fundo branco) */
+.media--instagram .media__frame { max-width: 400px; aspect-ratio: 4 / 7; background: #fff; border: 1px solid var(--line); }
 .media__frame iframe { position: absolute; inset: 0; width: 100%; height: 100%; border: 0; }
 .media__foot { display: grid; justify-items: center; gap: 4px; text-align: center; }
 .media__hint { font-size: 12px; color: var(--text-subtle); }

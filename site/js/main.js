@@ -8,18 +8,18 @@
    para a aba e no botão "Atualizar").
    ========================================================================== */
 
-import { createSupabaseRepository } from "./data/supabase-repository.js?v=fd0ca6eef6";
-import { createAuth } from "./lib/auth.js?v=fd0ca6eef6";
-import { SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY } from "./config.js?v=fd0ca6eef6";
-import { $, esc, on, reduceMotion } from "./lib/dom.js?v=fd0ca6eef6";
-import { icon, brandMark } from "./lib/icons.js?v=fd0ca6eef6";
-import { monthKey, addMonths, addDays, monthLabel, weekLabel, weekDays, todayISO, fromISO, daysInMonth } from "./lib/dates.js?v=fd0ca6eef6";
-import { summarize } from "./domain/status.js?v=fd0ca6eef6";
-import { createHighlights, pickHighlights } from "./ui/highlights.js?v=fd0ca6eef6";
-import { renderCalendar, renderAgenda, renderLegend, setupDayPopover } from "./ui/calendar.js?v=fd0ca6eef6";
-import { createDrawer } from "./ui/drawer.js?v=fd0ca6eef6";
-import { renderIdeas, setupIdeaModal } from "./ui/ideas.js?v=fd0ca6eef6";
-import { toast } from "./ui/toast.js?v=fd0ca6eef6";
+import { createSupabaseRepository } from "./data/supabase-repository.js?v=b3c5769ca7";
+import { createAuth } from "./lib/auth.js?v=b3c5769ca7";
+import { SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY } from "./config.js?v=b3c5769ca7";
+import { $, esc, on, reduceMotion } from "./lib/dom.js?v=b3c5769ca7";
+import { icon, brandMark } from "./lib/icons.js?v=b3c5769ca7";
+import { monthKey, addMonths, addDays, monthLabel, weekLabel, weekDays, todayISO, fromISO, daysInMonth } from "./lib/dates.js?v=b3c5769ca7";
+import { summarize } from "./domain/status.js?v=b3c5769ca7";
+import { createHighlights, pickHighlights } from "./ui/highlights.js?v=b3c5769ca7";
+import { renderCalendar, renderAgenda, renderLegend, setupDayPopover } from "./ui/calendar.js?v=b3c5769ca7";
+import { createDrawer } from "./ui/drawer.js?v=b3c5769ca7";
+import { renderIdeas, setupIdeaModal } from "./ui/ideas.js?v=b3c5769ca7";
+import { toast } from "./ui/toast.js?v=b3c5769ca7";
 
 /* O portal não abre dentro de outro site (proteção contra clique disfarçado).
    A página fica invisível até esta checagem (body.portal em style.css). */
@@ -239,7 +239,9 @@ async function navigate(changes = {}, dir = 0) {
     return;
   }
   clearTimeout(skeleton);
-  if (token !== navToken || !applyData(data)) return;
+  if (token !== navToken) return;
+  // Se uma atualização mais nova já chegou (para esta mesma tela), fica com ela, mas desenha mesmo assim
+  applyData(data);
   if (state.view === "month" && !state.selected.startsWith(state.month)) {
     state.selected = state.month === monthKey(new Date()) ? todayISO() : (state.activities.find((a) => a.date.startsWith(state.month))?.date || `${state.month}-01`);
   }

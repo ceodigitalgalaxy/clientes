@@ -69,7 +69,7 @@ Serve a pasta `site/` como o GitHub Pages. Não usa chave nenhuma: entra com usu
 - **Importar:** escolher o cliente e uma planilha (.xlsx ou .csv; há um modelo para baixar). O painel mostra a prévia linha a linha (pronto, com erro, parece repetido), com a miniatura da referência, e importa só as linhas marcadas, de uma vez. Colunas: Título, Data, Horário, Rede social, Formato, Link da referência, Legenda, Observação para o cliente, Observações internas e Status (vazio = planejado).
 - Criar, ver detalhes, editar e excluir (com confirmação).
 - **Status em massa:** marque conteúdos na lista (ou "Selecionar todos"), escolha o status e clique em **Aplicar**. O painel confirma antes e avisa quantos passam a aparecer (ou deixam de aparecer) no calendário do cliente.
-- **Capa da referência em vídeo:** YouTube e Google Drive (arquivo público) mostram a capa oficial; arquivo de vídeo (.mp4, .webm) mostra o primeiro quadro. Vimeo, TikTok e Instagram não oferecem capa sem serviços de terceiros: aparece o ícone de vídeo.
+- **Capa da referência em vídeo:** YouTube e Google Drive (arquivo público) mostram a capa oficial; arquivo de vídeo (.mp4, .webm) mostra o primeiro quadro. Vimeo, TikTok e Instagram não oferecem capa sem serviços de terceiros: na lista aparece o ícone de vídeo. Posts e reels públicos do Instagram aparecem nos detalhes (painel e portal) pela página oficial de incorporação do Instagram.
 - Filtros por cliente, período e status, guardados no endereço da página.
 - Estados de carregamento, sucesso, erro (com "Tentar novamente") e lista vazia.
 
@@ -143,7 +143,7 @@ PLAYWRIGHT=$P node admin/test/review-e2e.mjs      # foto, arte final, aprovaçã
 PLAYWRIGHT=$P UX_SHOTS=pasta node admin/test/ux-shots.mjs   # só capturas do portal (computador e celular) para revisão visual
 ```
 
-Os testes de ponta a ponta usam um Supabase de mentira em memória (**só para teste**). O do portal abre o painel e o portal lado a lado e confere: imagem cadastrada na data certa e proporcional, vídeo do YouTube no player oficial, arquivo de vídeo, link do Instagram e imagem quebrada com aviso, mudança de data (inclusive para outro mês), edição e exclusão refletidas, atualização automática, outro cliente sem acesso, tentativas de trocar parâmetros, semana, carregando, erro, celular, a demonstração removida e o acesso do cliente criado, trocado e removido pelo painel (rodando o código real da função). O de revisão confere foto do cliente, envio e ordem da arte final, tipo de arquivo recusado, carrossel no portal (inclusive no celular), pedido de ajuste com mensagem, nova versão, aprovação de versão antiga recusada, aprovação, marcar como publicado, outro cliente sem acesso e a importação (.xlsx e .csv). O `admin/verify.mjs` repete o essencial no banco real, inclusive as aprovações.
+Os testes de ponta a ponta usam um Supabase de mentira em memória (**só para teste**). O do portal abre o painel e o portal lado a lado e confere: imagem cadastrada na data certa e proporcional, vídeo do YouTube no player oficial, arquivo de vídeo, reel do Instagram no player oficial, link do Facebook e imagem quebrada com aviso, mudança de data (inclusive para outro mês), edição e exclusão refletidas, atualização automática, outro cliente sem acesso, tentativas de trocar parâmetros, semana, carregando, erro, celular, a demonstração removida e o acesso do cliente criado, trocado e removido pelo painel (rodando o código real da função). O de revisão confere foto do cliente, envio e ordem da arte final, tipo de arquivo recusado, carrossel no portal (inclusive no celular), pedido de ajuste com mensagem, nova versão, aprovação de versão antiga recusada, aprovação, marcar como publicado, outro cliente sem acesso e a importação (.xlsx e .csv). O `admin/verify.mjs` repete o essencial no banco real, inclusive as aprovações.
 
 ## Portal do cliente (`site/`)
 
@@ -166,7 +166,8 @@ O cliente entra em `https://clientes.digitalgalaxy.com.br` com o usuário e a se
 | TikTok (link completo `tiktok.com/@perfil/video/...`) | Player oficial (`tiktok.com/player`) |
 | Google Drive (link de arquivo) | Prévia oficial do Drive (o arquivo precisa estar compartilhado com "qualquer pessoa com o link") |
 | Arquivo de vídeo (.mp4, .webm, .ogg, .m4v, .mov) | Player do navegador, sem tocar sozinho |
-| Instagram, Facebook, links curtos do TikTok, Canva, páginas comuns | **Não são incorporados**: aviso amigável e botão para abrir o original |
+| Post ou reel público do Instagram (`instagram.com/p/…`, `/reel/…`, com ou sem o perfil antes) | Página oficial de incorporação do Instagram (`instagram.com/p/<código>/embed`) |
+| Perfil ou stories do Instagram, Facebook, links curtos do TikTok, Canva, páginas comuns | **Não são incorporados**: aviso amigável e botão para abrir o original |
 
 Se a imagem ou o arquivo de vídeo não carregar, a prévia vira o mesmo aviso com o link. Players incorporados (YouTube, Vimeo, TikTok, Drive) não avisam quando o vídeo é privado ou foi removido: nesses casos aparece a mensagem da própria plataforma, e o link para abrir o original fica sempre embaixo.
 

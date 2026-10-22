@@ -4,16 +4,16 @@
       que parece repetido (desmarcado). Miniatura da referência em cada linha.
    3. Importar os marcados de uma vez (tudo ou nada). */
 
-import { $, esc, on } from "../../../js/lib/dom.js?v=fd0ca6eef6";
-import { icon } from "../../../js/lib/icons.js?v=fd0ca6eef6";
-import { timeLabel } from "../../../js/lib/dates.js?v=fd0ca6eef6";
-import { typeBadge } from "../../../js/ui/badges.js?v=fd0ca6eef6";
-import { describeMedia, mediaCover, coverHtml } from "../../../js/ui/media.js?v=fd0ca6eef6";
-import { NETWORKS, CONTENT_STATUS } from "../domain/rules.js?v=fd0ca6eef6";
-import { readSpreadsheet } from "../lib/spreadsheet.js?v=fd0ca6eef6";
-import { mapRows, COLUMN_LABELS } from "../domain/import.js?v=fd0ca6eef6";
-import { setBusy } from "../ui/dialogs.js?v=fd0ca6eef6";
-import { stateBlock } from "../ui/states.js?v=fd0ca6eef6";
+import { $, esc, on } from "../../../js/lib/dom.js?v=b3c5769ca7";
+import { icon } from "../../../js/lib/icons.js?v=b3c5769ca7";
+import { timeLabel } from "../../../js/lib/dates.js?v=b3c5769ca7";
+import { typeBadge } from "../../../js/ui/badges.js?v=b3c5769ca7";
+import { describeMedia, mediaCover, coverHtml } from "../../../js/ui/media.js?v=b3c5769ca7";
+import { NETWORKS, CONTENT_STATUS } from "../domain/rules.js?v=b3c5769ca7";
+import { readSpreadsheet } from "../lib/spreadsheet.js?v=b3c5769ca7";
+import { mapRows, COLUMN_LABELS } from "../domain/import.js?v=b3c5769ca7";
+import { setBusy } from "../ui/dialogs.js?v=b3c5769ca7";
+import { stateBlock } from "../ui/states.js?v=b3c5769ca7";
 
 const shortDate = (iso) => (iso ? iso.split("-").reverse().join("/") : "—");
 

@@ -52,11 +52,16 @@ ok("arquivo de vídeo", () => {
   for (const ext of ["mp4", "webm", "ogv", "m4v", "mov", "MP4"]) assert.equal(m(`https://cdn.exemplo.com/v/video.${ext}?x=1`, "video").type, "video", ext);
 });
 ok("arquivo de vídeo marcado como imagem continua vídeo", () => assert.equal(m("https://cdn.exemplo.com/video.mp4", "image").type, "video"));
-ok("Instagram não é incorporado", () => {
-  const r = m("https://www.instagram.com/reel/Cabc123/", "video");
-  assert.equal(r.type, "link");
-  assert.equal(r.original, "https://www.instagram.com/reel/Cabc123/");
-  assert.match(r.reason, /Instagram/);
+ok("Instagram: post e reel públicos pela página oficial de incorporação; perfil vira link", () => {
+  for (const [url, code] of [["https://www.instagram.com/reel/Cabc123/", "Cabc123"], ["https://www.instagram.com/graciebarra.itaguai/p/DeUYeWajWYG/", "DeUYeWajWYG"], ["https://instagram.com/p/DeHRL5zkRB6/?igsh=xyz", "DeHRL5zkRB6"], ["https://www.instagram.com/perfil/reel/DR4soliEV5Q", "DR4soliEV5Q"]]) {
+    const r = m(url, "video");
+    assert.equal(r.type, "embed", url);
+    assert.equal(r.src, `https://www.instagram.com/p/${code}/embed/`);
+    assert.equal(r.ratio, "instagram");
+  }
+  const profile = m("https://www.instagram.com/padariacentral/", "image");
+  assert.equal(profile.type, "link");
+  assert.match(profile.reason, /post ou reel/);
 });
 ok("Facebook e outros não são incorporados", () => {
   for (const url of ["https://www.facebook.com/watch/?v=1", "https://fb.watch/abc/", "https://www.canva.com/design/x/view"]) assert.equal(m(url, "image").type, "link", url);

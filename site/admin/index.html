@@ -4,7 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <!-- Só arquivos deste site; dados só do Supabase do painel; nada embutido no HTML -->
-  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data: blob: https:; media-src 'self' blob: https:; font-src 'self'; connect-src 'self' https://peieimwpkrattuldmjux.supabase.co; frame-src https://www.youtube-nocookie.com https://player.vimeo.com https://www.tiktok.com https://drive.google.com; object-src 'none'; base-uri 'self'; form-action 'none'">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data: blob: https:; media-src 'self' blob: https:; font-src 'self'; connect-src 'self' https://peieimwpkrattuldmjux.supabase.co; frame-src https://www.youtube-nocookie.com https://player.vimeo.com https://www.tiktok.com https://drive.google.com https://www.instagram.com; object-src 'none'; base-uri 'self'; form-action 'none'">
   <meta name="referrer" content="no-referrer">
   <meta name="robots" content="noindex, nofollow">
   <title>Painel da agência · Digital Galaxy</title>
@@ -13,9 +13,9 @@
   <link rel="preload" href="../fonts/sora-latin-400-normal.woff2" as="font" type="font/woff2" crossorigin>
   <link rel="preload" href="../fonts/sora-latin-600-normal.woff2" as="font" type="font/woff2" crossorigin>
   <!-- Mesmos tokens e componentes do portal do cliente -->
-  <link rel="stylesheet" href="../css/style.css?v=fd0ca6eef6">
-  <link rel="stylesheet" href="css/admin.css?v=fd0ca6eef6">
-  <script type="module" src="js/main.js?v=fd0ca6eef6"></script>
+  <link rel="stylesheet" href="../css/style.css?v=b3c5769ca7">
+  <link rel="stylesheet" href="css/admin.css?v=b3c5769ca7">
+  <script type="module" src="js/main.js?v=b3c5769ca7"></script>
 </head>
 <body class="admin">
   <!-- Tela de entrada: aparece enquanto ninguém estiver logado -->
@@ -311,7 +311,7 @@
         <label class="field form-grid__wide">
           <span class="field__label">URL da imagem ou vídeo de referência <span class="field__optional">(opcional)</span></span>
           <input class="field__input" name="media_url" type="url" inputmode="url" placeholder="https://" autocomplete="off" spellcheck="false" aria-describedby="media-hint">
-          <span class="field__hint" id="media-hint">Imagem: link direto do arquivo. Vídeo: YouTube, Vimeo, TikTok, Google Drive ou arquivo .mp4/.webm. Outros links (ex.: Instagram) aparecem só como link.</span>
+          <span class="field__hint" id="media-hint">Imagem: link direto do arquivo. Vídeo: YouTube, Vimeo, TikTok, Google Drive, post ou reel público do Instagram, ou arquivo .mp4/.webm. Outros links aparecem só como link.</span>
         </label>
         <fieldset class="field form-grid__wide radio-row" data-media-kind>
           <legend class="field__label">Tipo da mídia</legend>
