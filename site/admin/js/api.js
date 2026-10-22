@@ -2,7 +2,7 @@
    Valida os dados antes de enviar (domain/rules.js); o banco confere de novo
    com as próprias regras e só aceita membros da equipe (RLS). */
 
-import { validateClient, validateContent, validateContentFilters, parseUsername, passwordProblem } from "./domain/rules.js";
+import { validateClient, validateContent, validateContentFilters, parseUsername, passwordProblem, CONTENT_STATUS, isUuid } from "./domain/rules.js";
 import { UPLOAD_LIMITS, fileName, fileProblem, resizeImage } from "../../js/lib/storage.js";
 
 export class ApiError extends Error {
@@ -137,6 +137,14 @@ export function createApi({ store, onSessionLost, access = null, storage = null 
     listApprovals: guard((contentId) => store.listApprovals(contentId)),
     sendForApproval: guard((contentId) => store.setContentStatus(contentId, "aguardando_aprovacao")),
     setContentStatus: guard((contentId, status) => store.setContentStatus(contentId, status)),
+    /** Troca em massa: só status conhecido e ids válidos (até 500 por vez) */
+    setContentsStatus: guard((ids, status) => {
+      const unique = [...new Set(ids)];
+      if (!CONTENT_STATUS[status]) throw new ApiError(422, "Escolha um status válido.");
+      if (!unique.length) throw new ApiError(422, "Selecione pelo menos um conteúdo.");
+      if (unique.length > 500 || !unique.every(isUuid)) throw new ApiError(422, "Seleção inválida. Recarregue a lista e tente de novo.");
+      return store.setContentsStatus(unique, status);
+    }),
     /** Importação: todos válidos ou nada (uma gravação só) */
     createContents: guard((rows) => store.createContents(rows.map((row) => requireValid(validateContent(row))))),
 

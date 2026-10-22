@@ -16,6 +16,7 @@ import { esc, reduceMotion } from "../lib/dom.js";
 import { icon } from "../lib/icons.js";
 import { addDays, longDayLabel, dayLabel, timeLabel, monthName } from "../lib/dates.js";
 import { ACTIVITY_TYPES, PLATFORMS } from "../domain/model.js";
+import { mediaCover, coverHtml } from "./media.js";
 
 const AUTOPLAY_MS = 6000;
 const MAX_PUBLISHED = 4;
@@ -41,12 +42,21 @@ export function pickHighlights(activities, today) {
   return list.slice(0, MAX_SLIDES);
 }
 
-/** Primeira imagem para a capa: arte final, senão a referência */
+/**
+ * Capa do conteúdo: imagem da arte final; senão o primeiro quadro do vídeo
+ * final; senão a capa da referência (imagem ou capa do vídeo).
+ * @returns {{kind: "image"|"video", src: string, play: boolean} | null}  play: é um vídeo
+ */
 export function cover(activity) {
-  const final = activity.final.find((f) => f.kind === "image" && f.src);
-  if (final) return final.src;
-  const ref = activity.media.find((m) => m.kind === "image" && m.src);
-  return ref ? ref.src : null;
+  const finalImage = activity.final.find((f) => f.kind === "image" && f.src);
+  if (finalImage) return { kind: "image", src: finalImage.src, play: false };
+  const finalVideo = activity.final.find((f) => f.kind === "video" && f.src);
+  const fromVideo = finalVideo && mediaCover(finalVideo.src, "video");
+  if (fromVideo) return { ...fromVideo, play: true };
+  const ref = activity.media[0];
+  const fromRef = ref && mediaCover(ref.src, ref.kind);
+  if (fromRef) return { ...fromRef, play: ref.kind === "video" || fromRef.kind === "video" };
+  return null;
 }
 
 function when(activity, today) {
@@ -58,8 +68,8 @@ function when(activity, today) {
 function slide(activity, index, total, today) {
   const group = GROUPS[activity.status];
   const type = ACTIVITY_TYPES[activity.type] || ACTIVITY_TYPES.outro;
-  const src = cover(activity);
-  const hasVideo = !src && activity.final.some((f) => f.kind === "video");
+  const art = cover(activity);
+  const hasVideo = art?.play || (!art && (activity.final.some((f) => f.kind === "video") || activity.media[0]?.kind === "video"));
   const network = activity.platforms.map((p) => PLATFORMS[p] || p).join(", ");
   let tag = group.tag;
   if (activity.status === "aprovado") tag = activity.date === today ? "Aprovado · vai ao ar hoje" : `Aprovado · vai ao ar ${dayLabel(activity.date)}`;
@@ -71,8 +81,9 @@ function slide(activity, index, total, today) {
   return `
     <li class="slide slide--${esc(activity.status)}" role="group" aria-roledescription="destaque" aria-label="${index + 1} de ${total}: ${esc(activity.title)}" data-slide="${index}">
       <button class="slide__media type--${esc(activity.type)}" type="button" data-highlight="${esc(activity.id)}" tabindex="-1" aria-hidden="true">
-        ${src ? `<img src="${esc(src)}" alt="" loading="${index === 0 ? "eager" : "lazy"}" referrerpolicy="no-referrer" data-slide-img>` : ""}
+        ${coverHtml(art, "data-slide-img")}
         <span class="slide__placeholder">${icon(hasVideo ? "play" : type.icon)}</span>
+        ${art && hasVideo ? `<span class="play-badge">${icon("play")}</span>` : ""}
       </button>
       <div class="slide__body">
         <span class="slide__tag">${icon(group.tagIcon)}${esc(tag)}</span>
@@ -206,7 +217,7 @@ export function createHighlights({ container }) {
      */
     render({ highlights, counts, month, today }) {
       wire();
-      const nextKey = JSON.stringify([highlights.map((a) => [a.id, a.version, a.status, a.date, a.time, a.title, cover(a)]), counts, month, today]);
+      const nextKey = JSON.stringify([highlights.map((a) => [a.id, a.version, a.status, a.date, a.time, a.title, cover(a)?.src]), counts, month, today]);
       if (nextKey === key && container.querySelector(".spot")) return;   // nada mudou: não mexe (não pula o slide)
       key = nextKey;
       const currentId = items[index]?.id;

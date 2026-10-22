@@ -65,7 +65,11 @@ async function newContext(options = {}) {
     if (answer === "abort") return route.abort("failed");
     return route.fulfill(answer);
   });
-  await context.route("https://cdn.exemplo.com/**", (route) => route.fulfill({ status: 200, contentType: "image/png", body: FIX("arte.png") }));
+  await context.route("https://cdn.exemplo.com/**", (route) => route.request().url().endsWith(".webm")
+    ? route.fulfill({ status: 200, contentType: "video/webm", body: FIX("video.webm") })
+    : route.fulfill({ status: 200, contentType: "image/png", body: FIX("arte.png") }));
+  // Capa oficial do YouTube (sem internet nos testes)
+  await context.route("https://i.ytimg.com/**", (route) => route.fulfill({ status: 200, contentType: "image/png", body: FIX("arte2.png") }));
   await context.route("https://www.youtube-nocookie.com/**", (route) => route.fulfill({ status: 200, contentType: "text/html", body: "<!doctype html><p>Player</p>" }));
   return context;
 }
@@ -346,7 +350,7 @@ await step("Importar: prévia organiza, valida e marca repetidos", async () => {
   assert.ok(!byTitle("Já existe").error && !byTitle("Já existe").checked && /Já existe um conteúdo/.test(byTitle("Já existe").text), "repetido vem desmarcado");
   assert.match(await admin.textContent("#import-preview .imp-summary"), /4 prontos.*3 com erro.*1 parece repetido/s);
   await admin.waitForFunction(() => document.querySelector("#import-preview [data-imp-thumb]")?.naturalWidth > 0);
-  assert.equal(await admin.locator("#import-preview .imp-ref--video").count(), 1, "referência em vídeo identificada");
+  assert.equal(await admin.locator("#import-preview .imp-ref--video, #import-preview .imp-ref--has-video").count(), 1, "referência em vídeo identificada");
   assert.match(await admin.textContent("[data-imp-run]"), /Importar 3 conteúdos/);
   await shot(admin, "r07-importar-previa");
 });
@@ -377,6 +381,54 @@ await step("Importar: CSV com ponto e vírgula e arquivo inválido", async () =>
   await admin.setInputFiles('#import-form [name="file"]', { name: "falsa.xlsx", mimeType: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", buffer: Buffer.from("isto não é uma planilha") });
   await admin.waitForSelector("#import-preview .state--error");
   assert.match(await admin.textContent("#import-preview"), /não parece ser uma planilha/);
+});
+
+await step("Capa do vídeo de referência na lista (YouTube e arquivo de vídeo)", async () => {
+  const base = { client_id: padaria.id, network: "instagram", format: "reels", media_kind: "video", status: "planejado" };
+  await store.createContent(validateContent({ ...base, title: "Massa A (YouTube)", scheduled_date: D(25), media_url: "https://youtu.be/dQw4w9WgXcQ" }).value);
+  await store.createContent(validateContent({ ...base, title: "Massa B (arquivo)", scheduled_date: D(26), media_url: "https://cdn.exemplo.com/clipe.webm" }).value);
+  await store.createContent(validateContent({ ...base, title: "Massa C (Instagram)", scheduled_date: D(27), media_url: "https://www.instagram.com/reel/abc123/" }).value);
+  await admin.click('[data-route="conteudos"]');
+  await admin.click('#filters [type="reset"]');
+  await admin.waitForSelector('.row:has-text("Massa A") .row__thumb img');
+  assert.match(await admin.getAttribute('.row:has-text("Massa A") .row__thumb img', "src"), /^https:\/\/i\.ytimg\.com\/vi\/dQw4w9WgXcQ\/hqdefault\.jpg$/);
+  await admin.waitForFunction(() => document.querySelector('[data-row] .row__thumb img[src*="ytimg"]')?.naturalWidth > 0);
+  assert.equal(await admin.locator('.row:has-text("Massa A") .row__play').count(), 1, "selo de vídeo sobre a capa");
+  await admin.waitForFunction(() => [...document.querySelectorAll(".row")].find((r) => r.textContent.includes("Massa B"))?.querySelector("video")?.readyState >= 1);
+  assert.equal(await admin.locator('.row:has-text("Massa C") .row__thumb--video').count(), 1, "Instagram não dá capa: fica o ícone de play");
+  await shot(admin, "r08-capas-video");
+});
+
+await step("Status em massa: marcar vários, confirmar e o cliente passa a ver", async () => {
+  assert.ok(await admin.isHidden("#bulk-bar"), "barra só aparece com algo marcado");
+  for (const t of ["Massa A", "Massa B", "Massa C"]) await admin.check(`.row:has-text("${t}") [data-pick]`);
+  assert.equal(await admin.textContent("#bulk-bar [data-bulk-count]"), "3");
+  assert.equal(await admin.inputValue("#bulk-bar [data-bulk-status]"), "aguardando_aprovacao", "padrão: enviar para aprovação");
+  await shot(admin, "r09-status-em-massa");
+  // Cancelar a confirmação não muda nada
+  await admin.click("#bulk-bar [data-bulk-apply]");
+  await admin.waitForSelector("#confirm-modal[open]");
+  assert.match(await admin.textContent("#confirm-modal"), /Mudar 3 conteúdos para "Aguardando aprovação"\?.*3 passam a aparecer no calendário do cliente/s);
+  assert.equal(await admin.getAttribute('#confirm-modal [data-confirm="ok"]', "class"), "btn btn--primary", "mudança comum: botão roxo, não vermelho");
+  await admin.click('#confirm-modal [data-confirm="cancel"]');
+  assert.equal((await store.listContents({ client_id: padaria.id })).filter((c) => c.title.startsWith("Massa") && c.status === "planejado").length, 3);
+  // Confirmar
+  await admin.click("#bulk-bar [data-bulk-apply]");
+  await admin.click('#confirm-modal [data-confirm="ok"]');
+  await toastSays(admin, /3 conteúdos atualizados para "Aguardando aprovação"/);
+  await admin.waitForSelector("#bulk-bar", { state: "hidden" });
+  const after = (await store.listContents({ client_id: padaria.id })).filter((c) => c.title.startsWith("Massa"));
+  assert.deepEqual(after.map((c) => c.status), ["aguardando_aprovacao", "aguardando_aprovacao", "aguardando_aprovacao"]);
+  assert.equal(await admin.locator('.row:has-text("Massa A") .row__status').textContent(), "Aguardando aprovação");
+  // Selecionar todos / desmarcar todos
+  await admin.click("[data-bulk-all]");
+  assert.equal(Number(await admin.textContent("#bulk-bar [data-bulk-count]")), await admin.locator("[data-pick]").count());
+  await admin.click("[data-bulk-all]");
+  await admin.waitForSelector("#bulk-bar", { state: "hidden" });
+  // O cliente já vê, com a capa do YouTube no carrossel
+  await portalRefocus();
+  await portal.waitForFunction(() => [...document.querySelectorAll(".slide__title")].some((n) => n.textContent === "Massa A (YouTube)"));
+  assert.match(await portal.getAttribute('.slide:has-text("Massa A (YouTube)") .slide__media img', "src"), /i\.ytimg\.com/);
 });
 
 await step("Sem erros de JavaScript no console", async () => assert.deepEqual(consoleErrors, [], JSON.stringify(consoleErrors)));

@@ -135,6 +135,11 @@ export function createSupabaseStore({ url, apiKey, secretKey, getToken, onUnauth
       return request(`contents?select=${CONTENT_FIELDS}&id=eq.${enc(id)}`, { method: "PATCH", body: { status }, single: true, prefer: "return=representation" });
     },
 
+    /** Mesmo status para vários conteúdos de uma vez (uma gravação só) */
+    async setContentsStatus(ids, status) {
+      return request(`contents?select=${CONTENT_FIELDS}&id=in.(${ids.map(enc).join(",")})`, { method: "PATCH", body: { status }, prefer: "return=representation" });
+    },
+
     /** Foto do cliente (caminho no bucket client-logos, ou null para tirar) */
     async setClientLogo(id, logoPath) {
       return request(`clients?select=${CLIENT_FIELDS}&id=eq.${enc(id)}`, { method: "PATCH", body: { logo_path: logoPath }, single: true, prefer: "return=representation" });

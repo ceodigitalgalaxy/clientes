@@ -105,7 +105,8 @@
   .agenda__item.is-pending { border-color: var(--aguardando-line); }
   .agenda__item:active { background: var(--surface-hover); }
   .agenda__thumb { position: relative; display: grid; place-items: center; flex: none; width: 56px; height: 56px; border-radius: var(--radius); overflow: hidden; color: var(--t-ink, var(--brand)); background: var(--t-soft, var(--brand-soft)); }
-  .agenda__thumb img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; }
+  .agenda__thumb img,
+  .agenda__thumb video { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; pointer-events: none; }
   .agenda__thumb .icon { width: 20px; height: 20px; }
   .agenda__body { display: grid; justify-items: start; gap: 4px; flex: 1; min-width: 0; }
   .agenda__meta { font-size: 12px; font-weight: 600; color: var(--text-muted); }

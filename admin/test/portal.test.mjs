@@ -3,7 +3,7 @@
    Rode: node admin/test/portal.test.mjs */
 
 import assert from "node:assert/strict";
-import { describeMedia } from "../../site/js/ui/media.js";
+import { describeMedia, mediaCover } from "../../site/js/ui/media.js";
 import { readSpreadsheet } from "../../site/admin/js/lib/spreadsheet.js";
 import { mapRows, parseDate, parseTime } from "../../site/admin/js/domain/import.js";
 import { createSupabaseRepository } from "../../site/js/data/supabase-repository.js";
@@ -326,5 +326,13 @@ ok("recusas do banco viram mensagens em português", () => {});
     assert.ok(d.valid && d.value.status === "publicado");
   });
 }
+
+ok("capa da referência: imagem, YouTube, Drive e arquivo de vídeo; Vimeo/TikTok/Instagram sem capa", () => {
+  assert.deepEqual(mediaCover("https://cdn.exemplo.com/a.jpg"), { kind: "image", src: "https://cdn.exemplo.com/a.jpg" });
+  assert.deepEqual(mediaCover("https://www.youtube.com/shorts/dQw4w9WgXcQ", "video"), { kind: "image", src: "https://i.ytimg.com/vi/dQw4w9WgXcQ/hqdefault.jpg" });
+  assert.deepEqual(mediaCover("https://drive.google.com/file/d/1AbCdEfGhIjK/view", "video"), { kind: "image", src: "https://drive.google.com/thumbnail?id=1AbCdEfGhIjK&sz=w640" });
+  assert.deepEqual(mediaCover("https://cdn.exemplo.com/v.mp4", "video"), { kind: "video", src: "https://cdn.exemplo.com/v.mp4#t=0.5" });
+  for (const url of ["https://vimeo.com/123456789", "https://www.tiktok.com/@a/video/1234567890123", "https://www.instagram.com/reel/abc/", "nada"]) assert.equal(mediaCover(url, "video"), null, url);
+});
 
 console.log(`portal: ${checks} verificações passaram`);

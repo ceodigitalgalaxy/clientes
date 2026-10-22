@@ -95,6 +95,13 @@ export function createFakeSupabase({ store, publishableKey }) {
       if (method === "GET") return (await store.listContents({ client_id: eq(params, "client_id"), status: eq(params, "status"), ...range(params, "scheduled_date") })).map(({ assets_count, ...c }) => ({ ...c, content_assets: [{ count: assets_count }] }));
       if (method === "POST" && Array.isArray(body)) return store.createContents(body);
       if (method === "POST") return [await store.createContent(body)];
+      const inIds = params.get("id")?.match(/^in\.\((.*)\)$/)?.[1];
+      if (method === "PATCH" && inIds !== undefined && Object.keys(body).join() === "status") {
+        const ids = inIds.split(",").filter(Boolean);
+        const found = [];
+        for (const one of ids) { if (await store.getContent(one).catch(() => null)) found.push(await store.setContentStatus(one, body.status)); }
+        return found;
+      }
       if (method === "PATCH" && Object.keys(body).join() === "status") return [await store.setContentStatus(id, body.status)];
       if (method === "PATCH") return [await store.updateContent(id, body)];
       if (method === "DELETE") { await store.deleteContent(id); return [{ id }]; }

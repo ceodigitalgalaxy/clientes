@@ -40,7 +40,7 @@ function youtube(url) {
     else if (["shorts", "embed", "live", "v"].includes(first)) { id = second; vertical = first === "shorts"; }
   } else return null;
   if (!id || !YOUTUBE_ID.test(id)) return { type: "link", provider: "YouTube", reason: "Este link do YouTube não aponta para um vídeo." };
-  return { type: "embed", provider: "YouTube", ratio: vertical ? "vertical" : "wide", src: `https://www.youtube-nocookie.com/embed/${id}?rel=0` };
+  return { type: "embed", provider: "YouTube", ratio: vertical ? "vertical" : "wide", src: `https://www.youtube-nocookie.com/embed/${id}?rel=0`, poster: `https://i.ytimg.com/vi/${id}/hqdefault.jpg` };
 }
 
 function vimeo(url) {
@@ -66,7 +66,7 @@ function drive(url) {
   if (url.hostname !== "drive.google.com") return null;
   const id = url.pathname.match(/\/file\/d\/([A-Za-z0-9_-]{10,})/)?.[1] || url.searchParams.get("id");
   if (!id || !/^[A-Za-z0-9_-]{10,}$/.test(id)) return { type: "link", provider: "Google Drive", reason: "Para mostrar aqui, use o link de um arquivo (não de uma pasta)." };
-  return { type: "embed", provider: "Google Drive", ratio: "wide", src: `https://drive.google.com/file/d/${id}/preview`, hint: "Se a prévia pedir login, compartilhe o arquivo como \"qualquer pessoa com o link\"." };
+  return { type: "embed", provider: "Google Drive", ratio: "wide", src: `https://drive.google.com/file/d/${id}/preview`, poster: `https://drive.google.com/thumbnail?id=${id}&sz=w640`, hint: "Se a prévia pedir login, compartilhe o arquivo como \"qualquer pessoa com o link\"." };
 }
 
 /**
@@ -90,6 +90,30 @@ export function describeMedia(rawUrl, kind = "image") {
   if (VIDEO_FILE.test(url.pathname)) return { type: "video", src: original, original };
   if (kind === "video") return { type: "link", original, reason: "Este link de vídeo não pode ser mostrado aqui. Links aceitos: YouTube, Vimeo, TikTok, Google Drive ou arquivo de vídeo (.mp4, .webm)." };
   return { type: "image", src: original, original };
+}
+
+/**
+ * Capa para miniaturas (listas, carrossel, agenda): a própria imagem, a capa
+ * oficial do vídeo (YouTube; Google Drive quando o arquivo é público) ou o
+ * primeiro quadro de um arquivo de vídeo. Vimeo, TikTok e Instagram não dão
+ * capa sem scripts ou serviços de terceiros: aí fica só o ícone.
+ * @returns {{kind: "image"|"video", src: string} | null}
+ */
+export function mediaCover(rawUrl, kind = "image") {
+  if (!rawUrl) return null;
+  const media = describeMedia(rawUrl, kind);
+  if (media.type === "image") return { kind: "image", src: media.src };
+  if (media.poster) return { kind: "image", src: media.poster };
+  if (media.type === "video") return { kind: "video", src: `${media.src.split("#")[0]}#t=0.5` };
+  return null;
+}
+
+/** HTML da capa (imagem ou primeiro quadro do vídeo, sem som e sem controles) */
+export function coverHtml(cover, attrs = "") {
+  if (!cover) return "";
+  return cover.kind === "video"
+    ? `<video src="${esc(cover.src)}" muted playsinline preload="metadata" tabindex="-1" aria-hidden="true" ${attrs}></video>`
+    : `<img src="${esc(cover.src)}" alt="" loading="lazy" decoding="async" referrerpolicy="no-referrer" ${attrs}>`;
 }
 
 const openLink = (href, label = "Abrir referência original") =>

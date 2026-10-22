@@ -68,6 +68,8 @@ Serve a pasta `site/` como o GitHub Pages. Não usa chave nenhuma: entra com usu
 - **Arte final:** nos detalhes do conteúdo, enviar arquivos (imagem, GIF ou vídeo MP4/WebM/MOV, até 50 MB cada) e/ou links de vídeo, na ordem do carrossel (setas para reordenar). Depois, **Enviar para aprovação**: o cliente vê a arte final no portal e aprova ou pede ajuste com uma mensagem. O histórico das respostas aparece no painel; aprovado, dá para **Marcar como publicado**. Se a arte mudar depois da aprovação, o painel avisa para enviar de novo.
 - **Importar:** escolher o cliente e uma planilha (.xlsx ou .csv; há um modelo para baixar). O painel mostra a prévia linha a linha (pronto, com erro, parece repetido), com a miniatura da referência, e importa só as linhas marcadas, de uma vez. Colunas: Título, Data, Horário, Rede social, Formato, Link da referência, Legenda, Observação para o cliente, Observações internas e Status (vazio = planejado).
 - Criar, ver detalhes, editar e excluir (com confirmação).
+- **Status em massa:** marque conteúdos na lista (ou "Selecionar todos"), escolha o status e clique em **Aplicar**. O painel confirma antes e avisa quantos passam a aparecer (ou deixam de aparecer) no calendário do cliente.
+- **Capa da referência em vídeo:** YouTube e Google Drive (arquivo público) mostram a capa oficial; arquivo de vídeo (.mp4, .webm) mostra o primeiro quadro. Vimeo, TikTok e Instagram não oferecem capa sem serviços de terceiros: aparece o ícone de vídeo.
 - Filtros por cliente, período e status, guardados no endereço da página.
 - Estados de carregamento, sucesso, erro (com "Tentar novamente") e lista vazia.
 

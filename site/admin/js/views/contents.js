@@ -9,15 +9,19 @@ import { CONTENT_STATUS, CLIENT_VISIBLE_STATUS, NETWORKS, FORMATS, LIMITS, valid
 import { closeDialog, wireDialog, showFieldErrors, setBusy } from "../ui/dialogs.js";
 import { stateBlock, loadingRows, button } from "../ui/states.js";
 import { reviewSections, mountReview } from "./content-review.js";
-import { describeMedia } from "../../../js/ui/media.js";
+import { describeMedia, mediaCover, coverHtml } from "../../../js/ui/media.js";
 
 const shortDate = (iso) => iso.split("-").reverse().join("/");
 const statusChip = (status) => `<span class="content-status cs--${esc(status)}">${esc(CONTENT_STATUS[status]?.label || status)}</span>`;
 /** Miniatura da referência na lista: imagem pequena ou ícone do tipo de link */
 function refThumb(content) {
   if (!content.media_url) return `<span class="row__thumb row__thumb--empty" title="Sem referência">${icon("image")}</span>`;
-  const media = describeMedia(content.media_url, content.media_kind || "image");
-  if (media.type === "image") return `<span class="row__thumb"><img src="${esc(media.src)}" alt="" loading="lazy" referrerpolicy="no-referrer" data-thumb></span>`;
+  const kind = content.media_kind || "image";
+  const media = describeMedia(content.media_url, kind);
+  const cover = mediaCover(content.media_url, kind);
+  const video = kind === "video" || media.type !== "image";
+  // Capa (imagem, capa do YouTube/Drive ou 1º quadro do arquivo); sem capa, o ícone de play
+  if (cover) return `<span class="row__thumb${video ? " row__thumb--has-video" : ""}" title="${esc(media.provider || (video ? "Vídeo de referência" : "Imagem de referência"))}">${coverHtml(cover, "data-thumb")}${video ? `<span class="row__play">${icon("play")}</span>` : ""}</span>`;
   return `<span class="row__thumb row__thumb--video" title="${esc(media.provider || "Vídeo de referência")}">${icon("play")}</span>`;
 }
 
@@ -34,15 +38,21 @@ export function setupContents({ api, state, toast, confirm, navigate }) {
   wireMediaFallbacks(drawer);
   // Miniatura que não carrega vira o ícone
   list.addEventListener("error", (event) => {
-    const img = event.target;
-    if (!(img instanceof HTMLImageElement) || !img.matches("[data-thumb]")) return;
-    const box = img.closest(".row__thumb");
-    box.classList.add("row__thumb--empty");
-    box.innerHTML = icon("image");
+    const el = event.target;
+    if (!(el instanceof HTMLElement) || !el.matches("[data-thumb]")) return;
+    const box = el.closest(".row__thumb");
+    const video = box.classList.contains("row__thumb--has-video");
+    box.className = video ? "row__thumb row__thumb--video" : "row__thumb row__thumb--empty";
+    box.innerHTML = icon(video ? "play" : "image");
   }, true);
   const mediaKind = form.querySelector("[data-media-kind]");
   const captionCount = $("#caption-count");
   let contents = [];
+  const picked = new Set();     // conteúdos marcados para a troca de status em massa
+  const bulk = $("#bulk-bar");
+  const bulkAll = document.querySelector("[data-bulk-all]");
+  const bulkStatus = bulk.querySelector("[data-bulk-status]");
+  let bulkBusy = false;
   let editing = null;
   let saving = false;
   let loadToken = 0;
@@ -51,6 +61,7 @@ export function setupContents({ api, state, toast, confirm, navigate }) {
   wireDialog(drawer);
 
   // Opções fixas dos selects
+  bulkStatus.innerHTML = options(Object.entries(CONTENT_STATUS).map(([k, v]) => [k, v.label]), "aguardando_aprovacao");
   filtersForm.elements.status.insertAdjacentHTML("beforeend", options(Object.entries(CONTENT_STATUS).map(([k, v]) => [k, v.label])));
   form.elements.network.innerHTML = `<option value="">Escolha a rede</option>${options(Object.entries(NETWORKS))}`;
   form.elements.format.innerHTML = `<option value="">Escolha o formato</option>${options(Object.entries(FORMATS).map(([k, v]) => [k, v.label]))}`;
@@ -99,6 +110,8 @@ export function setupContents({ api, state, toast, confirm, navigate }) {
       const result = await api.listContents(state.filters);
       if (token !== loadToken) return;      // um filtro mais novo já está carregando
       contents = result;
+      // A seleção vale só para o que continua na lista
+      [...picked].forEach((id) => { if (!contents.some((c) => c.id === id)) picked.delete(id); });
       render();
     } catch (error) {
       if (token !== loadToken) return;
@@ -108,8 +121,24 @@ export function setupContents({ api, state, toast, confirm, navigate }) {
     }
   }
 
+  /** Barra de ações em massa e botão "Selecionar todos" */
+  function syncBulk() {
+    const n = picked.size;
+    bulk.hidden = n === 0;
+    bulk.querySelector("[data-bulk-count]").textContent = n;
+    bulk.querySelector("[data-bulk-word]").textContent = n === 1 ? "selecionado" : "selecionados";
+    bulkAll.hidden = contents.length < 2;
+    const all = contents.length > 0 && contents.every((c) => picked.has(c.id));
+    bulkAll.textContent = all ? "Desmarcar todos" : `Selecionar todos (${contents.length})`;
+    list.querySelectorAll("[data-pick]").forEach((box) => {
+      box.checked = picked.has(box.dataset.pick);
+      box.closest(".row").classList.toggle("is-picked", box.checked);
+    });
+  }
+
   function render() {
     list.setAttribute("aria-busy", "false");
+    queueMicrotask(syncBulk);
     const filtered = Object.keys(state.filters).length > 0;
     count.textContent = contents.length ? `${contents.length} ${contents.length === 1 ? "conteúdo" : "conteúdos"}${filtered ? " com esses filtros" : ""}` : "";
     if (!contents.length) {
@@ -119,9 +148,10 @@ export function setupContents({ api, state, toast, confirm, navigate }) {
       return;
     }
     list.innerHTML = `
-      <div class="row row--head" aria-hidden="true"><span>Data</span><span>Cliente</span><span>Título</span><span>Rede</span><span>Formato</span><span>Status</span><span></span></div>
+      <div class="row row--head" aria-hidden="true"><span></span><span>Data</span><span>Cliente</span><span>Título</span><span>Rede</span><span>Formato</span><span>Status</span><span></span></div>
       ${contents.map((c) => `
-        <div class="row" data-row="${esc(c.id)}">
+        <div class="row${picked.has(c.id) ? " is-picked" : ""}" data-row="${esc(c.id)}">
+          <span class="row__pick"><input type="checkbox" data-pick="${esc(c.id)}" aria-label="Selecionar ${esc(c.title)}" ${picked.has(c.id) ? "checked" : ""}></span>
           <span class="row__date">${esc(shortDate(c.scheduled_date))}<span class="row__time">${esc(c.scheduled_time ? timeLabel(c.scheduled_time.slice(0, 5)) : "Sem horário")}</span></span>
           <span class="row__client">${esc(clientName(c.client_id))}</span>
           <span class="row__titlecell">${refThumb(c)}<button class="row__title" type="button" data-view-content="${esc(c.id)}">${esc(c.title)}</button>${c.assets_count ? `<span class="row__art" title="Itens na arte final">${icon("layers")}${esc(c.assets_count)}</span>` : ""}</span>
@@ -265,6 +295,55 @@ export function setupContents({ api, state, toast, confirm, navigate }) {
   on(document, "click", '[data-action="clear-filters"]', () => navigate("conteudos", {}, { replace: true }));
   on(document, "click", '[data-action="reload-contents"]', () => load());
   on(document, "click", "[data-view-content]", (event, btn) => { const c = find(btn.dataset.viewContent); if (c) openDetails(c); });
+
+  /* ---------- Status em massa ---------- */
+  on(list, "change", "[data-pick]", (event, box) => {
+    if (box.checked) picked.add(box.dataset.pick); else picked.delete(box.dataset.pick);
+    syncBulk();
+  });
+  bulkAll.addEventListener("click", () => {
+    const all = contents.every((c) => picked.has(c.id));
+    contents.forEach((c) => (all ? picked.delete(c.id) : picked.add(c.id)));
+    syncBulk();
+  });
+  bulk.querySelector("[data-bulk-clear]").addEventListener("click", () => { picked.clear(); syncBulk(); });
+  bulk.querySelector("[data-bulk-apply]").addEventListener("click", async (event) => {
+    if (bulkBusy || !picked.size) return;
+    const button = event.currentTarget;
+    const status = bulkStatus.value;
+    const chosen = contents.filter((c) => picked.has(c.id));
+    const changing = chosen.filter((c) => c.status !== status);
+    const label = CONTENT_STATUS[status].label;
+    if (!changing.length) { toast(`Os conteúdos marcados já estão como "${label}".`); return; }
+    const visibleNow = CLIENT_VISIBLE_STATUS.includes(status);
+    const appear = changing.filter((c) => visibleNow && !CLIENT_VISIBLE_STATUS.includes(c.status)).length;
+    const vanish = changing.filter((c) => !visibleNow && CLIENT_VISIBLE_STATUS.includes(c.status)).length;
+    const n = changing.length;
+    const parts = [];
+    if (appear) parts.push(`${appear} ${appear === 1 ? "passa" : "passam"} a aparecer no calendário do cliente.`);
+    if (vanish) parts.push(`${vanish} ${vanish === 1 ? "sai" : "saem"} do calendário do cliente.`);
+    const ok = await confirm({
+      title: `Mudar ${n} ${n === 1 ? "conteúdo" : "conteúdos"} para "${label}"?`,
+      text: parts.join(" ") || "O calendário do cliente é atualizado na hora.",
+      confirmLabel: "Mudar status",
+      tone: "primary"
+    });
+    if (!ok) return;
+    bulkBusy = true;
+    setBusy(button, true);
+    try {
+      const updated = await api.setContentsStatus(changing.map((c) => c.id), status);
+      toast(`${updated.length} ${updated.length === 1 ? "conteúdo atualizado" : "conteúdos atualizados"} para "${label}"`);
+      picked.clear();
+      await load();
+    } catch (error) {
+      toast(error.message, "error");
+    } finally {
+      bulkBusy = false;
+      setBusy(button, false);
+      syncBulk();
+    }
+  });
   on(document, "click", "[data-edit-content]", (event, btn) => { const c = find(btn.dataset.editContent); if (c) openForm(c); });
   on(document, "click", "[data-delete-content]", (event, btn) => { const c = find(btn.dataset.deleteContent); if (c) remove(c); });
 

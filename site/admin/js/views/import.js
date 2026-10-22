@@ -8,7 +8,7 @@ import { $, esc, on } from "../../../js/lib/dom.js";
 import { icon } from "../../../js/lib/icons.js";
 import { timeLabel } from "../../../js/lib/dates.js";
 import { typeBadge } from "../../../js/ui/badges.js";
-import { describeMedia } from "../../../js/ui/media.js";
+import { describeMedia, mediaCover, coverHtml } from "../../../js/ui/media.js";
 import { NETWORKS, CONTENT_STATUS } from "../domain/rules.js";
 import { readSpreadsheet } from "../lib/spreadsheet.js";
 import { mapRows, COLUMN_LABELS } from "../domain/import.js";
@@ -21,8 +21,10 @@ function refCell(value) {
   if (!value.media_url) return '<span class="imp-ref imp-ref--none" title="Sem referência">—</span>';
   const media = describeMedia(value.media_url, value.media_kind || "image");
   const link = `<a class="imp-ref__link" href="${esc(media.original || value.media_url)}" target="_blank" rel="noopener noreferrer" title="Abrir a referência">`;
-  if (media.type === "image") return `${link}<span class="imp-ref"><img src="${esc(media.src)}" alt="" loading="lazy" referrerpolicy="no-referrer" data-imp-thumb></span></a>`;
   if (media.type === "invalid") return `<span class="imp-ref imp-ref--bad" title="${esc(media.reason)}">${icon("close")}</span>`;
+  const cover = mediaCover(value.media_url, value.media_kind || "image");
+  const video = media.type !== "image";
+  if (cover) return `${link}<span class="imp-ref${video ? " imp-ref--has-video" : ""}" title="${esc(media.provider || "")}">${coverHtml(cover, "data-imp-thumb")}${video ? `<span class="row__play">${icon("play")}</span>` : ""}</span></a>`;
   return `${link}<span class="imp-ref imp-ref--video" title="${esc(media.provider || "Vídeo")}">${icon("play")}</span></a>`;
 }
 
@@ -137,8 +139,11 @@ export function setupImport({ api, state, toast, navigate }) {
     render();
   });
   preview.addEventListener("error", (event) => {
-    const img = event.target;
-    if (img instanceof HTMLImageElement && img.matches("[data-imp-thumb]")) img.closest(".imp-ref").innerHTML = icon("image");
+    const el = event.target;
+    if (el instanceof HTMLElement && el.matches("[data-imp-thumb]")) {
+      const box = el.closest(".imp-ref");
+      box.innerHTML = icon(box.classList.contains("imp-ref--has-video") ? "play" : "image");
+    }
   }, true);
 
   on(preview, "click", "[data-imp-run]", async (event, button) => {

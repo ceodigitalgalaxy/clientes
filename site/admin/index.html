@@ -13,9 +13,9 @@
   <link rel="preload" href="../fonts/sora-latin-400-normal.woff2" as="font" type="font/woff2" crossorigin>
   <link rel="preload" href="../fonts/sora-latin-600-normal.woff2" as="font" type="font/woff2" crossorigin>
   <!-- Mesmos tokens e componentes do portal do cliente -->
-  <link rel="stylesheet" href="../css/style.css?v=8">
-  <link rel="stylesheet" href="css/admin.css?v=6">
-  <script type="module" src="js/main.js?v=7"></script>
+  <link rel="stylesheet" href="../css/style.css?v=11">
+  <link rel="stylesheet" href="css/admin.css?v=7">
+  <script type="module" src="js/main.js?v=8"></script>
 </head>
 <body class="admin">
   <!-- Tela de entrada: aparece enquanto ninguém estiver logado -->
@@ -98,8 +98,21 @@
         <button class="link-btn filters__clear" type="reset" data-icon="refresh">Limpar filtros</button>
       </form>
 
-      <p class="list-count" id="contents-count" aria-live="polite"></p>
+      <div class="list-tools">
+        <p class="list-count" id="contents-count" aria-live="polite"></p>
+        <button class="link-btn" type="button" data-bulk-all hidden>Selecionar todos</button>
+      </div>
       <div class="list" id="contents-list" aria-busy="true"></div>
+      <!-- Ações em massa: aparece quando há conteúdos marcados -->
+      <div class="bulk" id="bulk-bar" role="region" aria-label="Mudar o status dos conteúdos marcados" hidden>
+        <p class="bulk__count" aria-live="polite"><b data-bulk-count>0</b> <span data-bulk-word>selecionados</span></p>
+        <label class="bulk__field">
+          <span class="bulk__label">Mudar status para</span>
+          <select class="field__input" data-bulk-status></select>
+        </label>
+        <button class="btn btn--primary btn--sm" type="button" data-bulk-apply>Aplicar</button>
+        <button class="btn btn--ghost btn--sm" type="button" data-bulk-clear>Cancelar</button>
+      </div>
     </section>
 
     <!-- Clientes -->

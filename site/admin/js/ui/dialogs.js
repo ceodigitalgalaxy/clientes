@@ -2,6 +2,7 @@
    confirmação antes de excluir e erros de formulário campo a campo. */
 
 import { reduceMotion, esc } from "../../../js/lib/dom.js";
+import { icon } from "../../../js/lib/icons.js";
 
 export function closeDialog(dialog) {
   if (!dialog.open) return;
@@ -61,11 +62,20 @@ export function createConfirm(dialog) {
   });
   dialog.addEventListener("cancel", (event) => { event.preventDefault(); finish(false); });
 
-  return ({ title, text, confirmLabel = "Excluir" }) => new Promise((resolve) => {
+  // tone "danger" (excluir, padrão) ou "primary" (confirmar uma mudança comum)
+  return ({ title, text, confirmLabel = "Excluir", tone = "danger" }) => new Promise((resolve) => {
     resolver = resolve;
+    const danger = tone === "danger";
     dialog.querySelector("#confirm-title").textContent = title;
     dialog.querySelector("#confirm-text").textContent = text;
-    dialog.querySelector('[data-confirm="ok"]').textContent = confirmLabel;
+    const ok = dialog.querySelector('[data-confirm="ok"]');
+    ok.textContent = confirmLabel;
+    ok.classList.toggle("btn--danger", danger);
+    ok.classList.toggle("btn--primary", !danger);
+    const mark = dialog.querySelector(".modal__icon");
+    mark.classList.toggle("modal__icon--danger", danger);
+    mark.classList.toggle("modal__icon--brand", !danger);
+    mark.innerHTML = icon(danger ? "close" : "refresh");
     dialog.showModal();
     dialog.querySelector('[data-confirm="cancel"]').focus();   // o padrão seguro é cancelar
   });

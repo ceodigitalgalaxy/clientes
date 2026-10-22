@@ -15,6 +15,7 @@ import { ACTIVITY_TYPES, STATUS } from "../domain/model.js";
 import { statusOf } from "../domain/status.js";
 import { typeBadge, statusBadge, statusMark } from "./badges.js";
 import { cover } from "./highlights.js";
+import { coverHtml } from "./media.js";
 
 const MAX_CHIPS = 3;
 const DAY_STATUS_ORDER = ["aguardando", "ajustes", "aprovado", "publicado"];
@@ -110,12 +111,12 @@ export function renderAgenda(container, { selected, month, activities, approvals
   container.innerHTML = `
     <h3 class="agenda__title">${esc(longDayLabel(selected))}${items.length ? `<span class="agenda__count">${countLabel(items.length).replace("atividade", "conteúdo")}</span>` : ""}</h3>
     ${items.length ? `<ul class="agenda__list">${items.map((a) => {
-      const src = cover(a);
+      const art = cover(a);
       const t = ACTIVITY_TYPES[a.type] || ACTIVITY_TYPES.outro;
       return `
       <li>
         <button class="agenda__item${statusOf(a, approvals) === "aguardando" ? " is-pending" : ""}" type="button" data-activity="${esc(a.id)}">
-          <span class="agenda__thumb type--${esc(a.type)}">${src ? `<img src="${esc(src)}" alt="" loading="lazy" referrerpolicy="no-referrer" data-agenda-img>` : ""}${icon(t.icon)}</span>
+          <span class="agenda__thumb type--${esc(a.type)}">${icon(t.icon)}${coverHtml(art, "data-agenda-img")}${art?.play ? `<span class="play-badge play-badge--sm">${icon("play")}</span>` : ""}</span>
           <span class="agenda__body">
             <span class="agenda__meta">${a.time ? timeLabel(a.time) : "Sem horário"} · ${esc(t.short)}</span>
             <span class="agenda__name">${esc(a.title)}</span>
