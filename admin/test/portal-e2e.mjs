@@ -461,6 +461,11 @@ await step("Destaques: carrossel com o que aprovar primeiro, passa sozinho e abr
   assert.deepEqual(titles, ["Primeiro para aprovar", "Segundo para aprovar", "Já foi ao ar"], "o que aprovar vem primeiro; o que está em produção não aparece");
   assert.match(await page.textContent(".slide.is-active .slide__cta"), /Ver e aprovar/);
   assert.match(await page.textContent(".mini-stats"), /2\s*para aprovar/);
+  // Dia do calendário colorido pelo status (aguardando vence os demais)
+  const dayOf = (delta) => page.getAttribute(`.cal__cell[data-day="${iso(delta)}"]`, "class");
+  if (iso(2).slice(0, 7) === iso(0).slice(0, 7)) assert.match(await dayOf(2), /day--aguardando/);
+  if (iso(-2).slice(0, 7) === iso(0).slice(0, 7)) assert.match(await dayOf(-2), /day--publicado/);
+  if (iso(3).slice(0, 7) === iso(0).slice(0, 7)) assert.doesNotMatch(await dayOf(3), /day--/, "em produção não aparece nem colore o dia");
   assert.match(await page.textContent(".spot__queue"), /Segundo para aprovar/);
   // Passa sozinho (com o mouse fora)
   await page.mouse.move(5, 890);

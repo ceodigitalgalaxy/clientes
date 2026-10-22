@@ -349,6 +349,14 @@ ul { list-style: none; padding: 0; }
 .cal__cell.is-today .cal__date { background: var(--brand); box-shadow: 0 8px 16px -8px rgba(90, 26, 199, 0.8); }
 .cal__cell.is-today .cal__num { color: #fff; }
 .cal__cell.is-today { border-color: rgba(90, 26, 199, 0.4); background: #FDFBFF; }
+/* Dia colorido pelo status dos conteúdos (aguardando > ajustes > aprovado > publicado) */
+.cal__cell.day--aguardando { --day: var(--aguardando); border-color: var(--aguardando-line); background: var(--aguardando-soft); }
+.cal__cell.day--ajustes { --day: var(--ajustes); border-color: var(--ajustes-line); background: var(--ajustes-soft); }
+.cal__cell.day--aprovado { --day: var(--aprovado); border-color: var(--aprovado-line); background: var(--aprovado-soft); }
+.cal__cell.day--publicado { --day: var(--brand); border-color: #DCCFF7; background: var(--brand-soft); }
+.cal__cell[class*="day--"] { box-shadow: inset 0 3px 0 var(--day); }
+.cal__cell[class*="day--"].has-items:hover { border-color: var(--day); }
+.cal__cell[class*="day--"] .chip { background: var(--surface); }
 .cal__items { display: grid; grid-template-columns: minmax(0, 1fr); gap: 8px; min-width: 0; }
 .cal__items li { min-width: 0; }
 .cal__dots { display: none; }

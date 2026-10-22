@@ -17,6 +17,7 @@ import { typeBadge, statusBadge, statusMark } from "./badges.js";
 import { cover } from "./highlights.js";
 
 const MAX_CHIPS = 3;
+const DAY_STATUS_ORDER = ["aguardando", "ajustes", "aprovado", "publicado"];
 
 /** Agrupa as atividades por dia */
 const byDay = (activities) => activities.reduce((map, a) => { (map[a.date] ||= []).push(a); return map; }, {});
@@ -37,8 +38,11 @@ function chip(activity, approvals) {
 
 function cell(day, items, approvals, selected, maxChips = MAX_CHIPS) {
   const today = day.iso === todayISO();
-  const pending = items.filter((a) => statusOf(a, approvals) === "aguardando").length;
-  const classes = ["cal__cell", day.inMonth ? "" : "is-out", today ? "is-today" : "", items.length ? "has-items" : "", pending ? "has-pending" : "", day.iso === selected ? "is-selected" : "", day.weekday === 0 || day.weekday === 6 ? "is-weekend" : ""].filter(Boolean).join(" ");
+  const statuses = items.map((a) => statusOf(a, approvals));
+  const pending = statuses.filter((st) => st === "aguardando").length;
+  // O dia todo pega a cor do status; com vários, vale o que pede ação primeiro
+  const dayStatus = DAY_STATUS_ORDER.find((st) => statuses.includes(st));
+  const classes = ["cal__cell", day.inMonth ? "" : "is-out", today ? "is-today" : "", items.length ? "has-items" : "", dayStatus ? `day--${dayStatus}` : "", day.iso === selected ? "is-selected" : "", day.weekday === 0 || day.weekday === 6 ? "is-weekend" : ""].filter(Boolean).join(" ");
   const shown = items.slice(0, maxChips);
   const more = items.length - shown.length;
   const label = `${longDayLabel(day.iso)}${today ? " (hoje)" : ""}${items.length ? `, ${countLabel(items.length)}` : ", sem atividades"}${pending ? `, ${pending} para aprovar` : ""}`;

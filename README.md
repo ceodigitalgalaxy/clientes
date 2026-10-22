@@ -148,7 +148,7 @@ Os testes de ponta a ponta usam um Supabase de mentira em memória (**só para t
 O cliente entra em `https://clientes.digitalgalaxy.com.br` com o usuário e a senha criados no painel (Clientes → Acesso ao portal) ou pelo `equipe.mjs criar-cliente` e vê o calendário com os conteúdos do cliente dele que estão **Aguardando aprovação**, **Aprovados** ou **Publicados**. Sem login, nenhum dado é pedido ao banco.
 
 - **Destaques:** carrossel no topo que passa sozinho com o que o cliente tem para aprovar, os ajustes em andamento, os aprovados e os já publicados; cada destaque abre os detalhes. Os números do mês ficam embaixo, pequenos.
-- **Calendário:** mês ou semana, com navegação; no celular, pontinhos no dia (dia com algo para aprovar fica âmbar), agenda abaixo com miniaturas e botões de aprovar sempre à mão nos detalhes.
+- **Calendário:** mês ou semana, com navegação; cada dia fica na cor do status dos conteúdos (âmbar para aprovar, vermelho em ajuste, verde aprovado, roxo publicado); no celular, pontinhos no dia, agenda abaixo com miniaturas e botões de aprovar sempre à mão nos detalhes.
 - **Detalhes** (clique no conteúdo ou na data): título, prévia da mídia, legenda, rede social, data, status e a observação para o cliente. Data com vários conteúdos mostra a lista; data livre mostra "Nada programado para este dia".
 - **Atualização:** busca de novo a cada 30 segundos, ao voltar para a aba e no botão **Atualizar**. O que a agência muda no painel aparece sozinho, inclusive no painel de detalhes aberto.
 - **Ainda não gravam no banco:** aprovar, pedir ajuste, observações do cliente e ideias. Os componentes dessas ações estão no código (`ui/drawer.js`, `ui/ideas.js`) e ficam escondidos até a próxima etapa.
