@@ -6,7 +6,7 @@ O projeto tem duas partes, publicadas juntas pelo GitHub Pages:
 
 | Parte | Endereço | Pasta | Situação |
 |---|---|---|---|
-| **Portal do cliente** | `clientes.digitalgalaxy.com.br` | `site/` | Cada cliente entra com usuário e senha e vê o calendário com os conteúdos que a agência liberou. Demonstração com dados fictícios em `?demo` |
+| **Portal do cliente** | `clientes.digitalgalaxy.com.br` | `site/` | Cada cliente entra com usuário e senha e vê o calendário com os conteúdos que a agência liberou |
 | **Painel da agência** | `clientes.digitalgalaxy.com.br/admin/` | `site/admin/` | Clientes e conteúdos no banco Supabase. Acesso só com usuário e senha da equipe |
 
 A pasta `admin/` tem as ferramentas que rodam **só no computador da agência** (criar usuários, prévia local, verificação do banco). Ela não é publicada.
@@ -129,7 +129,7 @@ PLAYWRIGHT=$P node admin/test/e2e.mjs             # painel da agência, ponta a 
 PLAYWRIGHT=$P node admin/test/portal-e2e.mjs      # painel → calendário do cliente, ponta a ponta
 ```
 
-Os testes de ponta a ponta usam um Supabase de mentira em memória (**só para teste**). O do portal abre o painel e o portal lado a lado e confere: imagem cadastrada na data certa e proporcional, vídeo do YouTube no player oficial, arquivo de vídeo, link do Instagram e imagem quebrada com aviso, mudança de data (inclusive para outro mês), edição e exclusão refletidas, atualização automática, outro cliente sem acesso, tentativas de trocar parâmetros, semana, carregando, erro, celular, a demonstração e o acesso do cliente criado, trocado e removido pelo painel (rodando o código real da função). O `admin/verify.mjs` repete o essencial no banco real.
+Os testes de ponta a ponta usam um Supabase de mentira em memória (**só para teste**). O do portal abre o painel e o portal lado a lado e confere: imagem cadastrada na data certa e proporcional, vídeo do YouTube no player oficial, arquivo de vídeo, link do Instagram e imagem quebrada com aviso, mudança de data (inclusive para outro mês), edição e exclusão refletidas, atualização automática, outro cliente sem acesso, tentativas de trocar parâmetros, semana, carregando, erro, celular, a demonstração removida e o acesso do cliente criado, trocado e removido pelo painel (rodando o código real da função). O `admin/verify.mjs` repete o essencial no banco real.
 
 ## Portal do cliente (`site/`)
 
@@ -138,8 +138,8 @@ O cliente entra em `https://clientes.digitalgalaxy.com.br` com o usuário e a se
 - **Calendário:** mês ou semana, com navegação; no celular, pontinhos no dia e agenda abaixo.
 - **Detalhes** (clique no conteúdo ou na data): título, prévia da mídia, legenda, rede social, data, status e a observação para o cliente. Data com vários conteúdos mostra a lista; data livre mostra "Nada programado para este dia".
 - **Atualização:** busca de novo a cada 30 segundos, ao voltar para a aba e no botão **Atualizar**. O que a agência muda no painel aparece sozinho, inclusive no painel de detalhes aberto.
-- **Ainda não gravam no banco** (ficam só na demonstração): aprovar, pedir ajuste, observações do cliente e ideias. No modo real essas ações ficam escondidas.
-- **Demonstração:** `https://clientes.digitalgalaxy.com.br/?demo` (dados fictícios, salvos só no navegador; "Restaurar demonstração" no menu do perfil).
+- **Ainda não gravam no banco:** aprovar, pedir ajuste, observações do cliente e ideias. Os componentes dessas ações estão no código (`ui/drawer.js`, `ui/ideas.js`) e ficam escondidos até a próxima etapa.
+- A demonstração com dados fictícios foi removida: o portal só mostra dados reais, depois do login.
 
 ### Links de mídia aceitos (prévia)
 
@@ -157,7 +157,7 @@ Se a imagem ou o arquivo de vídeo não carregar, a prévia vira o mesmo aviso c
 
 ### Como rodar
 
-Site estático, sem build. Para ver localmente: `node admin/server.mjs` e abra http://localhost:5600/ (portal) ou http://localhost:5600/?demo (demonstração).
+Site estático, sem build. Para ver localmente: `node admin/server.mjs` e abra http://localhost:5600/ (portal).
 
 ### Estrutura
 
@@ -168,7 +168,7 @@ site/
 │   ├── style.css               Tokens da marca, componentes e calendário
 │   └── responsive.css          Tablet e celular (calendário com pontinhos + agenda do dia, painel vira folha de baixo)
 ├── js/
-│   ├── main.js                 Liga os dados à tela: entrada do cliente, mês/semana, atualização; ?demo usa a demonstração
+│   ├── main.js                 Liga os dados à tela: entrada do cliente, mês/semana, atualização
 │   ├── config.js               Endereço do Supabase e chave PUBLICÁVEL
 │   ├── domain/
 │   │   ├── model.js            Entidades (Client, Plan, Activity, Approval, Comment, Idea), tipos e status
@@ -176,16 +176,14 @@ site/
 │   │   ├── content-mapping.js  Linha do banco → Activity do calendário
 │   │   └── accounts.js         Usuário e senha (equipe e clientes)
 │   ├── data/
-│   │   ├── repository.js       Interface de dados + implementação de demonstração (localStorage)
-│   │   ├── supabase-repository.js  Implementação real (funções portal_profile / portal_contents)
-│   │   └── demo-data.js        Dados FICTÍCIOS, montados a partir do mês atual
+│   │   └── supabase-repository.js  Dados do portal (funções portal_profile / portal_contents)
 │   ├── lib/                    Datas em pt-BR, utilitários de DOM, ícones, login (auth.js)
 │   └── ui/                     Componentes: calendar, drawer, summary, ideas, preview, media, badges, toast
 ├── fonts/                      Sora e Orbitron (locais, as mesmas do site)
 └── images/logo/                Favicons da marca
 ```
 
-### Modelo de dados (demonstração)
+### Modelo de dados da tela
 
 | Entidade | O que é | Pertence a |
 |---|---|---|
@@ -196,7 +194,7 @@ site/
 | `Comment` | Observação vinculada a uma atividade (do cliente ou da agência) | Activity |
 | `Idea` | Sugestão enviada pelo cliente, com data sugerida opcional e status | Client |
 
-**Status nunca é guardado no conteúdo.** Ele é calculado pela última aprovação da versão atual (`domain/status.js`). Quando o admin editar um conteúdo e subir a versão, o status volta sozinho para "Aguardando aprovação"; a aprovação antiga continua no histórico, ligada à versão que foi aprovada.
+Hoje só `Client` e `Activity` vêm do banco. `Plan`, `Approval`, `Comment` e `Idea` são o desenho da próxima etapa. O status mostrado é o definido pela agência no painel; quando as aprovações existirem, uma aprovação vale só para a versão aprovada (`domain/status.js`), e a edição do conteúdo sobe a `version`.
 
 ## Próximas etapas (preparadas, não implementadas)
 

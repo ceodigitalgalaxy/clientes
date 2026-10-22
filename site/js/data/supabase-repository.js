@@ -1,14 +1,20 @@
 /* ==========================================================================
    Repositório REAL do portal do cliente (Supabase)
    --------------------------------------------------------------------------
-   Mesma interface do repositório de demonstração (data/repository.js), para
-   a tela não mudar. Os dados vêm só de duas funções do banco:
+   Único ponto de contato da tela com os dados. Os dados vêm só de duas
+   funções do banco:
      portal_profile()               → o cliente do login atual
      portal_contents(p_from, p_to)  → conteúdos liberados desse cliente
    Nenhuma delas recebe id de cliente: o banco descobre quem é pela sessão.
    Trocar ids ou parâmetros na requisição não dá acesso a outro cliente.
    Aprovações, observações do cliente e ideias ainda não existem no banco
-   (features = false): a tela esconde essas ações aqui.
+   (features = false): a tela esconde essas ações.
+
+   Métodos (todos assíncronos):
+     getClient()                    → Client do login atual
+     getPlan(month)                 → null (foco do mês ainda não existe no banco)
+     listActivitiesBetween(from, to), listActivities(month) → Activity[]
+     listApprovals, listComments, countComments, listIdeas → vazios por enquanto
    ========================================================================== */
 
 import { activityFromContent } from "../domain/content-mapping.js";

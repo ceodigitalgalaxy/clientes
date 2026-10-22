@@ -2,15 +2,12 @@
    Portal de clientes Digital Galaxy · painel do cliente
    Liga os dados (repositório) aos componentes da tela.
    --------------------------------------------------------------------------
-   Dois modos, com a mesma tela:
-   - Real (padrão): o cliente entra com usuário e senha e vê só os conteúdos
-     do próprio cliente, lidos do banco (data/supabase-repository.js). Sem
-     login, nenhum dado é pedido. Os dados se atualizam sozinhos (a cada 30 s,
-     ao voltar para a aba e no botão "Atualizar").
-   - Demonstração (?demo): dados fictícios, salvos só no navegador.
+   O cliente entra com usuário e senha e vê só os conteúdos do próprio
+   cliente, lidos do banco (data/supabase-repository.js). Sem login, nenhum
+   dado é pedido. Os dados se atualizam sozinhos (a cada 30 s, ao voltar
+   para a aba e no botão "Atualizar").
    ========================================================================== */
 
-import { createDemoRepository } from "./data/repository.js";
 import { createSupabaseRepository } from "./data/supabase-repository.js";
 import { createAuth } from "./lib/auth.js";
 import { SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY } from "./config.js";
@@ -29,12 +26,12 @@ import { toast } from "./ui/toast.js";
 if (window.top !== window.self) throw new Error("O portal não pode ser aberto dentro de outra página.");
 document.body.classList.add("is-ready");
 
-const DEMO = new URLSearchParams(window.location.search).has("demo");
 const REFRESH_MS = 30_000;
 
-const auth = DEMO ? null : createAuth({ url: SUPABASE_URL, apiKey: SUPABASE_PUBLISHABLE_KEY, kind: "cliente" });
-const repo = DEMO ? createDemoRepository() : createSupabaseRepository({ url: SUPABASE_URL, apiKey: SUPABASE_PUBLISHABLE_KEY, auth });
-const features = { approvals: true, comments: true, ideas: true, plans: true, ...(repo.features || {}) };
+const auth = createAuth({ url: SUPABASE_URL, apiKey: SUPABASE_PUBLISHABLE_KEY, kind: "cliente" });
+const repo = createSupabaseRepository({ url: SUPABASE_URL, apiKey: SUPABASE_PUBLISHABLE_KEY, auth });
+// O que o banco já guarda (aprovar, observar, ideias e foco do mês chegam nas próximas etapas)
+const features = { approvals: false, comments: false, ideas: false, plans: false, ...(repo.features || {}) };
 
 const state = {
   client: null,
@@ -89,8 +86,7 @@ async function loadData() {
   const months = [...new Set([from.slice(0, 7), to.slice(0, 7), state.month])];
   const [plans, activities] = await Promise.all([Promise.all(months.map((m) => repo.getPlan(m))), fetchActivities(from, to)]);
   const planOf = Object.fromEntries(months.map((m, i) => [m, plans[i]]));
-  // Demonstração: conteúdos só aparecem quando o planejamento do mês foi compartilhado.
-  // Dados reais: quem decide o que aparece é o status definido pela agência.
+  // Quem decide o que aparece é o status definido pela agência (e, quando existir, o planejamento compartilhado)
   const visible = features.plans ? activities.filter((a) => planOf[a.date.slice(0, 7)]) : activities;
   const approvals = await repo.listApprovals(visible.map((a) => a.id));
   return { plan: planOf[state.month] || null, activities: visible, approvals };
@@ -110,9 +106,9 @@ function renderView() {
   const weekIsos = week ? new Set(weekDays(state.selected).map((d) => d.iso)) : null;
   const viewItems = week ? state.activities.filter((a) => weekIsos.has(a.date)) : monthItems;
   el.title.textContent = week ? weekLabel(state.selected) : monthLabel(state.month);
-  renderSummary(el.overview, { plan: state.plan, counts: summarize(monthItems, state.approvals), month: state.month, live: !DEMO, hasActivities: monthItems.length > 0 });
-  renderLegend(el.legend, viewItems, DEMO ? undefined : ["aguardando", "aprovado", "publicado"]);
-  renderCalendar(el.calendar, { ...state, activities: viewItems, hasPlan: Boolean(state.plan), live: !DEMO, canSuggest: features.ideas });
+  renderSummary(el.overview, { plan: state.plan, counts: summarize(monthItems, state.approvals), month: state.month, live: true, hasActivities: monthItems.length > 0 });
+  renderLegend(el.legend, viewItems, ["aguardando", "aprovado", "publicado"]);
+  renderCalendar(el.calendar, { ...state, activities: viewItems, hasPlan: Boolean(state.plan), live: true, canSuggest: features.ideas });
   el.calendar.removeAttribute("aria-busy");
   renderAgenda(el.agenda, state);
   const today = todayISO();
@@ -140,7 +136,7 @@ function renderHeader() {
   $("#welcome-hello").textContent = `Olá, ${client.name}!`;
   el.monthChip.innerHTML = `${icon("calendar")}<span></span>`;
   el.monthChip.querySelector("span").textContent = monthLabel(monthKey(new Date()));
-  if (!DEMO) $("#profile-note").textContent = auth.user?.username ? `Usuário: ${auth.user.username}` : "";
+  $("#profile-note").textContent = auth.user?.username ? `Usuário: ${auth.user.username}` : "";
 }
 
 function renderLoadError(error) {
@@ -239,7 +235,7 @@ function step(delta) {
 }
 
 function handleError(error) {
-  if (!DEMO && (error?.status === 401 || error?.reason === "no_access")) {
+  if (error?.status === 401 || error?.reason === "no_access") {
     if (error.reason === "no_access") auth.signOut();
     showLogin(error.message);
     return;
@@ -251,7 +247,7 @@ function handleError(error) {
 /* ---------- Atualização automática (dados reais) ---------- */
 let refreshing = false;
 async function refreshQuietly({ announce = false } = {}) {
-  if (DEMO || !state.loaded || refreshing || document.hidden) return;
+  if (!state.loaded || refreshing || document.hidden) return;
   refreshing = true;
   const token = navToken;
   const button = document.querySelector('[data-action="refresh"]');
@@ -339,29 +335,18 @@ function setupEvents() {
   profileButton.addEventListener("click", () => setMenu(profileMenu.hidden));
   document.addEventListener("click", (event) => { if (!event.target.closest(".profile")) setMenu(false); });
   document.addEventListener("keydown", (event) => { if (event.key === "Escape") setMenu(false); });
-  on(profileMenu, "click", '[data-action="reset-demo"]', async () => {
-    setMenu(false);
-    await repo.resetDemo();
-    state.ideas = await repo.listIdeas();
-    await refreshApprovals();
-    renderView();
-    renderIdeasArea();
-    toast("Demonstração restaurada", "info");
-  });
   on(profileMenu, "click", '[data-action="sign-out"]', async () => {
     setMenu(false);
     await auth.signOut();
     showLogin("Você saiu do portal.", { info: true });
   });
 
-  if (!DEMO) {
-    setInterval(() => refreshQuietly(), REFRESH_MS);
-    document.addEventListener("visibilitychange", () => { if (!document.hidden) refreshQuietly(); });
-    window.addEventListener("focus", () => refreshQuietly());
-    // Saiu em outra aba: sai aqui também
-    auth.onChange((session) => { if (!session && state.loaded) showLogin("Você saiu do portal.", { info: true }); });
-    auth.syncTabs();
-  }
+  setInterval(() => refreshQuietly(), REFRESH_MS);
+  document.addEventListener("visibilitychange", () => { if (!document.hidden) refreshQuietly(); });
+  window.addEventListener("focus", () => refreshQuietly());
+  // Saiu em outra aba: sai aqui também
+  auth.onChange((session) => { if (!session && state.loaded) showLogin("Você saiu do portal.", { info: true }); });
+  auth.syncTabs();
 }
 
 /* ---------- Entrada (dados reais) ---------- */
@@ -445,30 +430,11 @@ function setupLogin() {
 async function start() {
   hydrateIcons();
   document.querySelectorAll(".js-year").forEach((node) => { node.textContent = new Date().getFullYear(); });
-  // Ações que só existem na demonstração (ainda não gravam no banco)
+  // Ações que ainda não gravam no banco ficam escondidas
   document.querySelectorAll("[data-feature]").forEach((node) => { node.hidden = !features[node.dataset.feature]; });
-  document.querySelectorAll("[data-demo-only]").forEach((node) => { node.hidden = !DEMO; });
-  document.querySelectorAll("[data-live-only]").forEach((node) => { node.hidden = DEMO; });
   setupEvents();
-
-  if (!DEMO) {
-    setupLogin();
-    if (auth.session) await enterApp(); else showLogin();
-    return;
-  }
-
-  $("#demo-bar").hidden = false;
-  el.app.hidden = false;
-  try {
-    state.client = await repo.getClient();
-    renderHeader();
-    state.loaded = true;
-    await navigate({});
-    state.ideas = await repo.listIdeas();
-    renderIdeasArea();
-  } catch (error) {
-    handleError(error);
-  }
+  setupLogin();
+  if (auth.session) await enterApp(); else showLogin();
 }
 
 start();

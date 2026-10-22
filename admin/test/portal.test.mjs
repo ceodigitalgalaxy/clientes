@@ -91,7 +91,7 @@ ok("status vem da agência e observação liberada", () => {
   assert.deepEqual(a.media, [{ kind: "video", src: "https://youtu.be/dQw4w9WgXcQ", alt: "T" }]);
   assert.ok(!("internal_notes" in a));
 });
-ok("demonstração continua calculando pelo histórico de aprovações", () => {
+ok("sem status da agência, o status vem do histórico de aprovações (próxima etapa)", () => {
   assert.equal(statusOf({ id: "x", version: 1, requiresApproval: true }, [{ activityId: "x", version: 1, decision: "ajustes", createdAt: "1" }]), "ajustes");
 });
 

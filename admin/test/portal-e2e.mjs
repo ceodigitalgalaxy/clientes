@@ -141,7 +141,6 @@ await step("Cliente entra e vê o próprio portal, ainda vazio", async () => {
   assert.equal(await portal.isVisible("#ideias"), false, "ideias ainda não existem no banco");
   assert.equal(await portal.isVisible('[data-action="new-idea"]'), false, "botão de ideia escondido");
   assert.equal(await portal.isVisible('[data-action="show-ideas"]'), false);
-  assert.equal(await portal.isVisible("#demo-bar"), false);
   assert.equal(await portal.isVisible('[data-action="refresh"]'), true);
 });
 
@@ -524,20 +523,14 @@ await step("Sair do portal volta para a entrada", async () => {
   assert.equal(await portal.evaluate(() => localStorage.getItem("dg-portal-sessao")), null);
 });
 
-await step("Demonstração continua funcionando (?demo)", async () => {
+await step("Demonstração removida: ?demo só mostra a entrada, sem dados fictícios", async () => {
   await portal.goto(`${ORIGIN}/?demo`);
-  await portal.waitForSelector("#demo-bar:not([hidden])");
-  await portal.waitForSelector(".chip");
-  assert.equal(await portal.textContent("#welcome-hello"), "Olá, Trigo & Mel!");
-  assert.equal(await portal.isVisible("#ideias"), true);
-  assert.equal(await portal.isVisible('[data-action="new-idea"]'), true, "ideias continuam na demonstração");
-  assert.equal(await portal.isVisible('[data-action="refresh"]'), false);
-  assert.equal(await portal.isVisible("#login"), false);
-  const before = restCalls().length;
-  await portal.click(".chip");
-  await portal.waitForSelector("#drawer[open] .art");
-  assert.equal(await portal.isVisible('#drawer [data-do="confirm"], #drawer .decision'), true, "aprovação da demonstração continua");
-  assert.equal(restCalls().length, before, "demonstração não chama o banco");
+  await portal.waitForSelector("#login:not([hidden])");
+  assert.equal(await portal.isVisible("#app"), false);
+  const html = await portal.content();
+  assert.ok(!html.includes("Trigo") && !html.includes("demonstração"), "nenhum resto da demonstração na página");
+  const demoFile = await portal.evaluate(async () => (await fetch("/js/data/demo-data.js")).status);
+  assert.equal(demoFile, 404, "arquivo de dados fictícios não existe mais");
 });
 
 await step("Sem erros de JavaScript no console", async () => assert.deepEqual(consoleErrors, [], JSON.stringify(consoleErrors)));

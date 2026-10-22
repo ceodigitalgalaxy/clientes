@@ -17,12 +17,12 @@
   <link rel="apple-touch-icon" href="images/logo/apple-touch-icon.png">
   <link rel="preload" href="fonts/sora-latin-400-normal.woff2" as="font" type="font/woff2" crossorigin>
   <link rel="preload" href="fonts/sora-latin-600-normal.woff2" as="font" type="font/woff2" crossorigin>
-  <link rel="stylesheet" href="css/style.css?v=6">
-  <link rel="stylesheet" href="css/responsive.css?v=6">
-  <script type="module" src="js/main.js?v=6"></script>
+  <link rel="stylesheet" href="css/style.css?v=7">
+  <link rel="stylesheet" href="css/responsive.css?v=7">
+  <script type="module" src="js/main.js?v=7"></script>
 </head>
 <body class="portal">
-  <!-- Entrada do cliente (dados reais). A demonstração abre com ?demo -->
+  <!-- Entrada do cliente -->
   <main class="login" id="login" aria-labelledby="login-title" hidden>
     <div class="login__card">
       <span class="login__logo" data-slot="brand-mark" aria-hidden="true"></span>
@@ -41,17 +41,12 @@
         <button class="btn btn--primary login__submit" type="submit">Entrar</button>
       </form>
       <p class="login__help" data-icon="lock">Esqueceu a senha? Fale com a Digital Galaxy para receber uma nova.</p>
-      <a class="link-btn login__demo" href="?demo">Conhecer o portal com dados de exemplo</a>
     </div>
   </main>
 
   <div class="app" id="app" hidden>
   <a class="skip-link" href="#calendario">Pular para o calendário</a>
 
-  <!-- Aviso de demonstração: só aparece com ?demo (js/main.js) -->
-  <div class="demo-bar" id="demo-bar" hidden>
-    <span>Ambiente de demonstração com dados fictícios. O que você fizer fica salvo só neste navegador.</span>
-  </div>
 
   <header class="topbar">
     <div class="container topbar__inner">
@@ -71,9 +66,8 @@
           </button>
           <div class="profile__menu" id="profile-menu" role="menu" hidden>
             <p class="profile__who" id="profile-who"></p>
-            <p class="profile__note" id="profile-note">Demonstração com dados de exemplo.</p>
-            <button class="profile__item" type="button" role="menuitem" data-action="reset-demo" data-icon="refresh" data-demo-only>Restaurar demonstração</button>
-            <button class="profile__item" type="button" role="menuitem" data-action="sign-out" data-icon="logout" data-live-only hidden>Sair</button>
+            <p class="profile__note" id="profile-note"></p>
+            <button class="profile__item" type="button" role="menuitem" data-action="sign-out" data-icon="logout">Sair</button>
           </div>
         </div>
       </div>
@@ -108,7 +102,7 @@
             <button class="view-toggle__btn" type="button" data-view-mode="month" aria-pressed="true">Mês</button>
             <button class="view-toggle__btn" type="button" data-view-mode="week" aria-pressed="false">Semana</button>
           </div>
-          <button class="btn btn--ghost btn--sm planner__refresh" type="button" data-action="refresh" data-live-only hidden>
+          <button class="btn btn--ghost btn--sm planner__refresh" type="button" data-action="refresh">
             <span data-icon="refresh"></span>Atualizar
           </button>
           <button class="btn btn--ghost btn--sm" type="button" data-action="show-ideas" data-feature="ideas">
@@ -127,7 +121,7 @@
       <div class="agenda" id="agenda" aria-live="polite"></div>
     </section>
 
-    <!-- Ideias enviadas (por enquanto só na demonstração) -->
+    <!-- Ideias enviadas (escondidas até as ideias serem gravadas no banco) -->
     <section class="ideas" id="ideias" aria-labelledby="ideas-title" data-feature="ideas">
       <div class="ideas__head">
         <h2 class="section-title" id="ideas-title">Ideias que você compartilhou</h2>

@@ -39,7 +39,7 @@
    @property {string} updatedAt      ISO
 
    @typedef {Object} Media
-   @property {"image"|"video"|"mock"} kind   "mock" = prévia ilustrativa da demonstração
+   @property {"image"|"video"} kind
    @property {string} [src]
    @property {string} [alt]
    @property {"1:1"|"4:5"|"9:16"} [ratio]

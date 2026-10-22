@@ -3,19 +3,19 @@
 Site estático, sem build (HTML, CSS e módulos ES nativos), no mesmo padrão do site principal e do portfólio. Tudo o que vai para o ar fica em `site/`. Ver `README.md` para estrutura, modelo de dados e próximas etapas.
 
 ## Regras do projeto
-- **Duas partes, publicadas juntas:** o portal do cliente (`site/`, login do cliente com dados reais; demonstração em `?demo`) e o painel da agência (`site/admin/`, em `/admin/`, login da equipe). A pasta `admin/` tem só ferramentas locais (equipe.mjs, verify.mjs, prévia, testes) e não é publicada.
+- **Duas partes, publicadas juntas:** o portal do cliente (`site/`, login do cliente com dados reais) e o painel da agência (`site/admin/`, em `/admin/`, login da equipe). A pasta `admin/` tem só ferramentas locais (equipe.mjs, verify.mjs, prévia, testes) e não é publicada.
 - **Etapa atual: calendário do cliente ligado ao painel.** Usuário é um nome, mapeado para `equipe+<usuario>@…` ou `cliente+<usuario>@digitalgalaxy.com.br` (`site/js/domain/accounts.js`); usuários da equipe só são criados por `admin/equipe.mjs`; logins de cliente pelo painel (função `supabase/functions/acesso-cliente`) ou pelo `equipe.mjs`.
-- **Função acesso-cliente:** confere a sessão e `agency_members` a cada pedido e só mexe em logins de cliente (via `client_members`). Nunca ampliar para contas da equipe nem aceitar a chave secreta vinda do navegador. `accounts.js` dela é cópia de `site/js/domain/accounts.js` (manter idênticos). Aprovar, pedir ajuste, observações do cliente e ideias ainda são só da demonstração (próxima etapa, só com pedido).
+- **Função acesso-cliente:** confere a sessão e `agency_members` a cada pedido e só mexe em logins de cliente (via `client_members`). Nunca ampliar para contas da equipe nem aceitar a chave secreta vinda do navegador. `accounts.js` dela é cópia de `site/js/domain/accounts.js` (manter idênticos). Aprovar, pedir ajuste, observações do cliente e ideias ainda não gravam no banco e ficam escondidas (próxima etapa, só com pedido). A demonstração foi removida a pedido: não recriar dados fictícios.
 - **O cliente só lê por `portal_profile()` e `portal_contents()`**, que descobrem o cliente pela sessão. Nunca dar ao cliente política direta em `contents`/`clients` (exporia `internal_notes` e dados de outros clientes) nem criar função que receba id de cliente.
 - **Mídia:** toda prévia passa por `site/js/ui/media.js`. Plataforma nova só com player oficial e entrada no `frame-src` da CSP das duas páginas; o resto vira aviso + link.
 - **Quem protege os dados é o banco (RLS)**, não esconder a tela. Toda tabela nova precisa de RLS e política só para membros da equipe; nada liberado para `anon`. URL difícil de adivinhar não é proteção.
 - **Chaves:** o navegador só recebe a chave publicável (`site/admin/js/config.js`). A chave secreta fica só em `admin/.env` (no `.gitignore`), nunca em `site/`. O cadastro aberto do Supabase fica desligado.
 - **Senhas:** nunca guardar, registrar ou escrever senhas em código, arquivos ou commits; elas vão direto para o Supabase.
-- **Sem dados fictícios no banco.** O portal do cliente continua só com dados de demonstração (`js/data/demo-data.js`); nunca colocar dados reais de clientes numa página pública sem login.
-- **Toda leitura e escrita do portal passa pelo repositório** (`js/data/repository.js`). A tela não acessa `localStorage` nem dados diretamente.
+- **Sem dados fictícios** no banco nem no portal. Dados de clientes só aparecem depois do login, pelas funções do portal.
+- **Toda leitura e escrita do portal passa pelo repositório** (`js/data/supabase-repository.js`). A tela não acessa o banco diretamente.
 - Mudanças no banco: nova migração em `supabase/migrations/`. Validações compartilhadas em `site/admin/js/domain/rules.js` (navegador e comandos locais).
 - Antes de concluir mudanças, rodar `node admin/test/store.test.mjs`, `node admin/test/portal.test.mjs` e os testes de ponta a ponta `admin/test/e2e.mjs` e `admin/test/portal-e2e.mjs`.
-- **Status é calculado, não guardado**: última `Approval` da versão atual da `Activity` (`js/domain/status.js`). Edição do conteúdo sobe `version`.
+- **Status**: hoje vem da agência (`contents.status`). Quando houver aprovações, uma aprovação vale só para a versão aprovada (`js/domain/status.js`); edição do conteúdo sobe `version`.
 - O calendário é o elemento principal. Poucas funcionalidades, bem feitas; nada de chat, notificações ou gestão de projetos nesta etapa.
 
 ## Visual
