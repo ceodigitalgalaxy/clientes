@@ -17,9 +17,9 @@
   <link rel="apple-touch-icon" href="images/logo/apple-touch-icon.png">
   <link rel="preload" href="fonts/sora-latin-400-normal.woff2" as="font" type="font/woff2" crossorigin>
   <link rel="preload" href="fonts/sora-latin-600-normal.woff2" as="font" type="font/woff2" crossorigin>
-  <link rel="stylesheet" href="css/style.css?v=d5af9cfdc2">
-  <link rel="stylesheet" href="css/responsive.css?v=d5af9cfdc2">
-  <script type="module" src="js/main.js?v=d5af9cfdc2"></script>
+  <link rel="stylesheet" href="css/style.css?v=a5be30320a">
+  <link rel="stylesheet" href="css/responsive.css?v=a5be30320a">
+  <script type="module" src="js/main.js?v=a5be30320a"></script>
 </head>
 <body class="portal">
   <!-- Entrada do cliente -->
@@ -81,6 +81,13 @@
       <h1 class="welcome__title" id="welcome-title">Seu cronograma mensal com a Digital Galaxy</h1>
     </section>
 
+    <!-- Abas do portal: calendário orgânico e aprovação de anúncios -->
+    <nav class="portal-tabs" aria-label="Seções do portal">
+      <a class="portal-tab" href="#/calendario" data-portal-tab="calendario" aria-current="page"><span data-icon="calendar"></span>Calendário</a>
+      <a class="portal-tab" href="#/anuncios" data-portal-tab="anuncios" data-feature="ads"><span data-icon="megaphone"></span>Aprovação de anúncios<span class="portal-tab__badge" data-ads-pending hidden></span></a>
+    </nav>
+
+    <div data-portal-view="calendario">
     <!-- Destaques em carrossel e números do mês (js/ui/highlights.js) -->
     <section class="overview" id="overview" aria-label="Destaques">
       <div class="skeleton skeleton--block"></div>
@@ -129,6 +136,18 @@
       </div>
       <div class="ideas__list" id="ideas-list"></div>
     </section>
+    </div>
+
+    <!-- Aprovação de anúncios (js/ui/ads-portal.js) -->
+    <section class="ads-view" id="anuncios" data-portal-view="anuncios" aria-labelledby="ads-title" hidden>
+      <div class="ads-view__head">
+        <h2 class="ads-view__title" id="ads-title">Aprovação de anúncios</h2>
+        <p class="ads-view__text">Anúncios pagos que a nossa equipe preparou para você. Abra, confira como vão aparecer e responda: aprovar ou pedir alterações.</p>
+      </div>
+      <p class="ads-callout" data-ads-callout role="status" hidden></p>
+      <div class="status-tabs" role="tablist" aria-label="Filtrar anúncios por status" data-ads-tabs></div>
+      <div class="ad-grid" data-ads-grid aria-busy="true"></div>
+    </section>
   </main>
 
   <footer class="footer">
@@ -144,6 +163,9 @@
 
   <!-- Painel lateral com os detalhes do conteúdo (js/ui/drawer.js) -->
   <dialog class="drawer" id="drawer" aria-labelledby="drawer-title"></dialog>
+
+  <!-- Detalhes do anúncio (js/ui/ads-portal.js) -->
+  <dialog class="drawer drawer--wide" id="ad-detail" aria-labelledby="ad-detail-title"></dialog>
 
   <!-- Compartilhar uma ideia (js/ui/ideas.js) -->
   <dialog class="modal" id="idea-modal" aria-labelledby="idea-modal-title">

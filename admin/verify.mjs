@@ -94,7 +94,7 @@ console.log("\nPortal do cliente:");
 const team = createTeamAdmin({ url: env.SUPABASE_URL, secretKey: env.SUPABASE_SECRET_KEY });
 const memoryStorage = () => { const m = new Map(); return { getItem: (k) => m.get(k) ?? null, setItem: (k, v) => m.set(k, v), removeItem: (k) => m.delete(k) }; };
 const password = `Teste-${randomBytes(12).toString("base64url")}`;
-const created = { clients: [], contents: [], users: [] };
+const created = { clients: [], contents: [], users: [], ads: [] };
 try {
   const a = await store.createClient(validateClient({ name: "Verificação portal A", slug: `verif-portal-a-${stamp}` }).value);
   const b = await store.createClient(validateClient({ name: "Verificação portal B", slug: `verif-portal-b-${stamp}` }).value);
@@ -151,6 +151,17 @@ try {
   check("Cliente A aprova o conteúdo dele", (await store.getContent(visible.id)).status === "aprovado");
   check("Aprovar duas vezes é recusado", await refused({ activityId: visible.id, version: itemsA[0].version, decision: "aprovado" }));
 
+  // Anúncios: rascunho nunca aparece para o cliente e o cliente não mexe no fluxo
+  const draftAd = await store.createAd({ client_id: a.id, title: "Verificação anúncio (rascunho)", platform: "meta", format: "imagem", internal_notes: "SEGREDO-AD" });
+  created.ads.push(draftAd);
+  check("Anúncio em rascunho não aparece para o cliente", (await portalA.listAds()).length === 0);
+  check("Cliente não muda o status de anúncio", !(await rpc("ad_transition", { p_ad_id: draftAd.id, p_action: "enviar" })).ok);
+  check("Cliente não decide sobre anúncio que não recebeu", !(await rpc("portal_ad_decide", { p_ad_id: draftAd.id, p_version: 1, p_decision: "aprovado" })).ok);
+  for (const q of ["ads?select=*", "ad_events?select=*", "ad_versions?select=*", "ad_assets?select=*"]) {
+    const r = await get(q);
+    check(`Sem acesso direto: ${q.split("?")[0]}`, !r.ok || (Array.isArray(r.body) && r.body.length === 0));
+  }
+
   // Agência muda a data, edita e exclui: o cliente vê na próxima consulta
   await store.updateContent(visible.id, validateContent({ ...base, client_id: a.id, title: "A liberado (editado)", status: "aguardando_aprovacao", scheduled_date: "2099-05-20", client_notes: "Nota para A" }).value);
   itemsA = await portalA.listActivitiesBetween("2099-05-01", "2099-05-31");
@@ -170,6 +181,7 @@ try {
 } finally {
   for (const user of created.users) await fetch(`${env.SUPABASE_URL}/auth/v1/admin/users/${user.id}`, { method: "DELETE", headers: { apikey: env.SUPABASE_SECRET_KEY, Authorization: `Bearer ${env.SUPABASE_SECRET_KEY}` } }).catch(() => {});
   for (const item of created.contents) await store.deleteContent(item.id).catch(() => {});
+  for (const ad of created.ads) await store.deleteAd(ad.id).catch(() => {});
   let cleaned = true;
   for (const c of created.clients) await store.deleteClient(c.id).catch(() => { cleaned = false; });
   if (created.clients.length) check("Limpeza: clientes, conteúdos e logins de teste apagados", cleaned);

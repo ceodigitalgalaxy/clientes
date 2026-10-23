@@ -317,3 +317,27 @@ select.field__input { padding-right: 40px; appearance: none; background-image: u
   .import-form { grid-template-columns: minmax(0, 1fr); padding: 16px; }
   .imp-actions .btn { width: 100%; justify-content: center; }
 }
+
+/* Aprovação de anúncios (js/views/ads.js) */
+.admin-nav__link { position: relative; }
+.nav-badge { display: inline-grid; place-items: center; min-width: 20px; height: 20px; margin-left: 2px; padding: 0 6px; border-radius: 999px; font-size: 11px; font-weight: 700; color: #fff; background: var(--ajustes); }
+.ads-filters { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 8px; }
+.ads-filters .status-tabs { flex: 1 1 auto; min-width: 0; }
+.ads-filters__client { flex: 0 0 260px; }
+#ads-count { margin: 8px 0 16px; }
+.drawer--wide { width: min(720px, 100%); }
+.ad-status-note { margin-top: 24px; }
+.ad-change-note { margin-top: 16px; }
+.ad-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin-top: 16px; padding-bottom: 8px; }
+.ad-actions .link-btn--danger { margin-left: auto; }
+.ad-versions { display: grid; gap: 8px; }
+.ad-version { border: 1px solid var(--line); border-radius: var(--radius); background: var(--surface); }
+.ad-version summary { padding: 12px 16px; font-size: 14px; color: var(--text-muted); cursor: pointer; }
+.ad-version summary b { color: var(--text); }
+.ad-version[open] summary { border-bottom: 1px solid var(--line); }
+.ad-version__body { display: grid; gap: 16px; padding: 16px; }
+@media (max-width: 768px) {
+  .ads-filters__client { flex: 1 1 100%; }
+  .ad-actions .btn { flex: 1 1 auto; }
+  .ad-actions .link-btn--danger { margin: 0 auto; }
+}

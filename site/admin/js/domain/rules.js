@@ -167,4 +167,59 @@ export function validateContentFilters(input = {}) {
 }
 
 /* Regras de usuário e senha: as mesmas do portal do cliente (site/js/domain/accounts.js) */
-export { USERNAME_LIMITS, PASSWORD_LIMITS, normalizeUsername, parseUsername, loginEmail, usernameFromEmail, accountKind, passwordProblem } from "../../../js/domain/accounts.js?v=d5af9cfdc2";
+export { USERNAME_LIMITS, PASSWORD_LIMITS, normalizeUsername, parseUsername, loginEmail, usernameFromEmail, accountKind, passwordProblem } from "../../../js/domain/accounts.js?v=a5be30320a";
+
+/* ---------- Anúncios ---------- */
+export { AD_STATUS, AD_CLIENT_STATUS, AD_PLATFORMS, AD_OBJECTIVES, AD_FORMATS, AD_CTAS, AD_LIMITS, AD_EVENTS, platformLabel } from "../../../js/domain/ads.js?v=a5be30320a";
+import { AD_STATUS as STATUS_OF_ADS, AD_PLATFORMS as PLATFORMS_OF_ADS, AD_OBJECTIVES as OBJECTIVES_OF_ADS, AD_FORMATS as FORMATS_OF_ADS, AD_LIMITS as L } from "../../../js/domain/ads.js?v=a5be30320a";
+
+const isHttpUrl = (value) => { try { return ["http:", "https:"].includes(new URL(value).protocol); } catch { return false; } };
+
+/** Campos do anúncio (status e versão mudam só pelo fluxo, no banco) */
+export function validateAd(input = {}) {
+  const errors = {};
+  const value = {
+    client_id: clean(input.client_id),
+    title: clean(input.title),
+    campaign_context: clean(input.campaign_context),
+    objective: clean(input.objective),
+    platform: clean(input.platform),
+    platform_other: clean(input.platform_other),
+    format: clean(input.format),
+    primary_text: clean(input.primary_text),
+    headline: clean(input.headline),
+    description: clean(input.description),
+    cta: clean(input.cta),
+    destination_url: clean(input.destination_url),
+    client_notes: clean(input.client_notes),
+    internal_notes: clean(input.internal_notes)
+  };
+  if (value.platform !== "outra") value.platform_other = null;
+  const max = (field, limit, label = "Use") => { if (value[field] && value[field].length > limit) errors[field] = `${label} até ${limit} caracteres.`; };
+
+  if (!isUuid(value.client_id)) errors.client_id = "Escolha o cliente.";
+  if (!value.title) errors.title = "Informe o título do anúncio.";
+  max("title", L.title);
+  if (value.objective && !OBJECTIVES_OF_ADS[value.objective]) errors.objective = "Escolha um objetivo da lista.";
+  if (!PLATFORMS_OF_ADS[value.platform]) errors.platform = "Escolha a plataforma.";
+  if (value.platform === "outra" && !value.platform_other) errors.platform_other = "Informe qual plataforma.";
+  max("platform_other", L.platformOther);
+  if (!FORMATS_OF_ADS[value.format]) errors.format = "Escolha o formato.";
+  max("campaign_context", L.campaignContext);
+  max("primary_text", L.primaryText);
+  max("headline", L.headline);
+  max("description", L.description);
+  max("cta", L.cta);
+  max("client_notes", L.clientNotes);
+  max("internal_notes", L.internalNotes);
+  if (value.destination_url && (!isHttpUrl(value.destination_url) || value.destination_url.length > L.url)) errors.destination_url = "Use um link que comece com https://";
+  return { value, errors };
+}
+
+/** Filtros da lista de anúncios */
+export function validateAdFilters(input = {}) {
+  const filters = {};
+  if (input.client_id && isUuid(input.client_id)) filters.client_id = input.client_id;
+  if (input.status && STATUS_OF_ADS[input.status]) filters.status = input.status;
+  return filters;
+}

@@ -66,6 +66,7 @@ Serve a pasta `site/` como o GitHub Pages. Não usa chave nenhuma: entra com usu
 - **Clientes:** cadastrar, editar, inativar e excluir (só quem não tem conteúdos; com conteúdos, inative). Cada cliente tem um identificador único (`slug`) e pode ter uma **foto/logo** (PNG, JPG ou WebP, reduzida para 512 px), que aparece no topo do portal dele.
 - **Conteúdos:** cliente, título, data e horário, rede social, formato (imagem, carrossel, vídeo, stories ou outro), link da **referência** (imagem ou vídeo, com prévia na lista e nos detalhes), legenda, observação para o cliente, observações internas e status (planejado, em produção, aguardando aprovação, ajustes solicitados, aprovado, publicado).
 - **Arte final:** nos detalhes do conteúdo, enviar arquivos (imagem, GIF ou vídeo MP4/WebM/MOV, até 50 MB cada) e/ou links de vídeo, na ordem do carrossel (setas para reordenar). Depois, **Enviar para aprovação**: o cliente vê a arte final no portal e aprova ou pede ajuste com uma mensagem. O histórico das respostas aparece no painel; aprovado, dá para **Marcar como publicado**. Se a arte mudar depois da aprovação, o painel avisa para enviar de novo.
+- **Aprovação de anúncios** (menu "Anúncios"): criativos de anúncios pagos, separados do calendário. Cadastro com cliente, título, contexto e objetivo da campanha, plataforma (Meta, Google, TikTok ou outra), formato (imagem, vídeo, carrossel), criativo (arquivos de até 50 MB ou links), texto principal, headline, descrição, CTA, link de destino e observações. Salva como **rascunho** (só a equipe vê), envia para aprovação (o cliente vê na hora), e o histórico registra quem enviou, quando, quem aprovou ou pediu alterações e o comentário. Cada envio guarda uma **versão** (textos + criativo) que pode ser aberta depois. Enquanto o cliente avalia, o anúncio fica travado: para mudar, "Recolher para editar"; aprovado, "Reabrir"; e "Arquivar"/"Reativar". O menu mostra quantos anúncios têm alterações pedidas.
 - **Importar:** escolher o cliente e uma planilha (.xlsx ou .csv; há um modelo para baixar). O painel mostra a prévia linha a linha (pronto, com erro, parece repetido), com a miniatura da referência, e importa só as linhas marcadas, de uma vez. Colunas: Título, Data, Horário, Rede social, Formato, Link da referência, Legenda, Observação para o cliente, Observações internas e Status (vazio = planejado).
 - Criar, ver detalhes, editar e excluir (com confirmação).
 - **Status em massa:** marque conteúdos na lista (ou "Selecionar todos"), escolha o status e clique em **Aplicar**. O painel confirma antes e avisa quantos passam a aparecer (ou deixam de aparecer) no calendário do cliente.
@@ -122,6 +123,8 @@ Para publicar uma mudança na função: `supabase functions deploy acesso-client
 | `contents` | Conteúdos de cada cliente (campos acima) e `version`, que sobe quando muda algo que o cliente vê |
 | `agency_members` | Quem da equipe pode entrar no painel (preenchida pelo `equipe.mjs`) |
 | `client_members` | Login de cada cliente no portal, ligado a **um** cliente (preenchida pelo `equipe.mjs criar-cliente`) |
+| `ads`, `ad_assets` | Anúncios pagos e o criativo de cada um (bucket privado `ad-media` ou links). Status e versão só mudam pela função `ad_transition` (equipe) e `portal_ad_decide` (cliente); um gatilho recusa mudanças diretas e edição enquanto o cliente avalia |
+| `ad_versions`, `ad_events` | Cópia de cada versão enviada e o histórico completo (envios, decisões com comentário, recolher, reabrir, arquivar). Nunca apagados por um novo envio. `ad_events.notified_at` fica pronto para um futuro aviso por e-mail |
 | `content_assets` | Arte final de cada conteúdo, em ordem: arquivo no armazenamento ou link de vídeo |
 | `content_approvals` | Respostas do cliente: versão, aprovado ou ajustes, mensagem e quem respondeu |
 | `client_calendar_items` (visão) | Calendário do cliente para a equipe: sem observações internas e só com status aguardando aprovação, aprovado ou publicado |
@@ -140,6 +143,7 @@ node admin/test/portal.test.mjs                   # links de mídia, repositóri
 PLAYWRIGHT=$P node admin/test/e2e.mjs             # painel da agência, ponta a ponta
 PLAYWRIGHT=$P node admin/test/portal-e2e.mjs      # painel → calendário do cliente, ponta a ponta
 PLAYWRIGHT=$P node admin/test/review-e2e.mjs      # foto, arte final, aprovação/ajuste e importação, ponta a ponta
+PLAYWRIGHT=$P node admin/test/ads-e2e.mjs         # aprovação de anúncios: rascunho → envio → alterações → nova versão → aprovação
 PLAYWRIGHT=$P UX_SHOTS=pasta node admin/test/ux-shots.mjs   # só capturas do portal (computador e celular) para revisão visual
 ```
 
@@ -149,6 +153,7 @@ Os testes de ponta a ponta usam um Supabase de mentira em memória (**só para t
 
 O cliente entra em `https://clientes.digitalgalaxy.com.br` com o usuário e a senha criados no painel (Clientes → Acesso ao portal) ou pelo `equipe.mjs criar-cliente` e vê o calendário com os conteúdos do cliente dele que estão **Aguardando aprovação**, **Aprovados** ou **Publicados**. Sem login, nenhum dado é pedido ao banco.
 
+- **Aprovação de anúncios** (aba ao lado do calendário, com o número de anúncios esperando resposta): abas por status (todos, aguardando, alterações, aprovados, arquivados), cards com a prévia, e os detalhes com o anúncio simulado como post patrocinado, todos os textos, o link de destino, as observações e o histórico. **Aprovar anúncio** pede confirmação; **Solicitar alterações** exige um comentário. Rascunhos e anúncios de outros clientes nunca chegam ao navegador (funções `portal_ads` e `portal_ad_decide`).
 - **Destaques:** carrossel no topo que passa sozinho com o que o cliente tem para aprovar, os ajustes em andamento, os aprovados e os já publicados; cada destaque abre os detalhes. Os números do mês ficam embaixo, pequenos.
 - **Calendário:** mês ou semana, com navegação; cada dia fica na cor do status dos conteúdos (âmbar para aprovar, vermelho em ajuste, verde aprovado, roxo publicado); no celular, pontinhos no dia, agenda abaixo com miniaturas e botões de aprovar sempre à mão nos detalhes.
 - **Detalhes** (clique no conteúdo ou na data): título, prévia da mídia, legenda, rede social, data, status e a observação para o cliente. Data com vários conteúdos mostra a lista; data livre mostra "Nada programado para este dia".

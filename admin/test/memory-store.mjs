@@ -4,6 +4,7 @@
 
 import { randomUUID } from "node:crypto";
 import { StoreError } from "../../site/admin/js/data/store.js";
+import { createAdsMemory } from "./memory-ads.mjs";
 import { CLIENT_VISIBLE_STATUS } from "../../site/admin/js/domain/rules.js";
 
 const VISIBLE_FIELDS = ["title", "scheduled_date", "scheduled_time", "network", "format", "media_url", "media_kind", "caption", "client_notes"];
@@ -59,7 +60,7 @@ export function createMemoryStore() {
     async deleteClient(id) {
       await this.tick();
       if (!clients.has(id)) throw new StoreError(404, "Registro não encontrado.", "PGRST116");
-      if ([...contents.values()].some((x) => x.client_id === id)) throw new StoreError(409, "Este cliente tem conteúdos cadastrados e não pode ser excluído. Você pode inativá-lo.", "23503");
+      if ([...contents.values()].some((x) => x.client_id === id) || store.hasAds(id)) throw new StoreError(409, "Este cliente tem conteúdos cadastrados e não pode ser excluído. Você pode inativá-lo.", "23503");
       clients.delete(id);
     },
     async listContents(f = {}) {
@@ -193,5 +194,6 @@ export function createMemoryStore() {
         .map(({ internal_notes, created_at, ...rest }) => rest);
     }
   };
+  Object.assign(store, createAdsMemory({ clients, members, now, tick: () => store.tick() }));
   return store;
 }

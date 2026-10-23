@@ -20,9 +20,9 @@
      listComments, countComments, listIdeas → vazios por enquanto
    ========================================================================== */
 
-import { activityFromContent } from "../domain/content-mapping.js?v=d5af9cfdc2";
-import { daysInMonth } from "../lib/dates.js?v=d5af9cfdc2";
-import { createStorage } from "../lib/storage.js?v=d5af9cfdc2";
+import { activityFromContent } from "../domain/content-mapping.js?v=a5be30320a";
+import { daysInMonth } from "../lib/dates.js?v=a5be30320a";
+import { createStorage } from "../lib/storage.js?v=a5be30320a";
 
 /** Respostas de portal_decide → mensagens para o cliente */
 const DECISION_ERRORS = {
@@ -32,6 +32,12 @@ const DECISION_ERRORS = {
   mensagem_longa: "A mensagem pode ter até 800 caracteres.",
   conteudo_nao_encontrado: "Conteúdo não encontrado.",
   decisao_invalida: "Resposta inválida."
+};
+/** Respostas de portal_ad_decide → mensagens para o cliente */
+const AD_DECISION_ERRORS = {
+  anuncio_nao_encontrado: "Anúncio não encontrado.",
+  mensagem_obrigatoria: "Conte o que precisa ser alterado.",
+  mensagem_longa: "A mensagem pode ter até 1000 caracteres."
 };
 const SIGN_SECONDS = 3600;
 
@@ -53,17 +59,18 @@ export function createSupabaseRepository({ url, apiKey, auth, fetchImpl = global
   const signed = new Map();      // caminho → { url, expires } (reaproveita links ainda válidos)
   const decisions = new Map();   // conteúdo → decisão da versão atual
 
-  /** Links assinados para a arte final (só os que o banco liberar) */
-  async function signPaths(paths) {
+  /** Links assinados para a arte final ou o criativo (só os que o banco liberar) */
+  async function signPaths(paths, bucket = "content-media") {
     const now = Date.now();
-    const missing = paths.filter((p) => !(signed.get(p)?.expires > now + 10 * 60 * 1000));
+    const key = (p) => `${bucket}/${p}`;
+    const missing = [...new Set(paths)].filter((p) => !(signed.get(key(p))?.expires > now + 10 * 60 * 1000));
     if (missing.length) {
       try {
-        const urls = await files.sign("content-media", missing, SIGN_SECONDS);
-        Object.entries(urls).forEach(([path, link]) => signed.set(path, { url: link, expires: now + SIGN_SECONDS * 1000 }));
+        const urls = await files.sign(bucket, missing, SIGN_SECONDS);
+        Object.entries(urls).forEach(([path, link]) => signed.set(key(path), { url: link, expires: now + SIGN_SECONDS * 1000 }));
       } catch { /* sem link: a tela mostra o aviso com "tente de novo" */ }
     }
-    return (path) => signed.get(path)?.url || null;
+    return (path) => signed.get(key(path))?.url || null;
   }
 
   async function rpc(name, body = {}, retry = true) {
@@ -96,6 +103,10 @@ export function createSupabaseRepository({ url, apiKey, auth, fetchImpl = global
     if (!response.ok) {
       const data = await response.json().catch(() => null);
       const key = String(data?.message || "");
+      if (name === "portal_ad_decide" && AD_DECISION_ERRORS[key]) throw new RepositoryError(409, AD_DECISION_ERRORS[key], key);
+      if (name === "portal_ad_decide" && ["versao_desatualizada", "nao_aguarda_aprovacao"].includes(key)) {
+        throw new RepositoryError(409, key === "versao_desatualizada" ? "A equipe atualizou este anúncio enquanto você olhava. Confira a versão nova e responda de novo." : "Este anúncio não está mais aguardando aprovação.", key);
+      }
       if (DECISION_ERRORS[key]) throw new RepositoryError(409, DECISION_ERRORS[key], key);
       throw new RepositoryError(502, "Não conseguimos carregar o seu planejamento agora. Tente de novo em instantes.", "server");
     }
@@ -104,7 +115,7 @@ export function createSupabaseRepository({ url, apiKey, auth, fetchImpl = global
 
   return {
     isDemo: false,
-    features: { approvals: true, comments: false, ideas: false, plans: false },
+    features: { approvals: true, ads: true, comments: false, ideas: false, plans: false },
 
     async getClient() {
       const rows = await rpc("portal_client");
@@ -144,6 +155,25 @@ export function createSupabaseRepository({ url, apiKey, auth, fetchImpl = global
       const row = Array.isArray(rows) ? rows[0] : rows;
       return { activityId, version, decision, message, status: row?.new_status };
     },
+    /* ---------- Anúncios (aprovação de criativos pagos) ---------- */
+    /** Anúncios já enviados ao cliente (nunca rascunhos), com o criativo e o histórico */
+    async listAds() {
+      const rows = await rpc("portal_ads");
+      const list = Array.isArray(rows) ? rows : [];
+      const linkFor = await signPaths(list.flatMap((ad) => (ad.assets || []).map((a) => a.storage_path).filter(Boolean)), "ad-media");
+      return list.map((ad) => ({
+        ...ad,
+        assets: (ad.assets || []).map((a) => ({ kind: a.kind === "video" ? "video" : "image", src: a.url || linkFor(a.storage_path), file: Boolean(a.storage_path) })),
+        history: Array.isArray(ad.history) ? ad.history : []
+      }));
+    },
+    /** Aprovar ("aprovado") ou pedir alterações ("alteracoes_solicitadas", com comentário) */
+    async decideAd({ id, version, decision, message = "" }) {
+      const rows = await rpc("portal_ad_decide", { p_ad_id: id, p_version: version, p_decision: decision, p_message: message || null });
+      const row = Array.isArray(rows) ? rows[0] : rows;
+      return { status: row?.new_status, version: row?.new_version };
+    },
+
     async listComments() { return []; },
     async countComments() { return {}; },
     async listIdeas() { return []; }

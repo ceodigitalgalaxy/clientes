@@ -13,9 +13,9 @@
   <link rel="preload" href="../fonts/sora-latin-400-normal.woff2" as="font" type="font/woff2" crossorigin>
   <link rel="preload" href="../fonts/sora-latin-600-normal.woff2" as="font" type="font/woff2" crossorigin>
   <!-- Mesmos tokens e componentes do portal do cliente -->
-  <link rel="stylesheet" href="../css/style.css?v=d5af9cfdc2">
-  <link rel="stylesheet" href="css/admin.css?v=d5af9cfdc2">
-  <script type="module" src="js/main.js?v=d5af9cfdc2"></script>
+  <link rel="stylesheet" href="../css/style.css?v=a5be30320a">
+  <link rel="stylesheet" href="css/admin.css?v=a5be30320a">
+  <script type="module" src="js/main.js?v=a5be30320a"></script>
 </head>
 <body class="admin">
   <!-- Tela de entrada: aparece enquanto ninguém estiver logado -->
@@ -58,6 +58,7 @@
       <nav class="admin-nav" aria-label="Seções do painel">
         <a class="admin-nav__link" href="#/conteudos" data-route="conteudos" data-icon="calendar">Conteúdos</a>
         <a class="admin-nav__link" href="#/clientes" data-route="clientes" data-icon="users">Clientes</a>
+        <a class="admin-nav__link" href="#/anuncios" data-route="anuncios" data-icon="megaphone">Anúncios<span class="nav-badge" data-ads-attention hidden></span></a>
         <a class="admin-nav__link" href="#/importar" data-route="importar" data-icon="layers">Importar</a>
       </nav>
       <div class="user-menu">
@@ -113,6 +114,26 @@
         <button class="btn btn--primary btn--sm" type="button" data-bulk-apply>Aplicar</button>
         <button class="btn btn--ghost btn--sm" type="button" data-bulk-clear>Cancelar</button>
       </div>
+    </section>
+
+    <!-- Anúncios (js/views/ads.js) -->
+    <section class="view" id="view-anuncios" data-view="anuncios" aria-labelledby="anuncios-title" hidden>
+      <div class="view__head">
+        <div>
+          <h1 class="view__title" id="anuncios-title">Aprovação de anúncios</h1>
+          <p class="view__text">Criativos de anúncios pagos. Rascunhos ficam só com a equipe; ao enviar, o anúncio aparece na aba "Anúncios" do cliente.</p>
+        </div>
+        <button class="btn btn--primary" type="button" data-action="new-ad" data-icon="sparkle">Novo anúncio</button>
+      </div>
+      <div class="ads-filters">
+        <div class="status-tabs" role="tablist" aria-label="Filtrar por status" data-ad-tabs></div>
+        <label class="field ads-filters__client">
+          <span class="visually-hidden">Cliente</span>
+          <select class="field__input" data-ad-client><option value="">Todos os clientes</option></select>
+        </label>
+      </div>
+      <p class="list-count" id="ads-count" aria-live="polite"></p>
+      <div class="ad-grid" id="ads-list" aria-busy="true"></div>
     </section>
 
     <!-- Clientes -->
@@ -344,6 +365,98 @@
         <button class="btn btn--primary" type="submit"><span>Salvar conteúdo</span></button>
       </div>
     </form>
+  </dialog>
+
+  <!-- Cadastro e edição de anúncio -->
+  <dialog class="modal modal--wide" id="ad-modal" aria-labelledby="ad-modal-title">
+    <form class="modal__form" method="dialog" novalidate>
+      <div class="modal__head">
+        <span class="modal__icon modal__icon--brand" data-icon="megaphone"></span>
+        <div>
+          <h2 class="modal__title" id="ad-modal-title">Novo anúncio</h2>
+          <p class="modal__text">Salve como rascunho e envie o criativo nos detalhes. Observações internas nunca aparecem para o cliente.</p>
+        </div>
+        <button class="icon-btn modal__close" type="button" data-action="close-modal" aria-label="Fechar" data-icon="close"></button>
+      </div>
+      <div class="form-grid">
+        <label class="field form-grid__wide">
+          <span class="field__label">Cliente</span>
+          <select class="field__input" name="client_id" required></select>
+        </label>
+        <label class="field form-grid__wide">
+          <span class="field__label">Título do anúncio</span>
+          <input class="field__input" name="title" maxlength="160" autocomplete="off" required placeholder="Ex.: Promoção de inverno · público frio">
+        </label>
+        <label class="field form-grid__wide">
+          <span class="field__label">Descrição e contexto da campanha <span class="field__optional">(opcional)</span></span>
+          <textarea class="field__input field__input--area" name="campaign_context" rows="3" maxlength="2000" placeholder="Para quem é, período, oferta, por que este criativo..."></textarea>
+        </label>
+        <label class="field">
+          <span class="field__label">Objetivo da campanha <span class="field__optional">(opcional)</span></span>
+          <select class="field__input" name="objective"></select>
+        </label>
+        <label class="field">
+          <span class="field__label">Formato</span>
+          <select class="field__input" name="format" required></select>
+        </label>
+        <label class="field">
+          <span class="field__label">Plataforma</span>
+          <select class="field__input" name="platform" required></select>
+        </label>
+        <label class="field" data-platform-other hidden>
+          <span class="field__label">Qual plataforma?</span>
+          <input class="field__input" name="platform_other" maxlength="60" autocomplete="off" placeholder="Ex.: LinkedIn Ads">
+        </label>
+        <label class="field form-grid__wide">
+          <span class="field__label">Texto principal <span class="field__optional">(opcional)</span></span>
+          <textarea class="field__input field__input--area" name="primary_text" rows="4" maxlength="3000" aria-describedby="ad-primary-count"></textarea>
+          <span class="field__hint" id="ad-primary-count" data-count-for="primary_text">0 de 3.000 caracteres</span>
+        </label>
+        <label class="field">
+          <span class="field__label">Título (headline) <span class="field__optional">(opcional)</span></span>
+          <input class="field__input" name="headline" maxlength="255" autocomplete="off">
+        </label>
+        <label class="field">
+          <span class="field__label">Botão (CTA) <span class="field__optional">(opcional)</span></span>
+          <input class="field__input" name="cta" maxlength="40" autocomplete="off" list="ad-cta-list" placeholder="Ex.: Saiba mais">
+          <datalist id="ad-cta-list"></datalist>
+        </label>
+        <label class="field form-grid__wide">
+          <span class="field__label">Descrição complementar <span class="field__optional">(opcional)</span></span>
+          <input class="field__input" name="description" maxlength="500" autocomplete="off">
+        </label>
+        <label class="field form-grid__wide">
+          <span class="field__label">Link de destino <span class="field__optional">(opcional)</span></span>
+          <input class="field__input" name="destination_url" type="url" inputmode="url" placeholder="https://" autocomplete="off" spellcheck="false">
+        </label>
+        <label class="field form-grid__wide">
+          <span class="field__label">Observações para o cliente <span class="field__optional">(opcional)</span></span>
+          <textarea class="field__input field__input--area" name="client_notes" rows="3" maxlength="2000"></textarea>
+          <span class="field__hint">Aparece para o cliente nos detalhes do anúncio.</span>
+        </label>
+        <label class="field form-grid__wide">
+          <span class="field__label">Observações internas <span class="field__optional">(opcional)</span></span>
+          <textarea class="field__input field__input--area" name="internal_notes" rows="2" maxlength="4000"></textarea>
+          <span class="field__hint">Só a equipe vê.</span>
+        </label>
+      </div>
+      <p class="form-error" role="alert" hidden></p>
+      <div class="modal__actions">
+        <button class="btn btn--ghost" type="button" data-action="close-modal">Cancelar</button>
+        <button class="btn btn--primary" type="submit"><span>Salvar rascunho</span></button>
+      </div>
+    </form>
+  </dialog>
+
+  <!-- Detalhes do anúncio -->
+  <dialog class="drawer drawer--wide" id="ad-drawer" aria-labelledby="ad-drawer-title">
+    <div class="drawer__panel">
+      <div class="drawer__header">
+        <div class="drawer__badges" data-ad-badges></div>
+        <button class="icon-btn" type="button" data-action="close-drawer" aria-label="Fechar" data-icon="close"></button>
+      </div>
+      <div class="drawer__body" data-ad-body></div>
+    </div>
   </dialog>
 
   <!-- Detalhes do conteúdo -->

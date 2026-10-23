@@ -5,6 +5,7 @@
 import assert from "node:assert/strict";
 import { describeMedia, mediaCover } from "../../site/js/ui/media.js";
 import { readSpreadsheet } from "../../site/admin/js/lib/spreadsheet.js";
+import { validateAd } from "../../site/admin/js/domain/rules.js";
 import { mapRows, parseDate, parseTime } from "../../site/admin/js/domain/import.js";
 import { createSupabaseRepository } from "../../site/js/data/supabase-repository.js";
 import { activityFromContent } from "../../site/js/domain/content-mapping.js";
@@ -142,7 +143,7 @@ responses = [{ status: 500, body: {} }];
 await assert.rejects(repo.listActivities("2026-02"), (e) => e.status === 502);
 const offline = createSupabaseRepository({ url: "https://exemplo.supabase.co", apiKey: "k", auth: fakeAuth, fetchImpl: async () => { throw new TypeError("rede"); } });
 await assert.rejects(offline.listActivities("2026-02"), (e) => e.reason === "offline");
-ok("aprovação ligada; o que ainda não existe no banco fica desligado", () => assert.deepEqual(repo.features, { approvals: true, comments: false, ideas: false, plans: false }));
+ok("aprovação ligada; o que ainda não existe no banco fica desligado", () => assert.deepEqual(repo.features, { approvals: true, ads: true, comments: false, ideas: false, plans: false }));
 
 responses = [{ status: 200, body: [{ new_status: "aprovado", new_version: 3 }] }];
 const decided = await repo.addApproval({ activityId: "a", version: 3, decision: "aprovado" });
@@ -338,6 +339,35 @@ ok("capa da referência: imagem, YouTube, Drive e arquivo de vídeo; Vimeo/TikTo
   assert.deepEqual(mediaCover("https://drive.google.com/file/d/1AbCdEfGhIjK/view", "video"), { kind: "image", src: "https://drive.google.com/thumbnail?id=1AbCdEfGhIjK&sz=w640" });
   assert.deepEqual(mediaCover("https://cdn.exemplo.com/v.mp4", "video"), { kind: "video", src: "https://cdn.exemplo.com/v.mp4#t=0.5" });
   for (const url of ["https://vimeo.com/123456789", "https://www.tiktok.com/@a/video/1234567890123", "https://www.instagram.com/reel/abc/", "nada"]) assert.equal(mediaCover(url, "video"), null, url);
+});
+
+/* ---------- Anúncios ---------- */
+responses = [{ status: 200, body: [{ id: "ad1", title: "Promo", platform: "meta", format: "imagem", status: "aguardando_aprovacao", version: 2, submitted_at: "2026-10-23T12:00:00Z", assets: [{ kind: "image", storage_path: null, url: "https://cdn.exemplo.com/a.png" }], history: [{ event: "enviado", version: 2 }] }] }];
+const adsList = await repo.listAds();
+ok("anúncios: só pela função portal_ads, sem id de cliente", () => {
+  assert.equal(calls.at(-1).url, "https://exemplo.supabase.co/rest/v1/rpc/portal_ads");
+  assert.deepEqual(calls.at(-1).body, {});
+  assert.equal(adsList[0].assets[0].src, "https://cdn.exemplo.com/a.png");
+  assert.equal(adsList[0].history.length, 1);
+});
+responses = [{ status: 200, body: [{ new_status: "alteracoes_solicitadas", new_version: 2 }] }];
+await repo.decideAd({ id: "ad1", version: 2, decision: "alteracoes_solicitadas", message: "Trocar a foto" });
+ok("anúncios: decisão manda só anúncio, versão, decisão e comentário", () => {
+  assert.equal(calls.at(-1).url, "https://exemplo.supabase.co/rest/v1/rpc/portal_ad_decide");
+  assert.deepEqual(calls.at(-1).body, { p_ad_id: "ad1", p_version: 2, p_decision: "alteracoes_solicitadas", p_message: "Trocar a foto" });
+});
+for (const [key, pattern] of [["versao_desatualizada", /atualizou este anúncio/], ["nao_aguarda_aprovacao", /não está mais aguardando/], ["mensagem_obrigatoria", /precisa ser alterado/], ["anuncio_nao_encontrado", /não encontrado/]]) {
+  responses = [{ status: 400, body: { code: "P0001", message: key } }];
+  await assert.rejects(repo.decideAd({ id: "ad1", version: 1, decision: "aprovado" }), (e) => pattern.test(e.message), key);
+}
+ok("anúncios: recusas do banco viram mensagens claras", () => {});
+ok("anúncios: validação do cadastro", () => {
+  const good = validateAd({ client_id: "11111111-1111-4111-8111-111111111111", title: " Promo ", platform: "meta", format: "video", destination_url: "https://loja.com" });
+  assert.deepEqual(good.errors, {});
+  assert.equal(good.value.title, "Promo");
+  const bad = validateAd({ client_id: "x", title: "", platform: "outra", format: "gif", objective: "nada", destination_url: "javascript:alert(1)", cta: "x".repeat(41) });
+  assert.deepEqual(Object.keys(bad.errors).sort(), ["client_id", "cta", "destination_url", "format", "objective", "platform_other", "title"]);
+  assert.equal(validateAd({ platform: "meta", platform_other: "LinkedIn" }).value.platform_other, null, "outra plataforma só quando escolhida");
 });
 
 console.log(`portal: ${checks} verificações passaram`);

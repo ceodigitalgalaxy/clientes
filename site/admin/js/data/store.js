@@ -21,13 +21,29 @@ export class StoreError extends Error {
 }
 
 const CLIENT_FIELDS = "id,name,slug,segment,contact_name,contact_email,notes,active,logo_path,created_at,updated_at";
+const AD_FIELDS = "id,client_id,title,campaign_context,objective,platform,platform_other,format,primary_text,headline,description,cta,destination_url,client_notes,internal_notes,status,version,submitted_at,submitted_by,first_submitted_at,created_by,created_at,updated_at";
+const AD_ASSET_FIELDS = "id,ad_id,kind,storage_path,url,position,created_at";
+
+/** Recusas das funções do fluxo de anúncios (raise exception) em português */
+export const AD_ERRORS = {
+  sem_criativo: "Envie pelo menos um arquivo ou link do criativo antes de mandar para aprovação.",
+  anuncio_bloqueado: "Este anúncio está com o cliente (ou já foi aprovado/arquivado). Recolha ou reabra para editar.",
+  use_fluxo_do_anuncio: "O status muda só pelos botões do anúncio.",
+  cliente_fixo: "Depois do primeiro envio, o anúncio não muda de cliente.",
+  anuncio_com_historico: "Este anúncio já foi enviado ao cliente e tem histórico. Arquive em vez de excluir.",
+  transicao_invalida: "Esta ação não vale para o status atual do anúncio. Atualize a página.",
+  anuncio_nao_encontrado: "Anúncio não encontrado. Ele pode ter sido excluído.",
+  sem_permissao: "Seu usuário não tem permissão para fazer isso.",
+  mensagem_longa: "A mensagem passou do limite de 1000 caracteres."
+};
 const CONTENT_FIELDS = "id,client_id,title,scheduled_date,scheduled_time,network,format,media_url,media_kind,caption,internal_notes,client_notes,status,version,created_at,updated_at";
 
 /** Traduz erros do PostgREST/PostgreSQL para mensagens do painel */
 function translate(status, body, withSession) {
   const code = body && body.code;
+  if (code === "P0001" && AD_ERRORS[body.message]) return new StoreError(409, AD_ERRORS[body.message], body.message);
   if (code === "23505") return new StoreError(409, "Já existe um cliente com esse identificador. Escolha outro.", code);
-  if (code === "23503") return new StoreError(409, "Este cliente tem conteúdos cadastrados e não pode ser excluído. Você pode inativá-lo.", code);
+  if (code === "23503") return new StoreError(409, "Este cliente tem conteúdos ou anúncios cadastrados e não pode ser excluído. Você pode inativá-lo.", code);
   if (code === "23514" || code === "22P02" || code === "22007" || code === "22008") return new StoreError(400, "Algum campo está fora do formato aceito. Revise e tente de novo.", code);
   if (code === "PGRST116") return new StoreError(404, "Registro não encontrado. Ele pode ter sido excluído.", code);
   if (withSession && status === 401) return new StoreError(401, "Sua sessão expirou. Entre de novo.", "session_expired");
@@ -186,6 +202,50 @@ export function createSupabaseStore({ url, apiKey, secretKey, getToken, onUnauth
       if (from) query.push(`scheduled_date=gte.${enc(from)}`);
       if (to) query.push(`scheduled_date=lte.${enc(to)}`);
       return request(`client_calendar_items?${query.join("&")}`);
+    },
+
+    /* ---------- Anúncios (aprovação de criativos pagos) ---------- */
+    async listAds(filters = {}) {
+      const query = [`select=${AD_FIELDS},ad_assets(${AD_ASSET_FIELDS})`, "order=updated_at.desc", "ad_assets.order=position.asc,created_at.asc"];
+      if (filters.client_id) query.push(`client_id=eq.${enc(filters.client_id)}`);
+      if (filters.status) query.push(`status=eq.${enc(filters.status)}`);
+      const rows = await request(`ads?${query.join("&")}`);
+      return rows.map(({ ad_assets: assets, ...ad }) => ({ ...ad, assets: assets || [] }));
+    },
+    async getAd(id) {
+      const row = await request(`ads?select=${AD_FIELDS},ad_assets(${AD_ASSET_FIELDS})&id=eq.${enc(id)}&ad_assets.order=position.asc,created_at.asc`, { single: true });
+      const { ad_assets: assets, ...ad } = row;
+      return { ...ad, assets: assets || [] };
+    },
+    async createAd(value) {
+      return request(`ads?select=${AD_FIELDS}`, { method: "POST", body: value, single: true, prefer: "return=representation" });
+    },
+    async updateAd(id, value) {
+      return request(`ads?select=${AD_FIELDS}&id=eq.${enc(id)}`, { method: "PATCH", body: value, single: true, prefer: "return=representation" });
+    },
+    async deleteAd(id) {
+      await request(`ads?select=id&id=eq.${enc(id)}`, { method: "DELETE", single: true, prefer: "return=representation" });
+    },
+    /** enviar | recolher | reabrir | arquivar | reativar (o banco confere o status e grava o histórico) */
+    async adTransition(id, action, message = null) {
+      const rows = await request("rpc/ad_transition", { method: "POST", body: { p_ad_id: id, p_action: action, p_message: message } });
+      return Array.isArray(rows) ? rows[0] : rows;
+    },
+    async addAdAsset(value) {
+      return request(`ad_assets?select=${AD_ASSET_FIELDS}`, { method: "POST", body: value, single: true, prefer: "return=representation" });
+    },
+    async moveAdAsset(id, position) {
+      return request(`ad_assets?select=id,position&id=eq.${enc(id)}`, { method: "PATCH", body: { position }, single: true, prefer: "return=representation" });
+    },
+    async deleteAdAsset(id) {
+      return request(`ad_assets?select=id,storage_path&id=eq.${enc(id)}`, { method: "DELETE", single: true, prefer: "return=representation" });
+    },
+    /** Histórico (mais antigo primeiro) e versões enviadas (mais nova primeiro) */
+    async listAdEvents(id) {
+      return request(`ad_events?select=id,version,event,from_status,to_status,actor_role,actor_username,message,created_at&ad_id=eq.${enc(id)}&order=created_at.asc`);
+    },
+    async listAdVersions(id) {
+      return request(`ad_versions?select=id,version,snapshot,submitted_at&ad_id=eq.${enc(id)}&order=version.desc`);
     },
 
     /** A pessoa logada faz parte da equipe? (ela só enxerga o próprio cadastro) */

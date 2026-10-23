@@ -10,7 +10,7 @@
    com a chave secreta de mentira, sobre a API de administração de logins daqui. */
 
 import { randomUUID, randomBytes } from "node:crypto";
-import { loginEmail } from "../../site/admin/js/domain/rules.js";
+import { loginEmail, usernameFromEmail } from "../../site/admin/js/domain/rules.js";
 import { createHandler } from "../../supabase/functions/acesso-cliente/handler.js";
 
 /** Chave secreta de mentira: só o "servidor" (a função) conhece */
@@ -59,6 +59,10 @@ export function createFakeSupabase({ store, publishableKey }) {
     if (name === "portal_contents" && keys === "p_from,p_to") return (await store.portalContents(user.id, body.p_from, body.p_to)).map(({ assets, decision, ...row }) => row);
     if (name === "portal_client" && keys === "") return store.portalProfile(user.id);
     if (name === "portal_calendar" && keys === "p_from,p_to") return store.portalContents(user.id, body.p_from, body.p_to);
+    const actor = { id: user.id, role: user.member ? "equipe" : "cliente", username: usernameFromEmail(user.email) };
+    if (name === "ad_transition" && ["p_action,p_ad_id", "p_action,p_ad_id,p_message"].includes(keys)) return store.adTransition(actor, body);
+    if (name === "portal_ads" && keys === "") return store.portalAds(user.id);
+    if (name === "portal_ad_decide" && ["p_ad_id,p_decision,p_message,p_version", "p_ad_id,p_decision,p_version"].includes(keys)) return store.portalAdDecide(actor, body);
     if (name === "portal_decide" && ["p_content_id,p_decision,p_message,p_version", "p_content_id,p_decision,p_version"].includes(keys)) return store.portalDecide(user.id, body);
     return { error: json(404, { code: "PGRST202", message: "Could not find the function with the given parameters" }) };
   }
@@ -89,6 +93,21 @@ export function createFakeSupabase({ store, publishableKey }) {
       if (method === "PATCH") return [await store.moveAsset(id, body.position)];
       if (method === "DELETE") return [await store.deleteAsset(id)];
     }
+    if (table === "ads") {
+      const actor = { id: user.id, role: "equipe", username: usernameFromEmail(user.email) };
+      if (method === "GET" && id) return [await store.getAd(id)];
+      if (method === "GET") return store.listAds({ client_id: eq(params, "client_id"), status: eq(params, "status") });
+      if (method === "POST") return [await store.createAd(body, actor)];
+      if (method === "PATCH") return [await store.updateAd(id, body)];
+      if (method === "DELETE") { await store.deleteAd(id); return [{ id }]; }
+    }
+    if (table === "ad_assets") {
+      if (method === "POST") return [await store.addAdAsset(body)];
+      if (method === "PATCH") return [await store.moveAdAsset(id, body.position)];
+      if (method === "DELETE") return [await store.deleteAdAsset(id)];
+    }
+    if (table === "ad_events" && method === "GET") return store.listAdEvents(eq(params, "ad_id"));
+    if (table === "ad_versions" && method === "GET") return store.listAdVersions(eq(params, "ad_id"));
     if (table === "content_approvals" && method === "GET") return store.listApprovals(eq(params, "content_id"));
     if (table === "contents") {
       if (method === "GET" && id) return [await store.getContent(id)];
@@ -117,6 +136,7 @@ export function createFakeSupabase({ store, publishableKey }) {
   const signTokens = new Map();   // token → "bucket/caminho"
   const BUCKETS = {
     "client-logos": { public: true, max: 2 * 1024 * 1024, types: ["image/png", "image/jpeg", "image/webp"] },
+    "ad-media": { public: false, max: 50 * 1024 * 1024, types: ["image/png", "image/jpeg", "image/webp", "image/gif", "video/mp4", "video/webm", "video/quicktime"] },
     "content-media": { public: false, max: 50 * 1024 * 1024, types: ["image/png", "image/jpeg", "image/webp", "image/gif", "video/mp4", "video/webm", "video/quicktime"] }
   };
   const serve = (key) => {
@@ -139,7 +159,7 @@ export function createFakeSupabase({ store, publishableKey }) {
       const { paths = [] } = JSON.parse(body || "{}");
       return json(200, paths.map((path) => {
         const key = `${bucket}/${path}`;
-        const allowed = user.member || (bucket === "content-media" && store.canReadMedia(user.id, path));
+        const allowed = user.member || (bucket === "content-media" && store.canReadMedia(user.id, path)) || (bucket === "ad-media" && store.canReadAdMedia(user.id, path));
         if (!allowed || !files.has(key)) return { path, signedURL: null, error: "Either the object does not exist or you do not have access to it" };
         const token = randomBytes(12).toString("hex");
         signTokens.set(token, key);

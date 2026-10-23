@@ -8,18 +8,19 @@
    para a aba e no botão "Atualizar").
    ========================================================================== */
 
-import { createSupabaseRepository } from "./data/supabase-repository.js?v=d5af9cfdc2";
-import { createAuth } from "./lib/auth.js?v=d5af9cfdc2";
-import { SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY } from "./config.js?v=d5af9cfdc2";
-import { $, esc, on, reduceMotion } from "./lib/dom.js?v=d5af9cfdc2";
-import { icon, brandMark } from "./lib/icons.js?v=d5af9cfdc2";
-import { monthKey, addMonths, addDays, monthLabel, weekLabel, weekDays, todayISO, fromISO, daysInMonth } from "./lib/dates.js?v=d5af9cfdc2";
-import { summarize } from "./domain/status.js?v=d5af9cfdc2";
-import { createHighlights, pickHighlights } from "./ui/highlights.js?v=d5af9cfdc2";
-import { renderCalendar, renderAgenda, renderLegend, setupDayPopover } from "./ui/calendar.js?v=d5af9cfdc2";
-import { createDrawer } from "./ui/drawer.js?v=d5af9cfdc2";
-import { renderIdeas, setupIdeaModal } from "./ui/ideas.js?v=d5af9cfdc2";
-import { toast } from "./ui/toast.js?v=d5af9cfdc2";
+import { createSupabaseRepository } from "./data/supabase-repository.js?v=a5be30320a";
+import { createAuth } from "./lib/auth.js?v=a5be30320a";
+import { SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY } from "./config.js?v=a5be30320a";
+import { $, esc, on, reduceMotion } from "./lib/dom.js?v=a5be30320a";
+import { icon, brandMark } from "./lib/icons.js?v=a5be30320a";
+import { monthKey, addMonths, addDays, monthLabel, weekLabel, weekDays, todayISO, fromISO, daysInMonth } from "./lib/dates.js?v=a5be30320a";
+import { summarize } from "./domain/status.js?v=a5be30320a";
+import { createHighlights, pickHighlights } from "./ui/highlights.js?v=a5be30320a";
+import { createAdsView } from "./ui/ads-portal.js?v=a5be30320a";
+import { renderCalendar, renderAgenda, renderLegend, setupDayPopover } from "./ui/calendar.js?v=a5be30320a";
+import { createDrawer } from "./ui/drawer.js?v=a5be30320a";
+import { renderIdeas, setupIdeaModal } from "./ui/ideas.js?v=a5be30320a";
+import { toast } from "./ui/toast.js?v=a5be30320a";
 
 /* O portal não abre dentro de outro site (proteção contra clique disfarçado).
    A página fica invisível até esta checagem (body.portal em style.css). */
@@ -175,6 +176,34 @@ function hydrateIcons(root = document) {
   root.querySelectorAll('[data-slot="brand-mark"]').forEach((node) => { node.innerHTML = brandMark(); });
 }
 
+/* ---------- Aprovação de anúncios (aba própria) ---------- */
+const adsView = createAdsView({
+  section: $("#anuncios"),
+  dialog: $("#ad-detail"),
+  repo,
+  getClient: () => ({ name: state.client?.name || "", initials: state.client?.initials || "", logoUrl: state.client?.logoUrl || null }),
+  toast,
+  onCount: (pending) => {
+    const badge = document.querySelector("[data-ads-pending]");
+    badge.hidden = pending === 0;
+    badge.textContent = pending;
+    badge.setAttribute("aria-label", `${pending} ${pending === 1 ? "anúncio espera" : "anúncios esperam"} aprovação`);
+  }
+});
+
+/** Calendário (padrão) ou anúncios: #/anuncios */
+function showPortalTab() {
+  if (!state.loaded) return;
+  const tab = features.ads && location.hash === "#/anuncios" ? "anuncios" : "calendario";
+  document.querySelectorAll("[data-portal-view]").forEach((view) => { view.hidden = view.dataset.portalView !== tab; });
+  document.querySelectorAll("[data-portal-tab]").forEach((link) => {
+    if (link.dataset.portalTab === tab) link.setAttribute("aria-current", "page"); else link.removeAttribute("aria-current");
+  });
+  popover.hide();
+  if (tab === "anuncios") adsView.load().catch((error) => { if (error?.status === 401 || error?.reason === "no_access") handleError(error); });
+}
+window.addEventListener("hashchange", showPortalTab);
+
 /* ---------- Interações ---------- */
 /** Layout de celular (agenda abaixo do calendário) */
 const agendaVisible = () => getComputedStyle(el.agenda).display !== "none";
@@ -278,6 +307,8 @@ let refreshing = false;
 async function refreshQuietly({ announce = false } = {}) {
   if (!state.loaded || refreshing || document.hidden) return;
   refreshing = true;
+  // Anúncios: atualiza a lista e o selo junto (sem travar o calendário)
+  if (features.ads && adsView.loaded) adsView.load({ quiet: true }).catch(() => {});
   const token = navToken;
   const button = document.querySelector('[data-action="refresh"]');
   button?.classList.add("is-spinning");
@@ -415,6 +446,7 @@ function showLogin(message = "", { info = false } = {}) {
   state.approvals = [];
   state.pool = [];
   highlights.reset();
+  adsView.reset();
   popover.hide();
   document.querySelectorAll("dialog[open]").forEach((dialog) => dialog.close());
   el.calendar.innerHTML = '<div class="skeleton skeleton--calendar"></div>';
@@ -445,7 +477,10 @@ async function enterApp() {
   document.title = "Seu planejamento · Digital Galaxy";
   renderHeader();
   state.loaded = true;
+  showPortalTab();
   await navigate({ selected: todayISO(), month: monthKey(new Date()) });
+  // Selo da aba "Aprovação de anúncios" (quantos esperam aprovação)
+  if (features.ads && !adsView.loaded) adsView.load({ quiet: true }).catch(() => {});
 }
 
 function setupLogin() {

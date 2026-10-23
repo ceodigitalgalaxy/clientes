@@ -2,8 +2,8 @@
    Valida os dados antes de enviar (domain/rules.js); o banco confere de novo
    com as próprias regras e só aceita membros da equipe (RLS). */
 
-import { validateClient, validateContent, validateContentFilters, parseUsername, passwordProblem, CONTENT_STATUS, isUuid } from "./domain/rules.js?v=d5af9cfdc2";
-import { UPLOAD_LIMITS, fileName, fileProblem, resizeImage } from "../../js/lib/storage.js?v=d5af9cfdc2";
+import { validateClient, validateContent, validateContentFilters, parseUsername, passwordProblem, CONTENT_STATUS, isUuid, validateAd, validateAdFilters, AD_LIMITS } from "./domain/rules.js?v=a5be30320a";
+import { UPLOAD_LIMITS, fileName, fileProblem, resizeImage } from "../../js/lib/storage.js?v=a5be30320a";
 
 export class ApiError extends Error {
   constructor(status, message, fields) { super(message); this.status = status; this.fields = fields || {}; }
@@ -81,7 +81,78 @@ export function createApi({ store, onSessionLost, access = null, storage = null 
     return assets.map((a) => ({ ...a, src: a.url || signed[a.storage_path] || null }));
   }
 
+  /* ---------- Anúncios ---------- */
+  const AD_BUCKET = "ad-media";
+  /** Links assinados (1 hora) para os arquivos do criativo */
+  async function signAdPaths(paths) {
+    const list = [...new Set(paths.filter(Boolean))];
+    return storage && list.length ? storage.sign(AD_BUCKET, list) : {};
+  }
+  const withSrc = (assets, signed) => assets.map((a) => ({ ...a, src: a.url || signed[a.storage_path] || null }));
+
+  async function adWithSources(ad) {
+    const signed = await signAdPaths(ad.assets.map((a) => a.storage_path));
+    return { ...ad, assets: withSrc(ad.assets, signed) };
+  }
+
+  const ads = {
+    /** Lista com a capa (primeiro item do criativo) já com link */
+    listAds: guard(async (filters = {}) => {
+      const rows = await store.listAds(validateAdFilters(filters));
+      const signed = await signAdPaths(rows.map((ad) => ad.assets[0]?.storage_path));
+      return rows.map((ad) => ({ ...ad, assets: withSrc(ad.assets, signed) }));
+    }),
+    getAd: guard(async (id) => adWithSources(await store.getAd(id))),
+    createAd: guard((data) => store.createAd(requireValid(validateAd(data)))),
+    updateAd: guard((id, data) => store.updateAd(id, requireValid(validateAd(data)))),
+    /** Só rascunhos nunca enviados (o banco recusa os demais); apaga os arquivos depois */
+    deleteAd: guard(async (ad) => {
+      await store.deleteAd(ad.id);
+      const paths = (ad.assets || []).map((a) => a.storage_path).filter(Boolean);
+      if (paths.length) await storage.remove(AD_BUCKET, paths).catch(() => {});
+    }),
+    adTransition: guard((id, action, message = "") => {
+      const text = String(message || "").trim();
+      if (text.length > AD_LIMITS.message) throw new ApiError(422, `Use até ${AD_LIMITS.message} caracteres.`);
+      return store.adTransition(id, action, text || null);
+    }),
+    addAdAssetFile: guard(async (ad, file, { position, onProgress } = {}) => {
+      const problem = fileProblem(file, { types: UPLOAD_LIMITS.mediaTypes, maxBytes: UPLOAD_LIMITS.mediaBytes });
+      if (problem) throw new ApiError(422, problem);
+      const path = `${ad.client_id}/${ad.id}/${fileName(file.type)}`;
+      await storage.upload(AD_BUCKET, path, file, { onProgress });
+      try {
+        return await store.addAdAsset({ ad_id: ad.id, kind: file.type.startsWith("video/") ? "video" : "image", storage_path: path, position });
+      } catch (error) {
+        await storage.remove(AD_BUCKET, [path]).catch(() => {});
+        throw error;
+      }
+    }),
+    addAdAssetLink: guard(async (ad, { url, kind, position }) => {
+      const value = String(url || "").trim();
+      if (!isLink(value)) throw new ApiError(422, "Use um link que comece com https://", { asset_url: "Use um link que comece com https://" });
+      return store.addAdAsset({ ad_id: ad.id, kind: kind === "video" ? "video" : "image", url: value, position });
+    }),
+    swapAdAssets: guard(async (a, b) => {
+      await store.moveAdAsset(a.id, b.position);
+      await store.moveAdAsset(b.id, a.position);
+    }),
+    /** Anúncio já enviado: o arquivo fica guardado (as versões antigas continuam com a prévia) */
+    deleteAdAsset: guard(async (ad, asset) => {
+      const removed = await store.deleteAdAsset(asset.id);
+      const path = removed?.storage_path || asset.storage_path;
+      if (path && !ad.first_submitted_at) await storage.remove(AD_BUCKET, [path]).catch(() => {});
+    }),
+    /** Histórico e versões (com links para a prévia de cada versão) */
+    adHistory: guard(async (id) => {
+      const [events, versions] = await Promise.all([store.listAdEvents(id), store.listAdVersions(id)]);
+      const signed = await signAdPaths(versions.flatMap((v) => (v.snapshot?.assets || []).map((a) => a.storage_path)));
+      return { events, versions: versions.map((v) => ({ ...v, snapshot: { ...v.snapshot, assets: withSrc(v.snapshot?.assets || [], signed) } })) };
+    })
+  };
+
   return {
+    ...ads,
     logoUrl: (path) => (storage && path ? storage.publicUrl("client-logos", path) : null),
 
     /** Foto do cliente: diminui no navegador, envia e troca a antiga */

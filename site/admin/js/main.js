@@ -9,28 +9,29 @@
    O banco aplica as mesmas regras (RLS): esconder a tela não é a proteção.
    ========================================================================== */
 
-import { $, on } from "../../js/lib/dom.js?v=d5af9cfdc2";
-import { icon, brandMark } from "../../js/lib/icons.js?v=d5af9cfdc2";
-import { toast } from "../../js/ui/toast.js?v=d5af9cfdc2";
-import { SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY } from "../../js/config.js?v=d5af9cfdc2";
-import { createAuth } from "../../js/lib/auth.js?v=d5af9cfdc2";
-import { createStorage } from "../../js/lib/storage.js?v=d5af9cfdc2";
-import { createSupabaseStore } from "./data/store.js?v=d5af9cfdc2";
-import { createApi } from "./api.js?v=d5af9cfdc2";
-import { validateContentFilters } from "./domain/rules.js?v=d5af9cfdc2";
-import { createConfirm, showFieldErrors, setBusy } from "./ui/dialogs.js?v=d5af9cfdc2";
-import { setupClients } from "./views/clients.js?v=d5af9cfdc2";
-import { setupContents } from "./views/contents.js?v=d5af9cfdc2";
-import { setupAccess } from "./views/access.js?v=d5af9cfdc2";
-import { setupImport } from "./views/import.js?v=d5af9cfdc2";
+import { $, on } from "../../js/lib/dom.js?v=a5be30320a";
+import { icon, brandMark } from "../../js/lib/icons.js?v=a5be30320a";
+import { toast } from "../../js/ui/toast.js?v=a5be30320a";
+import { SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY } from "../../js/config.js?v=a5be30320a";
+import { createAuth } from "../../js/lib/auth.js?v=a5be30320a";
+import { createStorage } from "../../js/lib/storage.js?v=a5be30320a";
+import { createSupabaseStore } from "./data/store.js?v=a5be30320a";
+import { createApi } from "./api.js?v=a5be30320a";
+import { validateContentFilters } from "./domain/rules.js?v=a5be30320a";
+import { createConfirm, showFieldErrors, setBusy } from "./ui/dialogs.js?v=a5be30320a";
+import { setupClients } from "./views/clients.js?v=a5be30320a";
+import { setupContents } from "./views/contents.js?v=a5be30320a";
+import { setupAccess } from "./views/access.js?v=a5be30320a";
+import { setupImport } from "./views/import.js?v=a5be30320a";
+import { setupAds } from "./views/ads.js?v=a5be30320a";
 
 /* O painel não abre dentro de outro site (proteção contra clique disfarçado).
    A página fica invisível até esta checagem (veja .admin em admin.css). */
 if (window.top !== window.self) throw new Error("O painel não pode ser aberto dentro de outra página.");
 document.body.classList.add("is-ready");
 
-const ROUTES = ["conteudos", "clientes", "importar"];
-const TITLES = { conteudos: "Conteúdos", clientes: "Clientes", importar: "Importar conteúdos" };
+const ROUTES = ["conteudos", "anuncios", "clientes", "importar"];
+const TITLES = { conteudos: "Conteúdos", anuncios: "Aprovação de anúncios", clientes: "Clientes", importar: "Importar conteúdos" };
 
 const auth = createAuth({ url: SUPABASE_URL, apiKey: SUPABASE_PUBLISHABLE_KEY, kind: "equipe" });
 const store = createSupabaseStore({
@@ -84,6 +85,7 @@ const clients = setupClients({ api, state, toast, confirm, navigate, onClientsCh
 const contents = setupContents({ api, state, toast, confirm, navigate });
 setupAccess({ api, state, toast, confirm, onChanged: () => loadClients() });
 const importer = setupImport({ api, state, toast, navigate });
+const adsView = setupAds({ api, state, toast, confirm, navigate });
 
 /** Mostra a seção do endereço atual */
 async function showRoute() {
@@ -100,11 +102,13 @@ async function showRoute() {
   if (!state.clientsLoaded) {
     clients.renderLoading();
     if (state.route === "conteudos") contents.renderLoading();
+    if (state.route === "anuncios") adsView.renderLoading();
     const ok = await loadClients();
     if (!ok && state.route === "conteudos") { await contents.load(); return; }
   }
   if (state.route === "conteudos") await contents.load();
   if (state.route === "importar") importer.show();
+  if (state.route === "anuncios") await adsView.load(Object.fromEntries(new URLSearchParams(query)));
 }
 
 /* ---------- Entrada e saída ---------- */
@@ -121,6 +125,8 @@ function showLogin(message = "", { info = false } = {}) {
   state.clientsLoaded = false;
   document.querySelectorAll("dialog[open]").forEach((dialog) => dialog.close());
   $("#contents-list").innerHTML = "";
+  $("#ads-list").innerHTML = "";
+  document.querySelector("[data-ads-attention]").hidden = true;
   $("#clients-list").innerHTML = "";
   $("#contents-count").textContent = "";
   $("#clients-count").textContent = "";
@@ -154,6 +160,8 @@ async function enterApp() {
   app.hidden = false;
   if (!location.hash) history.replaceState(null, "", "#/conteudos");
   await showRoute();
+  // Contador do menu "Anúncios": quantos o cliente pediu para alterar
+  if (state.route !== "anuncios") adsView.refreshAttention();
 }
 
 loginForm.addEventListener("submit", async (event) => {
