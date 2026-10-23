@@ -11,12 +11,12 @@
        Solicitar alterações → comentário obrigatório → registrado.
    ========================================================================== */
 
-import { esc, on, reduceMotion } from "../lib/dom.js?v=98478e305b";
-import { icon } from "../lib/icons.js?v=98478e305b";
-import { renderAdMock, renderAdTexts, renderAdHistory, adStatusBadge } from "./ad-preview.js?v=98478e305b";
-import { coverHtml, mediaCover, wireMediaFallbacks } from "./media.js?v=98478e305b";
-import { wireCarousel } from "./preview.js?v=98478e305b";
-import { AD_STATUS, AD_FORMATS, AD_LIMITS, platformLabel } from "../domain/ads.js?v=98478e305b";
+import { esc, on, reduceMotion } from "../lib/dom.js?v=0470164d89";
+import { icon } from "../lib/icons.js?v=0470164d89";
+import { renderAdMock, renderAdTexts, renderAdHistory, adStatusBadge } from "./ad-preview.js?v=0470164d89";
+import { coverHtml, mediaCover, embedCoverHtml, wireMediaFallbacks } from "./media.js?v=0470164d89";
+import { wireCarousel } from "./preview.js?v=0470164d89";
+import { AD_STATUS, AD_FORMATS, AD_LIMITS, platformLabel } from "../domain/ads.js?v=0470164d89";
 
 const TABS = [
   ["", "Todos"],
@@ -45,7 +45,8 @@ function cardCover(ad) {
     <span class="ad-card__media">
       <span class="ad-card__placeholder">${icon(fmt.icon)}</span>
       ${coverHtml(cover, "data-ad-thumb")}
-      ${first?.kind === "video" ? `<span class="play-badge play-badge--sm">${icon("play")}</span>` : ""}
+      ${!cover && first?.src && !first.file ? embedCoverHtml(first.src, first.kind, ad.title) : ""}
+      ${first?.kind === "video" && cover ? `<span class="play-badge play-badge--sm">${icon("play")}</span>` : ""}
       ${ad.assets.length > 1 ? `<span class="ad-card__count">${icon("layers")}${ad.assets.length}</span>` : ""}
     </span>`;
 }

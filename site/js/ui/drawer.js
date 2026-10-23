@@ -8,15 +8,15 @@
    que ainda não existem no banco ficam escondidas.
    ========================================================================== */
 
-import { esc, on, reduceMotion } from "../lib/dom.js?v=98478e305b";
-import { icon } from "../lib/icons.js?v=98478e305b";
-import { longDayLabel, timeLabel, stampLabel } from "../lib/dates.js?v=98478e305b";
-import { ACTIVITY_TYPES, PLATFORMS, STATUS } from "../domain/model.js?v=98478e305b";
-import { statusOf, latestDecision } from "../domain/status.js?v=98478e305b";
-import { typeBadge, statusBadge } from "./badges.js?v=98478e305b";
-import { renderPreview, renderFinal, wireCarousel } from "./preview.js?v=98478e305b";
-import { wireMediaFallbacks } from "./media.js?v=98478e305b";
-import { toast } from "./toast.js?v=98478e305b";
+import { esc, on, reduceMotion } from "../lib/dom.js?v=0470164d89";
+import { icon } from "../lib/icons.js?v=0470164d89";
+import { longDayLabel, timeLabel, stampLabel } from "../lib/dates.js?v=0470164d89";
+import { ACTIVITY_TYPES, PLATFORMS, STATUS } from "../domain/model.js?v=0470164d89";
+import { statusOf, latestDecision } from "../domain/status.js?v=0470164d89";
+import { typeBadge, statusBadge } from "./badges.js?v=0470164d89";
+import { renderPreview, renderFinal, wireCarousel } from "./preview.js?v=0470164d89";
+import { wireMediaFallbacks } from "./media.js?v=0470164d89";
+import { toast } from "./toast.js?v=0470164d89";
 
 const LIVE_STATUS_TEXT = {
   aguardando: ["Este conteúdo espera a sua aprovação", "Confira a prévia e a legenda. Para aprovar ou pedir ajustes, fale com a nossa equipe pelo canal de sempre."],

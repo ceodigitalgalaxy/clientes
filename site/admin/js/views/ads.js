@@ -11,16 +11,16 @@
    Endereço: #/anuncios?status=...&client_id=...
    ========================================================================== */
 
-import { $, esc, on } from "../../../js/lib/dom.js?v=98478e305b";
-import { icon } from "../../../js/lib/icons.js?v=98478e305b";
-import { stampLabel } from "../../../js/lib/dates.js?v=98478e305b";
-import { renderMedia, mediaFallback, mediaCover, coverHtml, wireMediaFallbacks } from "../../../js/ui/media.js?v=98478e305b";
-import { wireCarousel } from "../../../js/ui/preview.js?v=98478e305b";
-import { renderAdMock, renderAdTexts, renderAdHistory, adStatusBadge } from "../../../js/ui/ad-preview.js?v=98478e305b";
-import { UPLOAD_LIMITS } from "../../../js/lib/storage.js?v=98478e305b";
-import { AD_STATUS, AD_PLATFORMS, AD_OBJECTIVES, AD_FORMATS, AD_CTAS, platformLabel, validateAdFilters } from "../domain/rules.js?v=98478e305b";
-import { closeDialog, wireDialog, showFieldErrors, setBusy } from "../ui/dialogs.js?v=98478e305b";
-import { stateBlock, loadingCards, button } from "../ui/states.js?v=98478e305b";
+import { $, esc, on } from "../../../js/lib/dom.js?v=0470164d89";
+import { icon } from "../../../js/lib/icons.js?v=0470164d89";
+import { stampLabel } from "../../../js/lib/dates.js?v=0470164d89";
+import { renderMedia, mediaFallback, mediaCover, coverHtml, embedCoverHtml, wireMediaFallbacks } from "../../../js/ui/media.js?v=0470164d89";
+import { wireCarousel } from "../../../js/ui/preview.js?v=0470164d89";
+import { renderAdMock, renderAdTexts, renderAdHistory, adStatusBadge } from "../../../js/ui/ad-preview.js?v=0470164d89";
+import { UPLOAD_LIMITS } from "../../../js/lib/storage.js?v=0470164d89";
+import { AD_STATUS, AD_PLATFORMS, AD_OBJECTIVES, AD_FORMATS, AD_CTAS, platformLabel, validateAdFilters } from "../domain/rules.js?v=0470164d89";
+import { closeDialog, wireDialog, showFieldErrors, setBusy } from "../ui/dialogs.js?v=0470164d89";
+import { stateBlock, loadingCards, button } from "../ui/states.js?v=0470164d89";
 
 const ACCEPT = UPLOAD_LIMITS.mediaTypes.join(",");
 const EDITABLE = ["rascunho", "alteracoes_solicitadas"];
@@ -44,7 +44,8 @@ function cardCover(ad) {
     <span class="ad-card__media">
       <span class="ad-card__placeholder">${icon(fmt.icon)}</span>
       ${coverHtml(cover, "data-ad-thumb")}
-      ${first?.kind === "video" ? `<span class="play-badge play-badge--sm">${icon("play")}</span>` : ""}
+      ${!cover && first?.url ? embedCoverHtml(first.url, first.kind, ad.title) : ""}
+      ${first?.kind === "video" && cover ? `<span class="play-badge play-badge--sm">${icon("play")}</span>` : ""}
       ${ad.assets.length > 1 ? `<span class="ad-card__count">${icon("layers")}${ad.assets.length}</span>` : ""}
     </span>`;
 }
@@ -70,7 +71,11 @@ export function setupAds({ api, state, toast, confirm, navigate }) {
   let current = null;      // anúncio aberto nos detalhes
   let busy = false;
   let loadToken = 0;
-  let changeNote = { id: null, text: "" };   // "O que mudou nesta versão" (não se perde ao redesenhar)
+  let changeNote = { id: null, text: "" };
+  const picked = new Set();     // anúncios marcados para ação em massa
+  const bulk = $("#ads-bulk");
+  const bulkAll = view.querySelector("[data-ads-all]");
+  let bulkBusy = false;   // "O que mudou nesta versão" (não se perde ao redesenhar)
 
   wireDialog(modal, { canClose: () => !saving });
   wireDialog(drawer, { canClose: () => !busy });
@@ -109,8 +114,27 @@ export function setupAds({ api, state, toast, confirm, navigate }) {
       </button>`).join("");
   }
 
+  /** Barra de ações em massa e "Selecionar todos" (os visíveis na aba) */
+  function visibleAds() { return filters.status ? ads.filter((a) => a.status === filters.status) : ads; }
+  function syncBulk() {
+    [...picked].forEach((id) => { if (!ads.some((a) => a.id === id)) picked.delete(id); });
+    const n = picked.size;
+    bulk.hidden = n === 0;
+    bulk.querySelector("[data-ads-bulk-count]").textContent = n;
+    bulk.querySelector("[data-ads-bulk-word]").textContent = n === 1 ? "selecionado" : "selecionados";
+    const shown = visibleAds();
+    bulkAll.hidden = shown.length < 2;
+    const all = shown.length > 0 && shown.every((a) => picked.has(a.id));
+    bulkAll.textContent = all ? "Desmarcar todos" : `Selecionar todos (${shown.length})`;
+    list.querySelectorAll("[data-ad-pick]").forEach((box) => {
+      box.checked = picked.has(box.dataset.adPick);
+      box.closest(".ad-card").classList.toggle("is-picked", box.checked);
+    });
+  }
+
   function render() {
     list.setAttribute("aria-busy", "false");
+    queueMicrotask(syncBulk);
     renderTabs();
     const shown = filters.status ? ads.filter((a) => a.status === filters.status) : ads;
     count.textContent = shown.length ? `${shown.length} ${shown.length === 1 ? "anúncio" : "anúncios"}` : "";
@@ -125,7 +149,8 @@ export function setupAds({ api, state, toast, confirm, navigate }) {
       return;
     }
     list.innerHTML = shown.map((ad) => `
-      <article class="ad-card${ad.status === "alteracoes_solicitadas" ? " needs-attention" : ""}">
+      <article class="ad-card${ad.status === "alteracoes_solicitadas" ? " needs-attention" : ""}${picked.has(ad.id) ? " is-picked" : ""}">
+        <label class="ad-card__pick" title="Selecionar"><input type="checkbox" data-ad-pick="${esc(ad.id)}" aria-label="Selecionar ${esc(ad.title)}" ${picked.has(ad.id) ? "checked" : ""}></label>
         <button class="ad-card__open" type="button" data-open-ad="${esc(ad.id)}" aria-label="Abrir ${esc(ad.title)}">
           ${cardCover(ad)}
           <span class="ad-card__body">
@@ -148,7 +173,10 @@ export function setupAds({ api, state, toast, confirm, navigate }) {
   }
 
   async function load(params = {}) {
-    filters = validateAdFilters(params);
+    const next = validateAdFilters(params);
+    // Trocou de aba ou de cliente: a seleção recomeça (para não agir em anúncio escondido)
+    if (next.status !== filters.status || next.client_id !== filters.client_id) picked.clear();
+    filters = next;
     syncFilters();
     const token = ++loadToken;
     list.setAttribute("aria-busy", "true");
@@ -180,6 +208,64 @@ export function setupAds({ api, state, toast, confirm, navigate }) {
   on(view, "click", '[data-action="go-clients"]', () => navigate("clientes"));
   on(document, "click", '[data-action="new-ad"]', () => openForm());
   on(list, "click", "[data-open-ad]", (event, b) => openDetails(b.dataset.openAd));
+
+  /* ---------- Ações em massa ---------- */
+  on(list, "change", "[data-ad-pick]", (event, box) => {
+    if (box.checked) picked.add(box.dataset.adPick); else picked.delete(box.dataset.adPick);
+    syncBulk();
+  });
+  bulkAll.addEventListener("click", () => {
+    const shown = visibleAds();
+    const all = shown.every((a) => picked.has(a.id));
+    shown.forEach((a) => (all ? picked.delete(a.id) : picked.add(a.id)));
+    syncBulk();
+  });
+  bulk.querySelector("[data-ads-bulk-clear]").addEventListener("click", () => { picked.clear(); syncBulk(); });
+  bulk.querySelector("[data-ads-bulk-apply]").addEventListener("click", async (event) => {
+    if (bulkBusy || !picked.size) return;
+    const button = event.currentTarget;
+    const action = bulk.querySelector("[data-ads-bulk-action]").value;
+    const chosen = ads.filter((a) => picked.has(a.id));
+    // Quem pode receber a ação (o banco confere de novo cada um)
+    const ok = action === "enviar"
+      ? chosen.filter((a) => EDITABLE.includes(a.status) && a.assets.length)
+      : chosen.filter((a) => a.status !== "arquivado");
+    const noCreative = action === "enviar" ? chosen.filter((a) => EDITABLE.includes(a.status) && !a.assets.length) : [];
+    const skipped = chosen.length - ok.length;
+    if (!ok.length) {
+      toast(action === "enviar"
+        ? (noCreative.length ? "Nenhum dos marcados pode ser enviado: falta o criativo (arquivo ou link)." : "Nenhum dos marcados está em rascunho ou com alterações pedidas.")
+        : "Os marcados já estão arquivados.", "error");
+      return;
+    }
+    const n = ok.length;
+    const clientsHit = [...new Set(ok.map((a) => clientName(a.client_id)))];
+    const notes = [];
+    if (action === "enviar") notes.push(`${clientsHit.length === 1 ? clientsHit[0] : `${clientsHit.length} clientes`} ${clientsHit.length === 1 ? "passa" : "passam"} a ver ${n === 1 ? "o anúncio" : "os anúncios"} para aprovar.`);
+    if (noCreative.length) notes.push(`${noCreative.length} sem criativo ${noCreative.length === 1 ? "fica" : "ficam"} de fora.`);
+    if (skipped - noCreative.length > 0) notes.push(`${skipped - noCreative.length} já ${skipped - noCreative.length === 1 ? "está" : "estão"} com o cliente, aprovado${skipped - noCreative.length === 1 ? "" : "s"} ou arquivado${skipped - noCreative.length === 1 ? "" : "s"} e ${skipped - noCreative.length === 1 ? "fica" : "ficam"} de fora.`);
+    const yes = await confirm({
+      title: action === "enviar" ? `Enviar ${n} ${n === 1 ? "anúncio" : "anúncios"} para aprovação?` : `Arquivar ${n} ${n === 1 ? "anúncio" : "anúncios"}?`,
+      text: notes.join(" ") || "Eles saem do fluxo ativo. Dá para reativar depois.",
+      confirmLabel: action === "enviar" ? "Enviar" : "Arquivar",
+      tone: action === "enviar" ? "primary" : "danger"
+    });
+    if (!yes) return;
+    bulkBusy = true;
+    setBusy(button, true);
+    const problems = [];
+    let done = 0;
+    for (const ad of ok) {
+      try { await api.adTransition(ad.id, action); done += 1; }
+      catch (error) { if (error.status === 401) break; problems.push(`${ad.title}: ${error.message}`); }
+    }
+    bulkBusy = false;
+    setBusy(button, false);
+    picked.clear();
+    const verb = action === "enviar" ? (done === 1 ? "enviado para aprovação" : "enviados para aprovação") : (done === 1 ? "arquivado" : "arquivados");
+    toast(`${done} ${done === 1 ? "anúncio" : "anúncios"} ${verb}${problems.length ? `. ${problems.length} não ${problems.length === 1 ? "foi" : "foram"}: ${problems[0]}` : ""}`, problems.length ? "error" : "success");
+    await load(filters);
+  });
 
   /* ---------- Formulário ---------- */
   function openForm(ad = null) {

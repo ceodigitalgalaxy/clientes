@@ -324,7 +324,7 @@ select.field__input { padding-right: 40px; appearance: none; background-image: u
 .ads-filters { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 8px; }
 .ads-filters .status-tabs { flex: 1 1 auto; min-width: 0; }
 .ads-filters__client { flex: 0 0 260px; }
-#ads-count { margin: 8px 0 16px; }
+#view-anuncios .list-tools { margin: 8px 0 16px; }
 .drawer--wide { width: min(720px, 100%); }
 .ad-status-note { margin-top: 24px; }
 .ad-change-note { margin-top: 16px; }
@@ -354,3 +354,9 @@ select.field__input { padding-right: 40px; appearance: none; background-image: u
 .imp-send--yes { color: var(--aprovado-ink); }
 .imp-send--no { color: var(--text-subtle); font-weight: 400; }
 .imp-report { margin-top: 16px; padding: 16px; border: 1px solid var(--ajustes-line); border-radius: var(--radius); background: var(--ajustes-soft); }
+
+/* Seleção de anúncios (ações em massa) */
+.ad-card__pick { position: absolute; left: 10px; top: 10px; z-index: 3; display: grid; place-items: center; width: 32px; height: 32px; border-radius: 8px; background: rgba(255, 255, 255, 0.92); box-shadow: 0 2px 8px rgba(22, 11, 46, 0.18); cursor: pointer; }
+.ad-card__pick input { width: 18px; height: 18px; accent-color: var(--brand); cursor: pointer; }
+.ad-card.is-picked { border-color: var(--brand); box-shadow: 0 0 0 3px var(--brand-soft), var(--shadow-card); }
+#ads-bulk { margin-top: 16px; }

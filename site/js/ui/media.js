@@ -17,8 +17,8 @@
    A política de conteúdo (CSP) das páginas libera só esses players.
    ========================================================================== */
 
-import { esc } from "../lib/dom.js?v=98478e305b";
-import { icon } from "../lib/icons.js?v=98478e305b";
+import { esc } from "../lib/dom.js?v=0470164d89";
+import { icon } from "../lib/icons.js?v=0470164d89";
 
 const VIDEO_FILE = /\.(mp4|webm|ogv|ogg|m4v|mov)$/i;
 const YOUTUBE_ID = /^[A-Za-z0-9_-]{11}$/;
@@ -131,6 +131,13 @@ export function embedCover(rawUrl, kind = "image") {
   if (!rawUrl) return null;
   const media = describeMedia(rawUrl, kind);
   return media.type === "embed" && !media.poster && ["Instagram", "Vimeo"].includes(media.provider) ? { src: media.src, provider: media.provider } : null;
+}
+
+/** Capa viva (post do Instagram / player do Vimeo) para cards: carrega só quando aparece na tela, sem cliques */
+export function embedCoverHtml(rawUrl, kind = "image", title = "") {
+  const live = embedCover(rawUrl, kind);
+  if (!live) return "";
+  return `<span class="embed-cover embed-cover--${esc(live.provider.toLowerCase())}" aria-hidden="true"><iframe src="${esc(live.src)}" title="${esc(`${live.provider}: ${title}`)}" loading="lazy" tabindex="-1" referrerpolicy="strict-origin-when-cross-origin" sandbox="allow-scripts allow-same-origin"></iframe></span>`;
 }
 
 /** HTML da capa (imagem ou primeiro quadro do vídeo, sem som e sem controles) */

@@ -57,6 +57,8 @@ async function newContext(options = {}) {
     if (answer === "abort") return route.abort("failed");
     return route.fulfill(answer);
   });
+  // Post do Instagram (sem internet nos testes)
+  await context.route("https://www.instagram.com/**", (route) => route.fulfill({ status: 200, contentType: "text/html", body: "<!doctype html><title>post</title><p>Post do Instagram</p>" }));
   return context;
 }
 const watch = (page, name) => {
@@ -443,6 +445,48 @@ await step("Importar anúncios por planilha: prévia, rascunhos, envio dos marca
   await admin.click("#import-preview [data-imp-see]");
   await admin.waitForURL(/#\/anuncios/);
   await admin.waitForFunction(() => [...document.querySelectorAll(".ad-card__title")].some((n) => n.textContent === "Vídeo da fornada"));
+});
+
+await step("Enviar vários anúncios para aprovação de uma vez (os sem criativo ficam de fora)", async () => {
+  await admin.click('[data-ad-tab="rascunho"]');
+  await admin.waitForSelector('.ad-card:has-text("Vídeo da fornada")');
+  assert.ok(await admin.isHidden("#ads-bulk"), "barra só aparece com algo marcado");
+  await admin.check('.ad-card:has-text("Vídeo da fornada") [data-ad-pick]');
+  await admin.check('.ad-card:has-text("Post LinkedIn") [data-ad-pick]');
+  assert.equal(await admin.textContent("#ads-bulk [data-ads-bulk-count]"), "2");
+  await shot(admin, "a10-anuncios-em-massa");
+  await admin.click("#ads-bulk [data-ads-bulk-apply]");
+  await admin.waitForSelector("#confirm-modal[open]");
+  assert.match(await admin.textContent("#confirm-modal"), /Enviar 1 anúncio para aprovação\?.*Padaria Central Ltda passa a ver o anúncio.*1 sem criativo fica de fora/s);
+  await confirmOk();
+  await toastSays(admin, /1 anúncio enviado para aprovação/);
+  const all = await store.listAds({ client_id: padaria.id });
+  assert.equal(all.find((a) => a.title === "Vídeo da fornada").status, "aguardando_aprovacao");
+  assert.equal(all.find((a) => a.title === "Post LinkedIn").status, "rascunho");
+  await admin.waitForSelector("#ads-bulk", { state: "hidden" });
+  // Selecionar todos (da aba) e desmarcar
+  await admin.click('[data-ad-tab=""]');
+  await admin.waitForSelector("[data-ads-all]:not([hidden])");
+  await admin.click("[data-ads-all]");
+  assert.equal(Number(await admin.textContent("#ads-bulk [data-ads-bulk-count]")), await admin.locator("[data-ad-pick]").count());
+  await admin.click("[data-ads-all]");
+  await admin.waitForSelector("#ads-bulk", { state: "hidden" });
+});
+
+await step("Criativo do Instagram aparece como capa nos cards (painel e portal)", async () => {
+  const team = { id: "equipe", role: "equipe", username: "admdg-teste" };
+  const ad = await store.createAd({ client_id: padaria.id, title: "Reel de referência", platform: "meta", format: "video" }, team);
+  await store.addAdAsset({ ad_id: ad.id, kind: "video", url: "https://www.instagram.com/padariacentral/reel/Cabc123/", position: 0 });
+  await store.adTransition(team, { p_ad_id: ad.id, p_action: "enviar" });
+  await admin.reload();
+  await admin.waitForSelector('.ad-card:has-text("Reel de referência") .embed-cover--instagram iframe');
+  assert.equal(await admin.getAttribute('.ad-card:has-text("Reel de referência") .embed-cover iframe', "src"), "https://www.instagram.com/p/Cabc123/embed/");
+  await portalAds();
+  await portal.waitForSelector('.ad-card:has-text("Reel de referência") .embed-cover--instagram iframe');
+  await portal.click('.ad-card:has-text("Reel de referência") .ad-card__open');
+  await portal.waitForSelector("#ad-detail[open] .media--instagram iframe");
+  await portal.click('#ad-detail [data-ad-do="close"]');
+  await portal.waitForSelector("#ad-detail:not([open])", { state: "attached" });
 });
 
 await step("Sem erros de JavaScript no console", async () => assert.deepEqual(consoleErrors, [], JSON.stringify(consoleErrors)));
