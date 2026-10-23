@@ -411,6 +411,40 @@ await step("Erro ao carregar mostra aviso e 'Tentar de novo'", async () => {
   await context.close();
 });
 
+await step("Importar anúncios por planilha: prévia, rascunhos, envio dos marcados e criativo por link", async () => {
+  await admin.click('[data-route="importar"]');
+  await admin.waitForSelector("#view-importar:not([hidden])");
+  await admin.click('.import-kind__opt:has-text("Anúncios")');
+  assert.ok(await admin.isChecked('#import-form [name="kind"][value="ads"]'));
+  assert.equal(await admin.getAttribute("[data-import-template]", "href"), "modelo-importacao-anuncios.xlsx");
+  const template = await admin.evaluate(async () => { const r = await fetch("modelo-importacao-anuncios.xlsx"); const b = new Uint8Array(await r.arrayBuffer()); return { status: r.status, zip: b[0] === 0x50 && b[1] === 0x4b }; });
+  assert.deepEqual(template, { status: 200, zip: true });
+  await admin.selectOption('#import-form [name="client_id"]', padaria.id);
+  await admin.setInputFiles('#import-form [name="file"]', { name: "anuncios.xlsx", mimeType: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", buffer: FIX("importacao-anuncios.xlsx") });
+  await admin.waitForSelector("#import-preview .imp-row--ads:not(.imp-row--head)");
+  const summary = (await admin.textContent("#import-preview .imp-summary")).replace(/\s+/g, " ");
+  assert.match(summary, /4 prontos.*2 com erro.*1 parece repetido.*1 vai direto para aprovação/, summary);
+  assert.equal(await admin.locator("#import-preview [data-imp-line]:checked").count(), 3, "repetido e com erro ficam de fora");
+  await shot(admin, "a09-importar-anuncios");
+  await admin.click("#import-preview [data-imp-run]");
+  await admin.waitForSelector("#import-preview .state__title");
+  assert.match(await admin.textContent("#import-preview .state"), /3 anúncios importados para Padaria Central Ltda.*1 já foi enviado/s);
+  const all = await store.listAds({ client_id: padaria.id });
+  const by = (t) => all.find((a) => a.title === t);
+  assert.deepEqual([by("Carrossel de julho").status, by("Carrossel de julho").ad_assets.length, by("Carrossel de julho").internal_notes], ["aguardando_aprovacao", 2, "INTERNO-X"]);
+  assert.deepEqual([by("Vídeo da fornada").status, by("Vídeo da fornada").ad_assets[0].kind], ["rascunho", "video"]);
+  assert.deepEqual([by("Post LinkedIn").status, by("Post LinkedIn").platform_other], ["rascunho", "LinkedIn Ads"]);
+  assert.equal(all.filter((a) => a.title === "Promoção de inverno").length, 1, "repetido não foi importado de novo");
+  // O cliente já vê o que foi enviado; rascunhos não
+  await portalAds();
+  await portal.waitForFunction(() => [...document.querySelectorAll(".ad-card__title")].some((n) => n.textContent === "Carrossel de julho"));
+  const titles = await portal.$$eval(".ad-card__title", (n) => n.map((x) => x.textContent));
+  assert.ok(!titles.includes("Vídeo da fornada") && !titles.includes("Post LinkedIn"));
+  await admin.click("#import-preview [data-imp-see]");
+  await admin.waitForURL(/#\/anuncios/);
+  await admin.waitForFunction(() => [...document.querySelectorAll(".ad-card__title")].some((n) => n.textContent === "Vídeo da fornada"));
+});
+
 await step("Sem erros de JavaScript no console", async () => assert.deepEqual(consoleErrors, [], JSON.stringify(consoleErrors)));
 
 await browser.close();

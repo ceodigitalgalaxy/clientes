@@ -8,19 +8,19 @@
    para a aba e no botão "Atualizar").
    ========================================================================== */
 
-import { createSupabaseRepository } from "./data/supabase-repository.js?v=a5be30320a";
-import { createAuth } from "./lib/auth.js?v=a5be30320a";
-import { SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY } from "./config.js?v=a5be30320a";
-import { $, esc, on, reduceMotion } from "./lib/dom.js?v=a5be30320a";
-import { icon, brandMark } from "./lib/icons.js?v=a5be30320a";
-import { monthKey, addMonths, addDays, monthLabel, weekLabel, weekDays, todayISO, fromISO, daysInMonth } from "./lib/dates.js?v=a5be30320a";
-import { summarize } from "./domain/status.js?v=a5be30320a";
-import { createHighlights, pickHighlights } from "./ui/highlights.js?v=a5be30320a";
-import { createAdsView } from "./ui/ads-portal.js?v=a5be30320a";
-import { renderCalendar, renderAgenda, renderLegend, setupDayPopover } from "./ui/calendar.js?v=a5be30320a";
-import { createDrawer } from "./ui/drawer.js?v=a5be30320a";
-import { renderIdeas, setupIdeaModal } from "./ui/ideas.js?v=a5be30320a";
-import { toast } from "./ui/toast.js?v=a5be30320a";
+import { createSupabaseRepository } from "./data/supabase-repository.js?v=98478e305b";
+import { createAuth } from "./lib/auth.js?v=98478e305b";
+import { SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY } from "./config.js?v=98478e305b";
+import { $, esc, on, reduceMotion } from "./lib/dom.js?v=98478e305b";
+import { icon, brandMark } from "./lib/icons.js?v=98478e305b";
+import { monthKey, addMonths, addDays, monthLabel, weekLabel, weekDays, todayISO, fromISO, daysInMonth } from "./lib/dates.js?v=98478e305b";
+import { summarize } from "./domain/status.js?v=98478e305b";
+import { createHighlights, pickHighlights } from "./ui/highlights.js?v=98478e305b";
+import { createAdsView } from "./ui/ads-portal.js?v=98478e305b";
+import { renderCalendar, renderAgenda, renderLegend, setupDayPopover } from "./ui/calendar.js?v=98478e305b";
+import { createDrawer } from "./ui/drawer.js?v=98478e305b";
+import { renderIdeas, setupIdeaModal } from "./ui/ideas.js?v=98478e305b";
+import { toast } from "./ui/toast.js?v=98478e305b";
 
 /* O portal não abre dentro de outro site (proteção contra clique disfarçado).
    A página fica invisível até esta checagem (body.portal em style.css). */

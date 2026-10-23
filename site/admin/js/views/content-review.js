@@ -4,11 +4,11 @@
    - Aprovação: "Enviar para aprovação" deixa o conteúdo aguardando o cliente;
      o histórico mostra o que ele respondeu e em qual versão. */
 
-import { esc, on } from "../../../js/lib/dom.js?v=a5be30320a";
-import { icon } from "../../../js/lib/icons.js?v=a5be30320a";
-import { stampLabel } from "../../../js/lib/dates.js?v=a5be30320a";
-import { renderMedia, mediaFallback } from "../../../js/ui/media.js?v=a5be30320a";
-import { UPLOAD_LIMITS } from "../../../js/lib/storage.js?v=a5be30320a";
+import { esc, on } from "../../../js/lib/dom.js?v=98478e305b";
+import { icon } from "../../../js/lib/icons.js?v=98478e305b";
+import { stampLabel } from "../../../js/lib/dates.js?v=98478e305b";
+import { renderMedia, mediaFallback } from "../../../js/ui/media.js?v=98478e305b";
+import { UPLOAD_LIMITS } from "../../../js/lib/storage.js?v=98478e305b";
 
 const ACCEPT = UPLOAD_LIMITS.mediaTypes.join(",");
 /** Última arte final vista de cada conteúdo: o painel redesenhado já começa com ela (sem piscar) */
@@ -107,7 +107,9 @@ export function mountReview({ root, content, api, toast, confirm, onChanged }) {
   fileInput.addEventListener("change", async () => {
     const files = [...(fileInput.files || [])];
     fileInput.value = "";
-    if (!files.length || busy) return;
+    if (!files.length) return;
+    // Outra ação ainda terminando (ex.: mudar a ordem): espera em vez de ignorar o arquivo
+    while (busy) await new Promise((r) => setTimeout(r, 50));
     busy = true;
     let position = nextPosition();
     let sent = 0;

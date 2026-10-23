@@ -11,12 +11,12 @@
    Sem dependências: roda no navegador e nos testes (Node).
    ========================================================================== */
 
-import { validateContent, NETWORKS, CONTENT_STATUS } from "./rules.js?v=a5be30320a";
+import { validateContent, NETWORKS, CONTENT_STATUS } from "./rules.js?v=98478e305b";
 
 export const MAX_IMPORT_ROWS = 500;
 
 /** "Observação para o Cliente:" → "observacao para o cliente" */
-const norm = (value) => String(value ?? "").normalize("NFD").replace(/[̀-ͯ]/g, "").toLowerCase().replace(/[^a-z0-9]+/g, " ").trim();
+export const norm = (value) => String(value ?? "").normalize("NFD").replace(/[̀-ͯ]/g, "").toLowerCase().replace(/[^a-z0-9]+/g, " ").trim();
 
 /** Colunas aceitas (nomes já normalizados) */
 const COLUMNS = {
@@ -61,7 +61,7 @@ const STATUS_ALIASES = {
   publicado: ["publicado", "publicada", "postado", "postada", "no ar"]
 };
 
-const lookup = (aliases, value) => {
+export const lookup = (aliases, value) => {
   const key = norm(value);
   if (!key) return null;
   for (const [id, names] of Object.entries(aliases)) if (names.includes(key)) return id;
@@ -124,7 +124,7 @@ export function parseTime(raw) {
 }
 
 /* ---------- Planilha → conteúdos ---------- */
-const isEmptyRow = (row) => !row || row.every((cell) => cell === "" || cell === null || cell === undefined);
+export const isEmptyRow = (row) => !row || row.every((cell) => cell === "" || cell === null || cell === undefined);
 
 /** Acha a linha de títulos: a primeira que tenha pelo menos "título" e "data" */
 function findHeader(rows) {

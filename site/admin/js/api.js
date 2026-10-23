@@ -2,8 +2,8 @@
    Valida os dados antes de enviar (domain/rules.js); o banco confere de novo
    com as próprias regras e só aceita membros da equipe (RLS). */
 
-import { validateClient, validateContent, validateContentFilters, parseUsername, passwordProblem, CONTENT_STATUS, isUuid, validateAd, validateAdFilters, AD_LIMITS } from "./domain/rules.js?v=a5be30320a";
-import { UPLOAD_LIMITS, fileName, fileProblem, resizeImage } from "../../js/lib/storage.js?v=a5be30320a";
+import { validateClient, validateContent, validateContentFilters, parseUsername, passwordProblem, CONTENT_STATUS, isUuid, validateAd, validateAdFilters, AD_LIMITS } from "./domain/rules.js?v=98478e305b";
+import { UPLOAD_LIMITS, fileName, fileProblem, resizeImage } from "../../js/lib/storage.js?v=98478e305b";
 
 export class ApiError extends Error {
   constructor(status, message, fields) { super(message); this.status = status; this.fields = fields || {}; }
@@ -142,6 +142,31 @@ export function createApi({ store, onSessionLost, access = null, storage = null 
       const removed = await store.deleteAdAsset(asset.id);
       const path = removed?.storage_path || asset.storage_path;
       if (path && !ad.first_submitted_at) await storage.remove(AD_BUCKET, [path]).catch(() => {});
+    }),
+    /**
+     * Importação de anúncios (planilha): cria cada um como rascunho, liga os links do
+     * criativo e envia para aprovação os marcados. Um por vez; o que falhar é informado.
+     * @param {Array<{line: number, value: object, creative: Array<{url, kind}>, send: boolean}>} items
+     */
+    importAds: guard(async (items, { onProgress } = {}) => {
+      const report = { created: 0, sent: 0, problems: [] };
+      for (const [n, item] of items.entries()) {
+        let ad = null;
+        try {
+          ad = await store.createAd(requireValid(validateAd(item.value)));
+          report.created += 1;
+          for (const [position, c] of item.creative.entries()) {
+            if (!isLink(c.url)) throw new ApiError(422, "Link do criativo inválido.");
+            await store.addAdAsset({ ad_id: ad.id, kind: c.kind === "video" ? "video" : "image", url: c.url, position });
+          }
+          if (item.send && item.creative.length) { await store.adTransition(ad.id, "enviar", null); report.sent += 1; }
+        } catch (error) {
+          if (error?.status === 401) throw error;
+          report.problems.push({ line: item.line, title: item.value.title, message: ad ? `Criado como rascunho, mas: ${error.message}` : error.message });
+        }
+        onProgress?.((n + 1) / items.length);
+      }
+      return report;
     }),
     /** Histórico e versões (com links para a prévia de cada versão) */
     adHistory: guard(async (id) => {

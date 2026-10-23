@@ -341,3 +341,16 @@ select.field__input { padding-right: 40px; appearance: none; background-image: u
   .ad-actions .btn { flex: 1 1 auto; }
   .ad-actions .link-btn--danger { margin: 0 auto; }
 }
+
+/* Importar: conteúdos ou anúncios */
+.import-kind { grid-column: 1 / -1; border: 0; padding: 0; margin: 0; }
+.import-kind .view-toggle { margin-top: 8px; }
+.import-kind__opt { cursor: pointer; }
+.import-kind__opt span { display: inline-flex; align-items: center; min-height: 36px; padding: 0 18px; border-radius: 999px; font-size: 14px; font-weight: 600; color: var(--text-muted); transition: background-color 200ms var(--ease), color 200ms var(--ease); }
+.import-kind__opt input:checked + span { color: var(--brand); background: var(--surface); box-shadow: var(--shadow-card); }
+.import-kind__opt input:focus-visible + span { box-shadow: var(--ring); }
+.imp-row--ads { grid-template-columns: 40px 56px 56px minmax(220px, 2fr) 140px 110px 96px minmax(220px, 2fr); min-width: 1000px; }
+.imp-send { font-size: 13px; font-weight: 600; }
+.imp-send--yes { color: var(--aprovado-ink); }
+.imp-send--no { color: var(--text-subtle); font-weight: 400; }
+.imp-report { margin-top: 16px; padding: 16px; border: 1px solid var(--ajustes-line); border-radius: var(--radius); background: var(--ajustes-soft); }

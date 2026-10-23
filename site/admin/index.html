@@ -13,9 +13,9 @@
   <link rel="preload" href="../fonts/sora-latin-400-normal.woff2" as="font" type="font/woff2" crossorigin>
   <link rel="preload" href="../fonts/sora-latin-600-normal.woff2" as="font" type="font/woff2" crossorigin>
   <!-- Mesmos tokens e componentes do portal do cliente -->
-  <link rel="stylesheet" href="../css/style.css?v=a5be30320a">
-  <link rel="stylesheet" href="css/admin.css?v=a5be30320a">
-  <script type="module" src="js/main.js?v=a5be30320a"></script>
+  <link rel="stylesheet" href="../css/style.css?v=98478e305b">
+  <link rel="stylesheet" href="css/admin.css?v=98478e305b">
+  <script type="module" src="js/main.js?v=98478e305b"></script>
 </head>
 <body class="admin">
   <!-- Tela de entrada: aparece enquanto ninguém estiver logado -->
@@ -153,12 +153,19 @@
     <section class="view" id="view-importar" data-view="importar" aria-labelledby="importar-title" hidden>
       <div class="view__head">
         <div>
-          <h1 class="view__title" id="importar-title">Importar conteúdos</h1>
-          <p class="view__text">Envie uma planilha do Excel (.xlsx) ou .csv com os conteúdos de um cliente. Antes de gravar, o painel mostra uma prévia e aponta o que precisa de correção.</p>
+          <h1 class="view__title" id="importar-title">Importar por planilha</h1>
+          <p class="view__text">Envie uma planilha do Excel (.xlsx) ou .csv com os conteúdos do calendário ou os anúncios de um cliente. Antes de gravar, o painel mostra uma prévia e aponta o que precisa de correção.</p>
         </div>
-        <a class="btn btn--ghost" href="modelo-importacao-conteudos.xlsx" download data-icon="arrowRight">Baixar modelo (.xlsx)</a>
+        <a class="btn btn--ghost" href="modelo-importacao-conteudos.xlsx" download data-icon="arrowRight" data-import-template>Baixar modelo (.xlsx)</a>
       </div>
       <form class="import-form" id="import-form" novalidate>
+        <fieldset class="field import-kind form-grid__wide">
+          <legend class="field__label">O que importar</legend>
+          <div class="view-toggle" role="radiogroup">
+            <label class="import-kind__opt"><input class="visually-hidden" type="radio" name="kind" value="contents" checked><span>Conteúdos do calendário</span></label>
+            <label class="import-kind__opt"><input class="visually-hidden" type="radio" name="kind" value="ads"><span>Anúncios</span></label>
+          </div>
+        </fieldset>
         <label class="field">
           <span class="field__label">1. Cliente</span>
           <select class="field__input" name="client_id"><option value="">Escolha o cliente</option></select>
@@ -170,7 +177,7 @@
             <span class="import-drop__icon" data-icon="layers"></span>
             <span class="import-drop__text"><b>Escolher planilha</b><span data-file-name>Nenhum arquivo escolhido</span></span>
           </label>
-          <span class="field__hint">Colunas: Título, Data, Horário, Rede social, Formato, Link da referência, Legenda, Observação para o cliente, Observações internas e Status. Só Título, Data, Rede social e Formato são obrigatórias.</span>
+          <span class="field__hint" data-import-hint>Colunas: Título, Data, Horário, Rede social, Formato, Link da referência, Legenda, Observação para o cliente, Observações internas e Status. Só Título, Data, Rede social e Formato são obrigatórias.</span>
         </div>
       </form>
       <div class="import-preview" id="import-preview" aria-live="polite"></div>

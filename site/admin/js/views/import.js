@@ -1,19 +1,22 @@
-/* Seção Importar: planilha (.xlsx ou .csv) → conteúdos de um cliente.
+/* Seção Importar: planilha (.xlsx ou .csv) → conteúdos ou anúncios de um cliente.
+   "O que importar" escolhe o modo (cada um com o seu modelo de planilha).
    1. Escolher o cliente e a planilha (modelo para baixar).
    2. Prévia linha a linha: o que está pronto, o que precisa de correção e o
       que parece repetido (desmarcado). Miniatura da referência em cada linha.
    3. Importar os marcados de uma vez (tudo ou nada). */
 
-import { $, esc, on } from "../../../js/lib/dom.js?v=a5be30320a";
-import { icon } from "../../../js/lib/icons.js?v=a5be30320a";
-import { timeLabel } from "../../../js/lib/dates.js?v=a5be30320a";
-import { typeBadge } from "../../../js/ui/badges.js?v=a5be30320a";
-import { describeMedia, mediaCover, coverHtml } from "../../../js/ui/media.js?v=a5be30320a";
-import { NETWORKS, CONTENT_STATUS } from "../domain/rules.js?v=a5be30320a";
-import { readSpreadsheet } from "../lib/spreadsheet.js?v=a5be30320a";
-import { mapRows, COLUMN_LABELS } from "../domain/import.js?v=a5be30320a";
-import { setBusy } from "../ui/dialogs.js?v=a5be30320a";
-import { stateBlock } from "../ui/states.js?v=a5be30320a";
+import { $, esc, on } from "../../../js/lib/dom.js?v=98478e305b";
+import { icon } from "../../../js/lib/icons.js?v=98478e305b";
+import { timeLabel } from "../../../js/lib/dates.js?v=98478e305b";
+import { typeBadge } from "../../../js/ui/badges.js?v=98478e305b";
+import { describeMedia, mediaCover, coverHtml } from "../../../js/ui/media.js?v=98478e305b";
+import { NETWORKS, CONTENT_STATUS } from "../domain/rules.js?v=98478e305b";
+import { readSpreadsheet } from "../lib/spreadsheet.js?v=98478e305b";
+import { mapRows, COLUMN_LABELS } from "../domain/import.js?v=98478e305b";
+import { mapAdRows, AD_COLUMN_LABELS } from "../domain/import-ads.js?v=98478e305b";
+import { AD_FORMATS, platformLabel } from "../domain/rules.js?v=98478e305b";
+import { setBusy } from "../ui/dialogs.js?v=98478e305b";
+import { stateBlock } from "../ui/states.js?v=98478e305b";
 
 const shortDate = (iso) => (iso ? iso.split("-").reverse().join("/") : "—");
 
@@ -28,6 +31,25 @@ function refCell(value) {
   return `${link}<span class="imp-ref imp-ref--video" title="${esc(media.provider || "Vídeo")}">${icon("play")}</span></a>`;
 }
 
+const MODES = {
+  contents: {
+    template: "modelo-importacao-conteudos.xlsx",
+    hint: "Colunas: Título, Data, Horário, Rede social, Formato, Link da referência, Legenda, Observação para o cliente, Observações internas e Status. Só Título, Data, Rede social e Formato são obrigatórias.",
+    one: "conteúdo", many: "conteúdos"
+  },
+  ads: {
+    template: "modelo-importacao-anuncios.xlsx",
+    hint: "Colunas: Título do anúncio, Plataforma, Formato, Objetivo, Contexto da campanha, Texto principal, Headline, Descrição, CTA, Link de destino, Link do criativo, Observação para o cliente, Observações internas e Enviar para aprovação. Só Título, Plataforma e Formato são obrigatórias. Os anúncios entram como rascunho; os marcados com \"sim\" (e com link do criativo) já vão para o cliente aprovar.",
+    one: "anúncio", many: "anúncios"
+  }
+};
+
+function adCreativeCell(item) {
+  const first = item.creative[0];
+  if (!first) return '<span class="imp-ref imp-ref--none" title="Sem criativo">—</span>';
+  return refCell({ media_url: first.url, media_kind: first.kind });
+}
+
 export function setupImport({ api, state, toast, navigate }) {
   const view = $("#view-importar");
   const form = $("#import-form");
@@ -38,6 +60,14 @@ export function setupImport({ api, state, toast, navigate }) {
   let result = null;          // { items, missing, error }
   let selected = new Set();   // linhas marcadas para importar
   let importing = false;
+  const mode = () => (form.elements.kind.value === "ads" ? "ads" : "contents");
+  const templateLink = view.querySelector("[data-import-template]");
+  const hint = view.querySelector("[data-import-hint]");
+  function syncMode() {
+    const m = MODES[mode()];
+    templateLink.setAttribute("href", m.template);
+    hint.textContent = m.hint;
+  }
 
   /** Clientes ativos no seletor (mantém a escolha) */
   function syncClients() {
@@ -48,32 +78,19 @@ export function setupImport({ api, state, toast, navigate }) {
     else if (active.length === 1) clientSelect.value = active[0].id;
   }
 
-  function render() {
-    if (!result) { preview.innerHTML = ""; return; }
-    if (result.error) {
-      preview.innerHTML = stateBlock({ iconName: "message", tone: "error", title: "Não foi possível usar esta planilha", text: result.error });
-      return;
-    }
-    const { items, missing } = result;
-    if (!items.length) {
-      preview.innerHTML = stateBlock({ iconName: "calendar", title: "Nenhum conteúdo na planilha", text: "A planilha tem os títulos das colunas, mas nenhuma linha preenchida." });
-      return;
-    }
-    const ready = items.filter((i) => i.valid).length;
-    const withErrors = items.length - ready;
-    const dupes = items.filter((i) => i.duplicate).length;
+
+  const checkAll = (items, chosen) => `<input type="checkbox" data-imp-all aria-label="Marcar todos os prontos" ${chosen && chosen === items.filter((i) => i.valid).length ? "checked" : ""}>`;
+  const situation = (item) => `${item.errors.length
+      ? `<ul class="imp-msgs imp-msgs--error">${item.errors.map((e) => `<li>${esc(e)}</li>`).join("")}</ul>`
+      : `<span class="imp-ok">${icon("check")}Pronto</span>`}
+      ${item.warnings.length ? `<ul class="imp-msgs imp-msgs--warn">${item.warnings.map((w) => `<li>${esc(w)}</li>`).join("")}</ul>` : ""}`;
+  const pick = (item) => `<input type="checkbox" data-imp-line="${item.line}" aria-label="Importar a linha ${item.line}" ${item.valid ? "" : "disabled"} ${selected.has(item.line) ? "checked" : ""}>`;
+
+  function contentTable(items) {
     const chosen = items.filter((i) => selected.has(i.line)).length;
-    const optionalMissing = missing.filter((f) => !["title", "scheduled_date"].includes(f));
-    preview.innerHTML = `
-      <div class="imp-summary" role="status">
-        <span class="imp-pill imp-pill--ok">${icon("check")}${ready} ${ready === 1 ? "pronto" : "prontos"}</span>
-        ${withErrors ? `<span class="imp-pill imp-pill--error">${icon("close")}${withErrors} com erro</span>` : ""}
-        ${dupes ? `<span class="imp-pill imp-pill--warn">${icon("copy")}${dupes} ${dupes === 1 ? "parece repetido" : "parecem repetidos"}</span>` : ""}
-        ${optionalMissing.length ? `<span class="imp-note">Colunas não encontradas (ficam vazias): ${esc(optionalMissing.map((f) => COLUMN_LABELS[f]).join(", "))}</span>` : ""}
-      </div>
-      <div class="imp-table" role="table" aria-label="Prévia da importação">
+    return `
         <div class="imp-row imp-row--head" role="row">
-          <span role="columnheader"><input type="checkbox" data-imp-all aria-label="Marcar todos os prontos" ${chosen && chosen === items.filter((i) => i.valid).length ? "checked" : ""}></span>
+          <span role="columnheader">${checkAll(items, chosen)}</span>
           <span role="columnheader">Linha</span><span role="columnheader">Data</span><span role="columnheader">Ref.</span><span role="columnheader">Título</span>
           <span role="columnheader">Rede</span><span role="columnheader">Formato</span><span role="columnheader">Status</span><span role="columnheader">Situação</span>
         </div>
@@ -94,11 +111,66 @@ export function setupImport({ api, state, toast, navigate }) {
               : `<span class="imp-ok">${icon("check")}Pronto</span>`}
               ${item.warnings.length ? `<ul class="imp-msgs imp-msgs--warn">${item.warnings.map((w) => `<li>${esc(w)}</li>`).join("")}</ul>` : ""}</span>
           </div>`;
-        }).join("")}
+        }).join("")}`;
+  }
+
+  function adTable(items) {
+    const chosen = items.filter((i) => selected.has(i.line)).length;
+    return `
+        <div class="imp-row imp-row--ads imp-row--head" role="row">
+          <span role="columnheader">${checkAll(items, chosen)}</span>
+          <span role="columnheader">Linha</span><span role="columnheader">Criativo</span><span role="columnheader">Anúncio</span>
+          <span role="columnheader">Plataforma</span><span role="columnheader">Formato</span><span role="columnheader">Enviar?</span><span role="columnheader">Situação</span>
+        </div>
+        ${items.map((item) => {
+          const v = item.value;
+          return `
+          <div class="imp-row imp-row--ads${item.valid ? "" : " is-error"}${item.duplicate ? " is-dupe" : ""}" role="row" data-line="${item.line}">
+            <span role="cell">${pick(item)}</span>
+            <span role="cell" class="imp-line">${item.line}</span>
+            <span role="cell">${adCreativeCell(item)}</span>
+            <span role="cell" class="imp-title">${esc(v.title || "—")}${v.headline ? `<small>${esc(v.headline)}</small>` : v.primary_text ? `<small>${esc(v.primary_text.slice(0, 80))}${v.primary_text.length > 80 ? "…" : ""}</small>` : ""}</span>
+            <span role="cell">${esc(v.platform ? platformLabel(v) : "—")}</span>
+            <span role="cell">${esc(AD_FORMATS[v.format]?.label || "—")}${item.creative.length > 1 ? `<small class="imp-line"> · ${item.creative.length} itens</small>` : ""}</span>
+            <span role="cell" class="imp-send ${item.send ? "imp-send--yes" : "imp-send--no"}">${item.send ? "Sim" : "Rascunho"}</span>
+            <span role="cell" class="imp-check">${situation(item)}</span>
+          </div>`;
+        }).join("")}`;
+  }
+
+  function render() {
+    if (!result) { preview.innerHTML = ""; return; }
+    if (result.error) {
+      preview.innerHTML = stateBlock({ iconName: "message", tone: "error", title: "Não foi possível usar esta planilha", text: result.error });
+      return;
+    }
+    const { items, missing } = result;
+    const m = MODES[result.mode || "contents"];
+    if (!items.length) {
+      preview.innerHTML = stateBlock({ iconName: "calendar", title: `Nenhum ${m.one} na planilha`, text: "A planilha tem os títulos das colunas, mas nenhuma linha preenchida." });
+      return;
+    }
+    const ready = items.filter((i) => i.valid).length;
+    const withErrors = items.length - ready;
+    const dupes = items.filter((i) => i.duplicate).length;
+    const chosen = items.filter((i) => selected.has(i.line)).length;
+    const ads = result.mode === "ads";
+    const labels = ads ? AD_COLUMN_LABELS : COLUMN_LABELS;
+    const optionalMissing = missing.filter((f) => !["title", "scheduled_date", "platform"].includes(f));
+    preview.innerHTML = `
+      <div class="imp-summary" role="status">
+        <span class="imp-pill imp-pill--ok">${icon("check")}${ready} ${ready === 1 ? "pronto" : "prontos"}</span>
+        ${withErrors ? `<span class="imp-pill imp-pill--error">${icon("close")}${withErrors} com erro</span>` : ""}
+        ${dupes ? `<span class="imp-pill imp-pill--warn">${icon("copy")}${dupes} ${dupes === 1 ? "parece repetido" : "parecem repetidos"}</span>` : ""}
+        ${ads && items.some((i) => i.valid && i.send) ? `<span class="imp-pill imp-pill--ok">${icon("send")}${items.filter((i) => i.valid && i.send).length} ${items.filter((i) => i.valid && i.send).length === 1 ? "vai" : "vão"} direto para aprovação</span>` : ""}
+        ${optionalMissing.length ? `<span class="imp-note">Colunas não encontradas (ficam vazias): ${esc(optionalMissing.map((f) => labels[f]).join(", "))}</span>` : ""}
+      </div>
+      <div class="imp-table" role="table" aria-label="Prévia da importação">
+        ${ads ? adTable(items) : contentTable(items)}
       </div>
       <div class="imp-actions">
         <p class="imp-note">${withErrors ? "Linhas com erro não são importadas: corrija na planilha e escolha o arquivo de novo." : "Tudo certo para importar."}</p>
-        <button class="btn btn--primary" type="button" data-imp-run ${chosen ? "" : "disabled"}>${icon("sparkle")}<span>${chosen ? `Importar ${chosen} ${chosen === 1 ? "conteúdo" : "conteúdos"}` : "Nada marcado para importar"}</span></button>
+        <button class="btn btn--primary" type="button" data-imp-run ${chosen ? "" : "disabled"}>${icon("sparkle")}<span>${chosen ? `Importar ${chosen} ${chosen === 1 ? m.one : m.many}` : "Nada marcado para importar"}</span></button>
       </div>`;
   }
 
@@ -114,8 +186,15 @@ export function setupImport({ api, state, toast, navigate }) {
     }
     preview.innerHTML = '<div class="state" role="status"><span class="skeleton imp-loading"></span><p class="state__text">Lendo a planilha…</p></div>';
     try {
-      const [sheet, existing] = await Promise.all([readSpreadsheet(file), api.listContents({ client_id: clientSelect.value })]);
-      result = mapRows(sheet.rows, { clientId: clientSelect.value, date1904: sheet.date1904, existing });
+      const kind = mode();
+      const [sheet, existing] = await Promise.all([
+        readSpreadsheet(file),
+        kind === "ads" ? api.listAds({ client_id: clientSelect.value }) : api.listContents({ client_id: clientSelect.value })
+      ]);
+      result = kind === "ads"
+        ? mapAdRows(sheet.rows, { clientId: clientSelect.value, existing })
+        : mapRows(sheet.rows, { clientId: clientSelect.value, date1904: sheet.date1904, existing });
+      result.mode = kind;
       // Prontos e não repetidos já vêm marcados
       result.items.forEach((item) => { if (item.valid && !item.duplicate) selected.add(item.line); });
     } catch (error) {
@@ -125,6 +204,7 @@ export function setupImport({ api, state, toast, navigate }) {
   }
 
   form.addEventListener("change", (event) => {
+    if (event.target.name === "kind") { syncMode(); if (fileInput.files?.[0]) analyze(); else { result = null; render(); } return; }
     if (event.target === fileInput || event.target === clientSelect) analyze();
   });
   form.addEventListener("submit", (event) => event.preventDefault());
@@ -148,8 +228,10 @@ export function setupImport({ api, state, toast, navigate }) {
 
   on(preview, "click", "[data-imp-run]", async (event, button) => {
     if (importing || !result) return;
-    const rows = result.items.filter((i) => i.valid && selected.has(i.line)).map((i) => i.value);
+    const picked = result.items.filter((i) => i.valid && selected.has(i.line));
+    const rows = picked.map((i) => i.value);
     if (!rows.length) return;
+    if (result.mode === "ads") { await runAds(picked, button); return; }
     importing = true;
     setBusy(button, true);
     const clientId = clientSelect.value;
@@ -174,8 +256,41 @@ export function setupImport({ api, state, toast, navigate }) {
       importing = false;
     }
   });
-  on(preview, "click", "[data-imp-see]", (event, button) => navigate("conteudos", { client_id: button.dataset.impSee }));
+  on(preview, "click", "[data-imp-see]", (event, button) => navigate(button.dataset.impRoute || "conteudos", { client_id: button.dataset.impSee }));
 
+  /** Anúncios: um por vez (cria, liga o criativo, envia os marcados) */
+  async function runAds(picked, button) {
+    importing = true;
+    setBusy(button, true);
+    const clientId = clientSelect.value;
+    const client = state.clients.find((c) => c.id === clientId);
+    const label = button.querySelector("span");
+    try {
+      const report = await api.importAds(picked, { onProgress: (p) => { label.textContent = `Importando… ${Math.round(p * 100)}%`; } });
+      result = null;
+      selected = new Set();
+      fileInput.value = "";
+      fileLabel.textContent = "Nenhum arquivo escolhido";
+      const n = report.created;
+      toast(`${n} ${n === 1 ? "anúncio importado" : "anúncios importados"}`, report.problems.length ? "error" : "success");
+      const parts = [`${report.sent} ${report.sent === 1 ? "já foi enviado" : "já foram enviados"} para o cliente aprovar; os demais estão como rascunho (envie o criativo pelo painel).`];
+      preview.innerHTML = stateBlock({
+        iconName: report.problems.length ? "message" : "check",
+        tone: report.problems.length && !n ? "error" : undefined,
+        title: `${n} ${n === 1 ? "anúncio importado" : "anúncios importados"} para ${client?.name || "o cliente"}`,
+        text: parts.join(" "),
+        actions: `<button class="btn btn--primary btn--sm" type="button" data-imp-see="${esc(clientId)}" data-imp-route="anuncios">${icon("megaphone")}<span>Ver anúncios do cliente</span></button>`
+      }) + (report.problems.length ? `<ul class="imp-msgs imp-msgs--error imp-report">${report.problems.map((p) => `<li>Linha ${esc(p.line)} (${esc(p.title)}): ${esc(p.message)}</li>`).join("")}</ul>` : "");
+    } catch (error) {
+      toast(`A importação parou: ${error.message}`, "error");
+      setBusy(button, false);
+      render();
+    } finally {
+      importing = false;
+    }
+  }
+
+  syncMode();
   return {
     show() {
       syncClients();

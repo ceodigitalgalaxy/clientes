@@ -6,6 +6,7 @@ import assert from "node:assert/strict";
 import { describeMedia, mediaCover } from "../../site/js/ui/media.js";
 import { readSpreadsheet } from "../../site/admin/js/lib/spreadsheet.js";
 import { validateAd } from "../../site/admin/js/domain/rules.js";
+import { mapAdRows, splitLinks } from "../../site/admin/js/domain/import-ads.js";
 import { mapRows, parseDate, parseTime } from "../../site/admin/js/domain/import.js";
 import { createSupabaseRepository } from "../../site/js/data/supabase-repository.js";
 import { activityFromContent } from "../../site/js/domain/content-mapping.js";
@@ -369,5 +370,27 @@ ok("anúncios: validação do cadastro", () => {
   assert.deepEqual(Object.keys(bad.errors).sort(), ["client_id", "cta", "destination_url", "format", "objective", "platform_other", "title"]);
   assert.equal(validateAd({ platform: "meta", platform_other: "LinkedIn" }).value.platform_other, null, "outra plataforma só quando escolhida");
 });
+
+{
+  const asFile = (name, buffer) => ({ name, size: buffer.length, arrayBuffer: async () => buffer.buffer.slice(buffer.byteOffset, buffer.byteOffset + buffer.length) });
+  const sheet = await readSpreadsheet(asFile("a.xlsx", readFileSync(new URL("./fixtures/importacao-anuncios.xlsx", import.meta.url))));
+  const r = mapAdRows(sheet.rows, { clientId: "11111111-1111-4111-8111-111111111111", existing: [{ title: "Promoção de Inverno" }] });
+  ok("importar anúncios: cabeçalho depois de um título, apelidos e criativo", () => {
+    assert.equal(r.items.length, 6);
+    const [carrossel, video, linkedin, semTitulo, gif, repetido] = r.items;
+    assert.deepEqual([carrossel.value.platform, carrossel.value.format, carrossel.value.objective, carrossel.send, carrossel.creative.length], ["meta", "carrossel", "vendas", true, 2]);
+    assert.equal(carrossel.value.internal_notes, "INTERNO-X");
+    assert.deepEqual([video.value.platform, video.value.format, video.send, video.creative[0].kind], ["google", "video", false, "video"]);
+    assert.deepEqual([linkedin.value.platform, linkedin.value.platform_other, linkedin.value.objective, linkedin.send], ["outra", "LinkedIn Ads", "leads", false]);
+    assert.ok(linkedin.valid && linkedin.warnings.some((w) => /rascunho/.test(w)), "sem criativo: vira rascunho com aviso");
+    assert.ok(!semTitulo.valid && !gif.valid);
+    assert.ok(gif.errors.some((e) => /Formato desconhecido/.test(e)));
+    assert.ok(repetido.duplicate && repetido.valid);
+  });
+  ok("importar anúncios: planilha sem as colunas certas é recusada", () => {
+    assert.match(mapAdRows([["Título", "Data"], ["x", "1/1/2027"]], { clientId: "11111111-1111-4111-8111-111111111111" }).error, /Plataforma/);
+    assert.deepEqual(splitLinks("https://a.com/1.png, https://a.com/2.png;https://a.com/3.png\nhttps://a.com/4.png"), ["https://a.com/1.png", "https://a.com/2.png", "https://a.com/3.png", "https://a.com/4.png"]);
+  });
+}
 
 console.log(`portal: ${checks} verificações passaram`);

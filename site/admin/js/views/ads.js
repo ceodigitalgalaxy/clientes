@@ -11,16 +11,16 @@
    Endereço: #/anuncios?status=...&client_id=...
    ========================================================================== */
 
-import { $, esc, on } from "../../../js/lib/dom.js?v=a5be30320a";
-import { icon } from "../../../js/lib/icons.js?v=a5be30320a";
-import { stampLabel } from "../../../js/lib/dates.js?v=a5be30320a";
-import { renderMedia, mediaFallback, mediaCover, coverHtml, wireMediaFallbacks } from "../../../js/ui/media.js?v=a5be30320a";
-import { wireCarousel } from "../../../js/ui/preview.js?v=a5be30320a";
-import { renderAdMock, renderAdTexts, renderAdHistory, adStatusBadge } from "../../../js/ui/ad-preview.js?v=a5be30320a";
-import { UPLOAD_LIMITS } from "../../../js/lib/storage.js?v=a5be30320a";
-import { AD_STATUS, AD_PLATFORMS, AD_OBJECTIVES, AD_FORMATS, AD_CTAS, platformLabel, validateAdFilters } from "../domain/rules.js?v=a5be30320a";
-import { closeDialog, wireDialog, showFieldErrors, setBusy } from "../ui/dialogs.js?v=a5be30320a";
-import { stateBlock, loadingCards, button } from "../ui/states.js?v=a5be30320a";
+import { $, esc, on } from "../../../js/lib/dom.js?v=98478e305b";
+import { icon } from "../../../js/lib/icons.js?v=98478e305b";
+import { stampLabel } from "../../../js/lib/dates.js?v=98478e305b";
+import { renderMedia, mediaFallback, mediaCover, coverHtml, wireMediaFallbacks } from "../../../js/ui/media.js?v=98478e305b";
+import { wireCarousel } from "../../../js/ui/preview.js?v=98478e305b";
+import { renderAdMock, renderAdTexts, renderAdHistory, adStatusBadge } from "../../../js/ui/ad-preview.js?v=98478e305b";
+import { UPLOAD_LIMITS } from "../../../js/lib/storage.js?v=98478e305b";
+import { AD_STATUS, AD_PLATFORMS, AD_OBJECTIVES, AD_FORMATS, AD_CTAS, platformLabel, validateAdFilters } from "../domain/rules.js?v=98478e305b";
+import { closeDialog, wireDialog, showFieldErrors, setBusy } from "../ui/dialogs.js?v=98478e305b";
+import { stateBlock, loadingCards, button } from "../ui/states.js?v=98478e305b";
 
 const ACCEPT = UPLOAD_LIMITS.mediaTypes.join(",");
 const EDITABLE = ["rascunho", "alteracoes_solicitadas"];
@@ -404,7 +404,8 @@ export function setupAds({ api, state, toast, confirm, navigate }) {
   on(drawer, "change", "[data-ad-files]", async (event, input) => {
     const files = [...(input.files || [])];
     input.value = "";
-    if (!files.length || busy) return;
+    if (!files.length) return;
+    while (busy) await new Promise((r) => setTimeout(r, 50));   // espera a ação anterior terminar
     busy = true;
     const uploads = drawer.querySelector("[data-ad-uploads]");
     let position = current.assets.length ? Math.max(...current.assets.map((a) => a.position)) + 1 : 0;
