@@ -2,8 +2,8 @@
    Valida os dados antes de enviar (domain/rules.js); o banco confere de novo
    com as próprias regras e só aceita membros da equipe (RLS). */
 
-import { validateClient, validateContent, validateContentFilters, parseUsername, passwordProblem, CONTENT_STATUS, isUuid, validateAd, validateAdFilters, AD_LIMITS } from "./domain/rules.js?v=0470164d89";
-import { UPLOAD_LIMITS, fileName, fileProblem, resizeImage } from "../../js/lib/storage.js?v=0470164d89";
+import { validateClient, validateContent, validateContentFilters, parseUsername, passwordProblem, CONTENT_STATUS, isUuid, validateAd, validateAdFilters, AD_LIMITS } from "./domain/rules.js?v=e96162d7e7";
+import { UPLOAD_LIMITS, fileName, fileProblem, resizeImage } from "../../js/lib/storage.js?v=e96162d7e7";
 
 export class ApiError extends Error {
   constructor(status, message, fields) { super(message); this.status = status; this.fields = fields || {}; }
@@ -110,6 +110,12 @@ export function createApi({ store, onSessionLost, access = null, storage = null 
       await store.deleteAd(ad.id);
       const paths = (ad.assets || []).map((a) => a.storage_path).filter(Boolean);
       if (paths.length) await storage.remove(AD_BUCKET, paths).catch(() => {});
+    }),
+    setAdsStage: guard((ids, stage) => {
+      if (!["referencia", "final"].includes(stage)) throw new ApiError(422, "Tipo de criativo inválido.");
+      const unique = [...new Set(ids)];
+      if (!unique.length || unique.length > 500 || !unique.every(isUuid)) throw new ApiError(422, "Seleção inválida.");
+      return store.setAdsStage(unique, stage);
     }),
     adTransition: guard((id, action, message = "") => {
       const text = String(message || "").trim();

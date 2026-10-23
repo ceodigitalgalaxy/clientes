@@ -115,6 +115,7 @@ const signIn = async (page, username, password) => {
   await page.fill('#login-form [name="password"]', password);
   await page.click("#login-form [type=submit]");
 };
+const toastSays = (page, re) => page.waitForFunction((src) => [...document.querySelectorAll(".toast")].some((t) => new RegExp(src).test(t.textContent)), re.source);
 const restCalls = () => fake.log.filter((r) => r.path.startsWith("/rest/"));
 
 /* ============================== Testes ============================== */
@@ -431,6 +432,21 @@ await step("Carregando e erro com nova tentativa ao trocar de mês", async () =>
   await portal.click('[data-action="retry-load"]', { timeout: 3000 }).catch(() => {});
   await portal.waitForSelector(`.cal__cell[data-day="${D(12)}"] .chip`);
   assert.equal(await portal.locator(".load-error").count(), 0, "o erro some quando a conexão volta");
+});
+
+await step("Baixar PDF do calendário: grade do mês e lista com dias e títulos", async () => {
+  const [download] = await Promise.all([portal.waitForEvent("download"), portal.click('[data-action="pdf"]')]);
+  assert.match(download.suggestedFilename(), /^calendario-padaria-central-ltda-\d{4}-\d{2}\.pdf$/);
+  const file = await download.path();
+  const bytes = (await import("node:fs")).readFileSync(file);
+  const text = bytes.toString("latin1");
+  assert.ok(text.startsWith("%PDF-1.4") && text.trimEnd().endsWith("%%EOF"), "arquivo PDF válido");
+  assert.match(text, /\(Calend\xe1rio de /, "título do mês");
+  assert.match(text, /\(Padaria Central Ltda/, "nome do cliente");
+  const items = await store.listClientCalendar(padaria.id, { from: `${MONTH}-01`, to: `${MONTH}-31` });
+  for (const c of items.slice(0, 5)) assert.ok(text.includes(c.title.slice(0, 12).replace(/[()\\]/g, "")) || text.includes(Buffer.from(c.title.slice(0, 12), "latin1").toString("latin1")), `título "${c.title}" no PDF`);
+  assert.ok(!text.includes("SEGREDO"), "observação interna nunca vai para o PDF");
+  await toastSays(portal, /PDF de .* gerado/);
 });
 
 await step("Celular: agenda do dia e detalhes em folha, sem rolagem lateral", async () => {

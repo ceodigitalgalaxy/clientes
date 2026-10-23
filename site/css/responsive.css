@@ -63,8 +63,10 @@
   .planner__nav .btn { padding: 0 12px; }
   .planner__actions { flex-wrap: nowrap; width: 100%; }
   .planner__actions .btn { flex: 1 1 0; padding: 0 8px; }
-  .planner__actions .planner__refresh { flex: none; width: 44px; padding: 0; }
-  .planner__refresh .btn__label { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+  .planner__actions .planner__refresh,
+  .planner__actions .planner__pdf { flex: none; width: 44px; padding: 0; }
+  .planner__refresh .btn__label,
+  .planner__pdf .btn__label { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
   .view-toggle { flex: 1 1 auto; }
   .view-toggle__btn { flex: 1; min-height: 36px; }
   .cal--week .cal__cell { min-height: 72px; }

@@ -11,12 +11,12 @@
        Solicitar alterações → comentário obrigatório → registrado.
    ========================================================================== */
 
-import { esc, on, reduceMotion } from "../lib/dom.js?v=0470164d89";
-import { icon } from "../lib/icons.js?v=0470164d89";
-import { renderAdMock, renderAdTexts, renderAdHistory, adStatusBadge } from "./ad-preview.js?v=0470164d89";
-import { coverHtml, mediaCover, embedCoverHtml, wireMediaFallbacks } from "./media.js?v=0470164d89";
-import { wireCarousel } from "./preview.js?v=0470164d89";
-import { AD_STATUS, AD_FORMATS, AD_LIMITS, platformLabel } from "../domain/ads.js?v=0470164d89";
+import { esc, on, reduceMotion } from "../lib/dom.js?v=e96162d7e7";
+import { icon } from "../lib/icons.js?v=e96162d7e7";
+import { renderAdMock, renderAdTexts, renderAdHistory, adStatusBadge } from "./ad-preview.js?v=e96162d7e7";
+import { coverHtml, mediaCover, embedCoverHtml, wireMediaFallbacks } from "./media.js?v=e96162d7e7";
+import { wireCarousel } from "./preview.js?v=e96162d7e7";
+import { AD_STATUS, AD_STAGES, AD_FORMATS, AD_LIMITS, platformLabel } from "../domain/ads.js?v=e96162d7e7";
 
 const TABS = [
   ["", "Todos"],
@@ -103,7 +103,7 @@ export function createAdsView({ section, dialog, repo, getClient, toast, onCount
         <button class="ad-card__open" type="button" data-open-ad="${esc(ad.id)}" aria-label="${esc(`${pend ? "Ver e aprovar" : "Ver detalhes"}: ${ad.title}`)}">
           ${cardCover(ad)}
           <span class="ad-card__body">
-            <span class="ad-card__top">${adStatusBadge(ad.status)}${pend ? '<span class="attention-dot" title="Precisa da sua aprovação"></span>' : ""}</span>
+            <span class="ad-card__top"><span class="ad-card__badges">${adStatusBadge(ad.status)}${ad.creative_stage === "referencia" ? '<span class="stage-badge">Referência</span>' : ""}</span>${pend ? '<span class="attention-dot" title="Precisa da sua aprovação"></span>' : ""}</span>
             <span class="ad-card__title">${esc(ad.title)}</span>
             <span class="ad-card__meta">${esc(platformLabel(ad))} · ${esc(AD_FORMATS[ad.format]?.label || "")}</span>
             ${ad.campaign_context ? `<span class="ad-card__text">${esc(ad.campaign_context)}</span>` : ""}
@@ -124,7 +124,7 @@ export function createAdsView({ section, dialog, repo, getClient, toast, onCount
   function statusBlock(ad) {
     const last = [...ad.history].reverse().find((e) => e.event === ad.status);
     if (ad.status === "aprovado") {
-      return `<div class="decision decision--aprovado"><span class="decision__icon">${icon("check")}</span><div><p class="decision__title">Anúncio aprovado</p><p class="decision__text">${last ? `Você aprovou em ${esc(stamp(last.created_at))}. ` : ""}A equipe já pode colocar no ar.</p></div></div>`;
+      return `<div class="decision decision--aprovado"><span class="decision__icon">${icon("check")}</span><div><p class="decision__title">${ad.creative_stage === "referencia" ? "Referência aprovada" : "Anúncio aprovado"}</p><p class="decision__text">${last ? `Você aprovou em ${esc(stamp(last.created_at))}. ` : ""}${ad.creative_stage === "referencia" ? "A equipe vai produzir a arte final e enviar para você aprovar." : "A equipe já pode colocar no ar."}</p></div></div>`;
     }
     if (ad.status === "alteracoes_solicitadas") {
       return `<div class="decision decision--ajustes"><span class="decision__icon">${icon("message")}</span><div><p class="decision__title">Alterações solicitadas</p>
@@ -140,7 +140,7 @@ export function createAdsView({ section, dialog, repo, getClient, toast, onCount
     if (ad.status !== "aguardando_aprovacao") return "";
     if (mode === "confirm") {
       return `<footer class="ad-decide ad-decide--confirm" role="group" aria-label="Confirmar aprovação">
-        <p class="ad-decide__text"><b>Aprovar este anúncio?</b> A decisão fica registrada e a equipe pode colocar no ar.</p>
+        <p class="ad-decide__text">${ad.creative_stage === "referencia" ? "<b>Aprovar esta referência?</b> A decisão fica registrada e a equipe segue para a arte final." : "<b>Aprovar este anúncio?</b> A decisão fica registrada e a equipe pode colocar no ar."}</p>
         <div class="ad-decide__buttons">
           <button class="btn btn--ghost" type="button" data-ad-do="cancel">Voltar</button>
           <button class="btn btn--success" type="button" data-ad-do="approve">${icon("check")}Sim, aprovar</button>
@@ -186,6 +186,7 @@ export function createAdsView({ section, dialog, repo, getClient, toast, onCount
             <div class="facts__row"><dt>${icon(AD_FORMATS[ad.format]?.icon || "image")}Formato</dt><dd>${esc(AD_FORMATS[ad.format]?.label || "")}</dd></div>
           </dl>
           <section class="detail" aria-live="polite">${statusBlock(ad)}</section>
+          ${ad.creative_stage === "referencia" ? `<p class="stage-note">${icon("lightbulb")}<span><b>Isto é uma referência.</b> Você está aprovando a ideia e a inspiração do anúncio. Depois, a nossa equipe produz a arte final e envia para você aprovar de novo.</span></p>` : ""}
           ${ad.campaign_context ? `<section class="detail"><div class="detail__head"><h3 class="detail__title">Sobre a campanha</h3></div><p class="detail__text">${esc(ad.campaign_context)}</p></section>` : ""}
           <section class="detail"><div class="detail__head"><h3 class="detail__title">Como o anúncio vai aparecer</h3></div>
             ${renderAdMock(ad, { brandName: client.name, logoUrl: client.logoUrl, initials: client.initials })}</section>

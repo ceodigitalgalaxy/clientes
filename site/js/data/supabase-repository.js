@@ -20,9 +20,9 @@
      listComments, countComments, listIdeas → vazios por enquanto
    ========================================================================== */
 
-import { activityFromContent } from "../domain/content-mapping.js?v=0470164d89";
-import { daysInMonth } from "../lib/dates.js?v=0470164d89";
-import { createStorage } from "../lib/storage.js?v=0470164d89";
+import { activityFromContent } from "../domain/content-mapping.js?v=e96162d7e7";
+import { daysInMonth } from "../lib/dates.js?v=e96162d7e7";
+import { createStorage } from "../lib/storage.js?v=e96162d7e7";
 
 /** Respostas de portal_decide → mensagens para o cliente */
 const DECISION_ERRORS = {
@@ -158,7 +158,7 @@ export function createSupabaseRepository({ url, apiKey, auth, fetchImpl = global
     /* ---------- Anúncios (aprovação de criativos pagos) ---------- */
     /** Anúncios já enviados ao cliente (nunca rascunhos), com o criativo e o histórico */
     async listAds() {
-      const rows = await rpc("portal_ads");
+      const rows = await rpc("portal_ad_list");
       const list = Array.isArray(rows) ? rows : [];
       const linkFor = await signPaths(list.flatMap((ad) => (ad.assets || []).map((a) => a.storage_path).filter(Boolean)), "ad-media");
       return list.map((ad) => ({

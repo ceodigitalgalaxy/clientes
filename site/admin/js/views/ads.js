@@ -11,16 +11,16 @@
    Endereço: #/anuncios?status=...&client_id=...
    ========================================================================== */
 
-import { $, esc, on } from "../../../js/lib/dom.js?v=0470164d89";
-import { icon } from "../../../js/lib/icons.js?v=0470164d89";
-import { stampLabel } from "../../../js/lib/dates.js?v=0470164d89";
-import { renderMedia, mediaFallback, mediaCover, coverHtml, embedCoverHtml, wireMediaFallbacks } from "../../../js/ui/media.js?v=0470164d89";
-import { wireCarousel } from "../../../js/ui/preview.js?v=0470164d89";
-import { renderAdMock, renderAdTexts, renderAdHistory, adStatusBadge } from "../../../js/ui/ad-preview.js?v=0470164d89";
-import { UPLOAD_LIMITS } from "../../../js/lib/storage.js?v=0470164d89";
-import { AD_STATUS, AD_PLATFORMS, AD_OBJECTIVES, AD_FORMATS, AD_CTAS, platformLabel, validateAdFilters } from "../domain/rules.js?v=0470164d89";
-import { closeDialog, wireDialog, showFieldErrors, setBusy } from "../ui/dialogs.js?v=0470164d89";
-import { stateBlock, loadingCards, button } from "../ui/states.js?v=0470164d89";
+import { $, esc, on } from "../../../js/lib/dom.js?v=e96162d7e7";
+import { icon } from "../../../js/lib/icons.js?v=e96162d7e7";
+import { stampLabel } from "../../../js/lib/dates.js?v=e96162d7e7";
+import { renderMedia, mediaFallback, mediaCover, coverHtml, embedCoverHtml, wireMediaFallbacks } from "../../../js/ui/media.js?v=e96162d7e7";
+import { wireCarousel } from "../../../js/ui/preview.js?v=e96162d7e7";
+import { renderAdMock, renderAdTexts, renderAdHistory, adStatusBadge } from "../../../js/ui/ad-preview.js?v=e96162d7e7";
+import { UPLOAD_LIMITS } from "../../../js/lib/storage.js?v=e96162d7e7";
+import { AD_STAGES, AD_STATUS, AD_PLATFORMS, AD_OBJECTIVES, AD_FORMATS, AD_CTAS, platformLabel, validateAdFilters } from "../domain/rules.js?v=e96162d7e7";
+import { closeDialog, wireDialog, showFieldErrors, setBusy } from "../ui/dialogs.js?v=e96162d7e7";
+import { stateBlock, loadingCards, button } from "../ui/states.js?v=e96162d7e7";
 
 const ACCEPT = UPLOAD_LIMITS.mediaTypes.join(",");
 const EDITABLE = ["rascunho", "alteracoes_solicitadas"];
@@ -154,7 +154,7 @@ export function setupAds({ api, state, toast, confirm, navigate }) {
         <button class="ad-card__open" type="button" data-open-ad="${esc(ad.id)}" aria-label="Abrir ${esc(ad.title)}">
           ${cardCover(ad)}
           <span class="ad-card__body">
-            <span class="ad-card__top">${adStatusBadge(ad.status)}${ad.status === "alteracoes_solicitadas" ? `<span class="attention-dot" title="Precisa de atenção"></span>` : ""}</span>
+            <span class="ad-card__top"><span class="ad-card__badges">${adStatusBadge(ad.status)}${ad.creative_stage === "referencia" ? '<span class="stage-badge">Referência</span>' : ""}</span>${ad.status === "alteracoes_solicitadas" ? `<span class="attention-dot" title="Precisa de atenção"></span>` : ""}</span>
             <span class="ad-card__title">${esc(ad.title)}</span>
             <span class="ad-card__meta">${esc(clientName(ad.client_id))}</span>
             <span class="ad-card__meta">${esc(platformLabel(ad))} · ${esc(AD_FORMATS[ad.format]?.label || "")}${ad.version > 1 ? ` · versão ${esc(ad.version)}` : ""}</span>
@@ -210,6 +210,28 @@ export function setupAds({ api, state, toast, confirm, navigate }) {
   on(list, "click", "[data-open-ad]", (event, b) => openDetails(b.dataset.openAd));
 
   /* ---------- Ações em massa ---------- */
+  async function bulkStage(stage, chosen, button) {
+    const editable = chosen.filter((a) => EDITABLE.includes(a.status) && a.creative_stage !== stage);
+    const label = AD_STAGES[stage].label.toLowerCase();
+    if (!editable.length) { toast(`Nada a mudar: os marcados já estão como ${label} ou estão com o cliente/aprovados (recolha ou reabra para editar).`, "error"); return; }
+    const out = chosen.length - editable.length;
+    const yes = await confirm({ title: `Marcar ${editable.length} ${editable.length === 1 ? "anúncio" : "anúncios"} como ${label}?`, text: `${AD_STAGES[stage].hint}${out ? ` ${out} ${out === 1 ? "fica" : "ficam"} de fora (já ${out === 1 ? "está" : "estão"} assim ou não ${out === 1 ? "está" : "estão"} em rascunho/alterações).` : ""}`, confirmLabel: "Marcar", tone: "primary" });
+    if (!yes) return;
+    bulkBusy = true;
+    setBusy(button, true);
+    try {
+      await api.setAdsStage(editable.map((a) => a.id), stage);
+      toast(`${editable.length} ${editable.length === 1 ? "anúncio marcado" : "anúncios marcados"} como ${label}`);
+      picked.clear();
+      await load(filters);
+    } catch (error) {
+      toast(error.message, "error");
+    } finally {
+      bulkBusy = false;
+      setBusy(button, false);
+    }
+  }
+
   on(list, "change", "[data-ad-pick]", (event, box) => {
     if (box.checked) picked.add(box.dataset.adPick); else picked.delete(box.dataset.adPick);
     syncBulk();
@@ -226,6 +248,7 @@ export function setupAds({ api, state, toast, confirm, navigate }) {
     const button = event.currentTarget;
     const action = bulk.querySelector("[data-ads-bulk-action]").value;
     const chosen = ads.filter((a) => picked.has(a.id));
+    if (action.startsWith("stage:")) { await bulkStage(action.slice(6), chosen, button); return; }
     // Quem pode receber a ação (o banco confere de novo cada um)
     const ok = action === "enviar"
       ? chosen.filter((a) => EDITABLE.includes(a.status) && a.assets.length)
@@ -276,8 +299,8 @@ export function setupAds({ api, state, toast, confirm, navigate }) {
     form.elements.client_id.innerHTML = options(active.map((c) => [c.id, c.name]), "Escolha o cliente");
     modal.querySelector("#ad-modal-title").textContent = ad ? "Editar anúncio" : "Novo anúncio";
     submit.querySelector("span").textContent = ad ? "Salvar alterações" : "Salvar rascunho";
-    const values = ad || { client_id: filters.client_id || (active.length === 1 ? active[0].id : ""), platform: "meta", format: "imagem" };
-    ["client_id", "title", "campaign_context", "objective", "platform", "platform_other", "format", "primary_text", "headline", "description", "cta", "destination_url", "client_notes", "internal_notes"]
+    const values = ad || { client_id: filters.client_id || (active.length === 1 ? active[0].id : ""), platform: "meta", format: "imagem", creative_stage: "final" };
+    ["client_id", "title", "campaign_context", "objective", "platform", "platform_other", "format", "creative_stage", "primary_text", "headline", "description", "cta", "destination_url", "client_notes", "internal_notes"]
       .forEach((name) => { form.elements[name].value = values[name] ?? ""; });
     // Depois do primeiro envio, o anúncio fica com o mesmo cliente (o banco também confere)
     form.elements.client_id.disabled = Boolean(ad?.first_submitted_at);
@@ -407,6 +430,7 @@ export function setupAds({ api, state, toast, confirm, navigate }) {
         <div class="facts__row"><dt>${icon("target")}Plataforma</dt><dd>${esc(platformLabel(ad, false))}</dd></div>
         <div class="facts__row"><dt>${icon("send")}Envio</dt><dd>${ad.submitted_at ? esc(stampLabel(ad.submitted_at)) : "Ainda não enviado"}</dd></div>
         <div class="facts__row"><dt>${icon("layers")}Versão</dt><dd>${esc(ad.version)}</dd></div>
+        <div class="facts__row"><dt>${icon("image")}Criativo</dt><dd>${esc(AD_STAGES[ad.creative_stage]?.long || "")}</dd></div>
       </dl>
       <div class="ad-status-note">${statusNote(ad, history.events)}</div>
       ${ad.status === "alteracoes_solicitadas" ? `<label class="field ad-change-note"><span class="field__label">O que mudou nesta versão <span class="field__optional">(opcional, o cliente vê no histórico)</span></span><textarea class="field__input field__input--area" rows="2" maxlength="1000" data-ad-message>${esc(changeNote.id === ad.id ? changeNote.text : "")}</textarea></label>` : ""}
@@ -456,7 +480,7 @@ export function setupAds({ api, state, toast, confirm, navigate }) {
   });
 
   const CONFIRMS = {
-    enviar: (ad) => ({ title: ad.first_submitted_at ? `Enviar a versão ${ad.version + 1} para aprovação?` : "Enviar para o cliente aprovar?", text: `${clientName(ad.client_id)} passa a ver o anúncio na aba "Anúncios" do portal e pode aprovar ou pedir alterações.`, confirmLabel: "Enviar" }),
+    enviar: (ad) => ({ title: ad.first_submitted_at ? `Enviar a versão ${ad.version + 1} para aprovação?` : "Enviar para o cliente aprovar?", text: `${clientName(ad.client_id)} passa a ver o anúncio na aba "Anúncios" do portal e pode aprovar ou pedir alterações.${ad.creative_stage === "referencia" ? " Vai como REFERÊNCIA: o cliente aprova a ideia; a arte final vai depois, como nova versão." : ""}`, confirmLabel: "Enviar" }),
     recolher: () => ({ title: "Recolher para editar?", text: "O anúncio sai da tela do cliente e volta a ser rascunho até você enviar de novo (como nova versão).", confirmLabel: "Recolher" }),
     reabrir: () => ({ title: "Reabrir um anúncio aprovado?", text: "Ele volta a ser rascunho. A aprovação anterior fica no histórico; para valer de novo, envie uma nova versão.", confirmLabel: "Reabrir" }),
     arquivar: () => ({ title: "Arquivar este anúncio?", text: "Ele sai do fluxo ativo. Dá para reativar depois.", confirmLabel: "Arquivar" }),

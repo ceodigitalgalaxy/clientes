@@ -17,6 +17,12 @@ export const AD_STATUS = {
 /** O que o cliente enxerga (rascunho nunca) */
 export const AD_CLIENT_STATUS = ["aguardando_aprovacao", "alteracoes_solicitadas", "aprovado", "arquivado"];
 
+/** O criativo enviado: referência (aprovar a ideia) ou arte final (pronta para veicular) */
+export const AD_STAGES = {
+  referencia: { label: "Referência", long: "Referência (aprovar a ideia)", hint: "O cliente aprova a ideia e a inspiração. A arte final vem depois, como nova versão." },
+  final: { label: "Arte final", long: "Arte final (pronta para veicular)", hint: "O criativo que vai ao ar." }
+};
+
 export const AD_PLATFORMS = { meta: "Meta Ads (Facebook e Instagram)", google: "Google Ads", tiktok: "TikTok Ads", outra: "Outra plataforma" };
 export const AD_PLATFORMS_SHORT = { meta: "Meta Ads", google: "Google Ads", tiktok: "TikTok Ads", outra: "Outra" };
 

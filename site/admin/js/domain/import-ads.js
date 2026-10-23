@@ -13,9 +13,9 @@
    - Cada linha passa pela MESMA validação do cadastro manual (validateAd).
    ========================================================================== */
 
-import { validateAd, AD_PLATFORMS, AD_FORMATS } from "./rules.js?v=0470164d89";
-import { norm, lookup, isEmptyRow, MAX_IMPORT_ROWS } from "./import.js?v=0470164d89";
-import { describeMedia } from "../../../js/ui/media.js?v=0470164d89";
+import { validateAd, AD_PLATFORMS, AD_FORMATS } from "./rules.js?v=e96162d7e7";
+import { norm, lookup, isEmptyRow, MAX_IMPORT_ROWS } from "./import.js?v=e96162d7e7";
+import { describeMedia } from "../../../js/ui/media.js?v=e96162d7e7";
 
 export const AD_COLUMNS = {
   title: ["titulo", "titulo do anuncio", "nome do anuncio", "anuncio", "nome"],
@@ -31,12 +31,13 @@ export const AD_COLUMNS = {
   creative: ["link do criativo", "criativo", "links do criativo", "midia", "arte", "link da arte", "url do criativo", "video", "imagem"],
   client_notes: ["observacao para o cliente", "observacoes para o cliente", "obs para o cliente", "obs cliente", "nota para o cliente"],
   internal_notes: ["observacoes internas", "observacao interna", "obs interna", "obs internas", "notas internas", "observacoes", "observacao", "obs"],
+  stage: ["tipo do criativo", "tipo de criativo", "o criativo e", "criativo e", "etapa do criativo", "referencia ou arte final", "referencia ou final"],
   send: ["enviar para aprovacao", "enviar", "enviar ao cliente", "mandar para aprovacao"]
 };
 export const AD_COLUMN_LABELS = {
   title: "Título do anúncio", platform: "Plataforma", format: "Formato", objective: "Objetivo", campaign_context: "Contexto da campanha",
   primary_text: "Texto principal", headline: "Headline", description: "Descrição", cta: "CTA", destination_url: "Link de destino",
-  creative: "Link do criativo", client_notes: "Observação para o cliente", internal_notes: "Observações internas", send: "Enviar para aprovação"
+  creative: "Link do criativo", stage: "Tipo do criativo", client_notes: "Observação para o cliente", internal_notes: "Observações internas", send: "Enviar para aprovação"
 };
 
 const PLATFORM_ALIASES = {
@@ -57,6 +58,10 @@ const OBJECTIVE_ALIASES = {
   vendas: ["vendas", "conversao", "conversoes", "venda", "compras"],
   mensagens: ["mensagens", "mensagem", "whatsapp", "direct", "conversas"],
   outro: ["outro", "outros"]
+};
+const STAGE_ALIASES = {
+  referencia: ["referencia", "ref", "inspiracao", "ideia", "conceito", "aprovar ideia", "referencia aprovar a ideia"],
+  final: ["final", "arte final", "pronto", "pronta", "criativo final", "finalizado", "arte final pronta para veicular"]
 };
 const YES = ["sim", "s", "x", "yes", "enviar", "1", "true", "ok"];
 const NO = ["nao", "n", "no", "0", "false", ""];
@@ -138,6 +143,13 @@ export function mapAdRows(rows, { clientId, existing = [] }) {
     if (creative.length > 20) errors.push("Use até 20 links de criativo por anúncio.");
     if (send && !creative.length) warnings.push("Sem link do criativo: entra como rascunho (envie o arquivo pelo painel e mande para aprovação).");
     if (format === "carrossel" && creative.length === 1) warnings.push("Carrossel com um só item.");
+    // Tipo do criativo: sem a coluna, links da planilha contam como referência (arquivos finais vão pelo painel)
+    let stage = creative.length ? "referencia" : "final";
+    if (text("stage")) {
+      const found = lookup(STAGE_ALIASES, cell("stage"));
+      if (found) stage = found;
+      else warnings.push(`Tipo do criativo "${text("stage")}" não reconhecido: considerei ${stage === "referencia" ? "referência" : "arte final"}.`);
+    }
 
     const input = {
       client_id: clientId,
@@ -145,6 +157,7 @@ export function mapAdRows(rows, { clientId, existing = [] }) {
       platform: platform || "",
       platform_other: platformOther,
       format: format || "",
+      creative_stage: stage,
       objective,
       campaign_context: text("campaign_context"),
       primary_text: text("primary_text"),

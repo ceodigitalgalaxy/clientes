@@ -21,7 +21,7 @@ export class StoreError extends Error {
 }
 
 const CLIENT_FIELDS = "id,name,slug,segment,contact_name,contact_email,notes,active,logo_path,created_at,updated_at";
-const AD_FIELDS = "id,client_id,title,campaign_context,objective,platform,platform_other,format,primary_text,headline,description,cta,destination_url,client_notes,internal_notes,status,version,submitted_at,submitted_by,first_submitted_at,created_by,created_at,updated_at";
+const AD_FIELDS = "id,client_id,title,campaign_context,objective,platform,platform_other,format,creative_stage,primary_text,headline,description,cta,destination_url,client_notes,internal_notes,status,version,submitted_at,submitted_by,first_submitted_at,created_by,created_at,updated_at";
 const AD_ASSET_FIELDS = "id,ad_id,kind,storage_path,url,position,created_at";
 
 /** Recusas das funções do fluxo de anúncios (raise exception) em português */
@@ -222,6 +222,10 @@ export function createSupabaseStore({ url, apiKey, secretKey, getToken, onUnauth
     },
     async updateAd(id, value) {
       return request(`ads?select=${AD_FIELDS}&id=eq.${enc(id)}`, { method: "PATCH", body: value, single: true, prefer: "return=representation" });
+    },
+    /** Só o tipo do criativo, para vários (o banco recusa se algum não estiver editável) */
+    async setAdsStage(ids, stage) {
+      return request(`ads?select=id,creative_stage&id=in.(${ids.map(enc).join(",")})`, { method: "PATCH", body: { creative_stage: stage }, prefer: "return=representation" });
     },
     async deleteAd(id) {
       await request(`ads?select=id&id=eq.${enc(id)}`, { method: "DELETE", single: true, prefer: "return=representation" });

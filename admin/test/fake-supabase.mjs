@@ -61,7 +61,8 @@ export function createFakeSupabase({ store, publishableKey }) {
     if (name === "portal_calendar" && keys === "p_from,p_to") return store.portalContents(user.id, body.p_from, body.p_to);
     const actor = { id: user.id, role: user.member ? "equipe" : "cliente", username: usernameFromEmail(user.email) };
     if (name === "ad_transition" && ["p_action,p_ad_id", "p_action,p_ad_id,p_message"].includes(keys)) return store.adTransition(actor, body);
-    if (name === "portal_ads" && keys === "") return store.portalAds(user.id);
+    if (name === "portal_ads" && keys === "") return (await store.portalAds(user.id)).map(({ creative_stage, ...row }) => row);
+    if (name === "portal_ad_list" && keys === "") return store.portalAds(user.id);
     if (name === "portal_ad_decide" && ["p_ad_id,p_decision,p_message,p_version", "p_ad_id,p_decision,p_version"].includes(keys)) return store.portalAdDecide(actor, body);
     if (name === "portal_decide" && ["p_content_id,p_decision,p_message,p_version", "p_content_id,p_decision,p_version"].includes(keys)) return store.portalDecide(user.id, body);
     return { error: json(404, { code: "PGRST202", message: "Could not find the function with the given parameters" }) };
@@ -98,6 +99,8 @@ export function createFakeSupabase({ store, publishableKey }) {
       if (method === "GET" && id) return [await store.getAd(id)];
       if (method === "GET") return store.listAds({ client_id: eq(params, "client_id"), status: eq(params, "status") });
       if (method === "POST") return [await store.createAd(body, actor)];
+      const many = params.get("id")?.match(/^in\.\((.*)\)$/)?.[1];
+      if (method === "PATCH" && many !== undefined && Object.keys(body).join() === "creative_stage") return store.setAdsStage(many.split(",").filter(Boolean), body.creative_stage);
       if (method === "PATCH") return [await store.updateAd(id, body)];
       if (method === "DELETE") { await store.deleteAd(id); return [{ id }]; }
     }

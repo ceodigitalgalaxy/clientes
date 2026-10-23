@@ -5,18 +5,18 @@
       que parece repetido (desmarcado). Miniatura da referência em cada linha.
    3. Importar os marcados de uma vez (tudo ou nada). */
 
-import { $, esc, on } from "../../../js/lib/dom.js?v=0470164d89";
-import { icon } from "../../../js/lib/icons.js?v=0470164d89";
-import { timeLabel } from "../../../js/lib/dates.js?v=0470164d89";
-import { typeBadge } from "../../../js/ui/badges.js?v=0470164d89";
-import { describeMedia, mediaCover, coverHtml } from "../../../js/ui/media.js?v=0470164d89";
-import { NETWORKS, CONTENT_STATUS } from "../domain/rules.js?v=0470164d89";
-import { readSpreadsheet } from "../lib/spreadsheet.js?v=0470164d89";
-import { mapRows, COLUMN_LABELS } from "../domain/import.js?v=0470164d89";
-import { mapAdRows, AD_COLUMN_LABELS } from "../domain/import-ads.js?v=0470164d89";
-import { AD_FORMATS, platformLabel } from "../domain/rules.js?v=0470164d89";
-import { setBusy } from "../ui/dialogs.js?v=0470164d89";
-import { stateBlock } from "../ui/states.js?v=0470164d89";
+import { $, esc, on } from "../../../js/lib/dom.js?v=e96162d7e7";
+import { icon } from "../../../js/lib/icons.js?v=e96162d7e7";
+import { timeLabel } from "../../../js/lib/dates.js?v=e96162d7e7";
+import { typeBadge } from "../../../js/ui/badges.js?v=e96162d7e7";
+import { describeMedia, mediaCover, coverHtml } from "../../../js/ui/media.js?v=e96162d7e7";
+import { NETWORKS, CONTENT_STATUS } from "../domain/rules.js?v=e96162d7e7";
+import { readSpreadsheet } from "../lib/spreadsheet.js?v=e96162d7e7";
+import { mapRows, COLUMN_LABELS } from "../domain/import.js?v=e96162d7e7";
+import { mapAdRows, AD_COLUMN_LABELS } from "../domain/import-ads.js?v=e96162d7e7";
+import { AD_FORMATS, platformLabel } from "../domain/rules.js?v=e96162d7e7";
+import { setBusy } from "../ui/dialogs.js?v=e96162d7e7";
+import { stateBlock } from "../ui/states.js?v=e96162d7e7";
 
 const shortDate = (iso) => (iso ? iso.split("-").reverse().join("/") : "—");
 
@@ -39,7 +39,7 @@ const MODES = {
   },
   ads: {
     template: "modelo-importacao-anuncios.xlsx",
-    hint: "Colunas: Título do anúncio, Plataforma, Formato, Objetivo, Contexto da campanha, Texto principal, Headline, Descrição, CTA, Link de destino, Link do criativo, Observação para o cliente, Observações internas e Enviar para aprovação. Só Título, Plataforma e Formato são obrigatórias. Os anúncios entram como rascunho; os marcados com \"sim\" (e com link do criativo) já vão para o cliente aprovar.",
+    hint: "Colunas: Título do anúncio, Plataforma, Formato, Objetivo, Contexto da campanha, Texto principal, Headline, Descrição, CTA, Link de destino, Link do criativo, Observação para o cliente, Observações internas e Tipo do criativo (Referência ou Arte final) e Enviar para aprovação. Só Título, Plataforma e Formato são obrigatórias. Links do criativo contam como referência, a não ser que a coluna diga “Arte final”. Os anúncios entram como rascunho; os marcados com \"sim\" (e com link do criativo) já vão para o cliente aprovar.",
     one: "anúncio", many: "anúncios"
   }
 };
@@ -131,7 +131,7 @@ export function setupImport({ api, state, toast, navigate }) {
             <span role="cell">${adCreativeCell(item)}</span>
             <span role="cell" class="imp-title">${esc(v.title || "—")}${v.headline ? `<small>${esc(v.headline)}</small>` : v.primary_text ? `<small>${esc(v.primary_text.slice(0, 80))}${v.primary_text.length > 80 ? "…" : ""}</small>` : ""}</span>
             <span role="cell">${esc(v.platform ? platformLabel(v) : "—")}</span>
-            <span role="cell">${esc(AD_FORMATS[v.format]?.label || "—")}${item.creative.length > 1 ? `<small class="imp-line"> · ${item.creative.length} itens</small>` : ""}</span>
+            <span role="cell">${esc(AD_FORMATS[v.format]?.label || "—")}${item.creative.length > 1 ? `<small class="imp-line"> · ${item.creative.length} itens</small>` : ""}${v.creative_stage === "referencia" ? '<small><span class="stage-badge">Referência</span></small>' : ""}</span>
             <span role="cell" class="imp-send ${item.send ? "imp-send--yes" : "imp-send--no"}">${item.send ? "Sim" : "Rascunho"}</span>
             <span role="cell" class="imp-check">${situation(item)}</span>
           </div>`;

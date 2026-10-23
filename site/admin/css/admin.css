@@ -193,20 +193,23 @@ select.field__input { padding-right: 40px; appearance: none; background-image: u
   .topbar__inner { flex-wrap: wrap; height: auto; padding-top: 12px; padding-bottom: 12px; }
   .admin-title, .topbar__divider { display: none; }
   .user-menu { gap: 12px; }
-  .user-menu__name { max-width: 160px; }
+  .user-menu { flex: 1 1 auto; min-width: 0; justify-content: flex-end; }
+  .user-menu__name { max-width: none; min-width: 0; }
   .login__card { padding: 32px 24px; }
   .password-row { flex-wrap: wrap; }
   .password-row .field__input { flex-basis: 100%; }
   .admin-nav { order: 3; width: 100%; }
   .admin-nav { gap: 4px; }
-  .admin-nav__link { flex: 1 1 0; min-width: 0; justify-content: center; gap: 6px; padding: 0 8px; }
+  .admin-nav__link { flex: 1 1 0; min-width: 0; flex-direction: column; justify-content: center; gap: 2px; height: auto; min-height: 52px; padding: 6px 2px; font-size: 12px; line-height: 1.2; white-space: nowrap; }
+  .admin-nav__link .nav-badge { position: absolute; top: 2px; right: calc(50% - 26px); min-width: 18px; height: 18px; margin: 0; padding: 0 5px; font-size: 10px; }
   .view__head { flex-direction: column; align-items: stretch; }
   .view__title { font-size: 26px; }
-  .row { grid-template-columns: 20px minmax(0, 1fr) auto; grid-template-areas: "pick date actions" "pick title actions" ". client client" ". status meta"; column-gap: 12px; padding: 16px; }
+  .row { grid-template-columns: 20px minmax(0, 1fr) auto; grid-template-areas: "pick date actions" "pick title title" ". client client" ". status meta"; column-gap: 12px; row-gap: 6px; padding: 16px; }
+  .row__title { white-space: normal; overflow-wrap: anywhere; display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 3; line-clamp: 3; }
   .bulk { bottom: 8px; padding: 12px; }
   .bulk__count { width: 100%; }
   .bulk__field { flex: 1 1 100%; flex-wrap: wrap; gap: 4px; }
-  .bulk__field .field__input { flex: 1; min-width: 0; }
+  .bulk__field .field__input { flex: 1 1 100%; min-width: 0; }
   .bulk .btn { flex: 1 1 0; }
   .row__format { justify-self: end; }
   .form-grid { grid-template-columns: minmax(0, 1fr); }
@@ -360,3 +363,6 @@ select.field__input { padding-right: 40px; appearance: none; background-image: u
 .ad-card__pick input { width: 18px; height: 18px; accent-color: var(--brand); cursor: pointer; }
 .ad-card.is-picked { border-color: var(--brand); box-shadow: 0 0 0 3px var(--brand-soft), var(--shadow-card); }
 #ads-bulk { margin-top: 16px; }
+
+.ad-stage .check { align-items: flex-start; }
+.ad-stage .check span { font-size: 14px; line-height: 1.45; }

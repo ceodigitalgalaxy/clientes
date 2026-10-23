@@ -116,6 +116,7 @@ await step("1-2. Equipe cadastra o anúncio e salva como rascunho (com validaç�
   assert.match(await admin.textContent("#ad-modal"), /Escolha o cliente.*Informe o título do anúncio/s);
   await admin.selectOption('#ad-modal [name="client_id"]', padaria.id);
   await admin.fill('#ad-modal [name="title"]', "Promoção de inverno");
+  assert.equal(await admin.locator('#ad-modal [name="creative_stage"]:checked').getAttribute("value"), "final", "padrão: arte final");
   await admin.fill('#ad-modal [name="campaign_context"]', "Público que já comprou café da manhã. Período: julho.");
   await admin.selectOption('#ad-modal [name="objective"]', "vendas");
   await admin.selectOption('#ad-modal [name="platform"]', "outra");
@@ -437,9 +438,19 @@ await step("Importar anúncios por planilha: prévia, rascunhos, envio dos marca
   assert.deepEqual([by("Vídeo da fornada").status, by("Vídeo da fornada").ad_assets[0].kind], ["rascunho", "video"]);
   assert.deepEqual([by("Post LinkedIn").status, by("Post LinkedIn").platform_other], ["rascunho", "LinkedIn Ads"]);
   assert.equal(all.filter((a) => a.title === "Promoção de inverno").length, 1, "repetido não foi importado de novo");
+  assert.equal(by("Carrossel de julho").creative_stage, "referencia", "link da planilha entra como referência");
   // O cliente já vê o que foi enviado; rascunhos não
   await portalAds();
   await portal.waitForFunction(() => [...document.querySelectorAll(".ad-card__title")].some((n) => n.textContent === "Carrossel de julho"));
+  assert.match(await portal.textContent('.ad-card:has-text("Carrossel de julho")'), /Referência/);
+  await portal.click('.ad-card:has-text("Carrossel de julho") .ad-card__open');
+  await portal.waitForSelector("#ad-detail[open] .stage-note");
+  assert.match(await portal.textContent("#ad-detail .stage-note"), /Isto é uma referência/);
+  await portal.click('#ad-detail [data-ad-do="confirm"]');
+  assert.match(await portal.textContent("#ad-detail .ad-decide"), /Aprovar esta referência\?/);
+  await portal.click('#ad-detail [data-ad-do="cancel"]');
+  await portal.click('#ad-detail [data-ad-do="close"]');
+  await portal.waitForSelector("#ad-detail:not([open])", { state: "attached" });
   const titles = await portal.$$eval(".ad-card__title", (n) => n.map((x) => x.textContent));
   assert.ok(!titles.includes("Vídeo da fornada") && !titles.includes("Post LinkedIn"));
   await admin.click("#import-preview [data-imp-see]");
@@ -464,6 +475,18 @@ await step("Enviar vários anúncios para aprovação de uma vez (os sem criativ
   assert.equal(all.find((a) => a.title === "Vídeo da fornada").status, "aguardando_aprovacao");
   assert.equal(all.find((a) => a.title === "Post LinkedIn").status, "rascunho");
   await admin.waitForSelector("#ads-bulk", { state: "hidden" });
+  // Marcar como referência em massa (só os editáveis)
+  await admin.click('[data-ad-tab="rascunho"]');
+  await admin.waitForSelector('.ad-card:has-text("Post LinkedIn")');
+  await admin.check('.ad-card:has-text("Post LinkedIn") [data-ad-pick]');
+  await admin.selectOption("#ads-bulk [data-ads-bulk-action]", "stage:referencia");
+  await admin.click("#ads-bulk [data-ads-bulk-apply]");
+  await admin.waitForSelector("#confirm-modal[open]");
+  assert.match(await admin.textContent("#confirm-modal"), /Marcar 1 anúncio como referência/);
+  await confirmOk();
+  await toastSays(admin, /1 anúncio marcado como referência/);
+  assert.equal((await store.listAds({ client_id: padaria.id })).find((a) => a.title === "Post LinkedIn").creative_stage, "referencia");
+  await admin.waitForSelector('.ad-card:has-text("Post LinkedIn") .stage-badge');
   // Selecionar todos (da aba) e desmarcar
   await admin.click('[data-ad-tab=""]');
   await admin.waitForSelector("[data-ads-all]:not([hidden])");

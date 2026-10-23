@@ -13,9 +13,9 @@
   <link rel="preload" href="../fonts/sora-latin-400-normal.woff2" as="font" type="font/woff2" crossorigin>
   <link rel="preload" href="../fonts/sora-latin-600-normal.woff2" as="font" type="font/woff2" crossorigin>
   <!-- Mesmos tokens e componentes do portal do cliente -->
-  <link rel="stylesheet" href="../css/style.css?v=0470164d89">
-  <link rel="stylesheet" href="css/admin.css?v=0470164d89">
-  <script type="module" src="js/main.js?v=0470164d89"></script>
+  <link rel="stylesheet" href="../css/style.css?v=e96162d7e7">
+  <link rel="stylesheet" href="css/admin.css?v=e96162d7e7">
+  <script type="module" src="js/main.js?v=e96162d7e7"></script>
 </head>
 <body class="admin">
   <!-- Tela de entrada: aparece enquanto ninguém estiver logado -->
@@ -144,6 +144,8 @@
           <span class="bulk__label">Ação</span>
           <select class="field__input" data-ads-bulk-action>
             <option value="enviar">Enviar para aprovação</option>
+            <option value="stage:referencia">Marcar criativo como referência</option>
+            <option value="stage:final">Marcar criativo como arte final</option>
             <option value="arquivar">Arquivar</option>
           </select>
         </label>
@@ -422,6 +424,11 @@
           <span class="field__label">Formato</span>
           <select class="field__input" name="format" required></select>
         </label>
+        <fieldset class="field form-grid__wide radio-row ad-stage">
+          <legend class="field__label">O criativo é</legend>
+          <label class="check"><input type="radio" name="creative_stage" value="referencia"><span><b>Referência</b> · o cliente aprova a ideia (a arte final vem depois)</span></label>
+          <label class="check"><input type="radio" name="creative_stage" value="final" checked><span><b>Arte final</b> · pronta para veicular</span></label>
+        </fieldset>
         <label class="field">
           <span class="field__label">Plataforma</span>
           <select class="field__input" name="platform" required></select>

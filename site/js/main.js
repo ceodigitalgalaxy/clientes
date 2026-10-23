@@ -8,19 +8,20 @@
    para a aba e no botão "Atualizar").
    ========================================================================== */
 
-import { createSupabaseRepository } from "./data/supabase-repository.js?v=0470164d89";
-import { createAuth } from "./lib/auth.js?v=0470164d89";
-import { SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY } from "./config.js?v=0470164d89";
-import { $, esc, on, reduceMotion } from "./lib/dom.js?v=0470164d89";
-import { icon, brandMark } from "./lib/icons.js?v=0470164d89";
-import { monthKey, addMonths, addDays, monthLabel, weekLabel, weekDays, todayISO, fromISO, daysInMonth } from "./lib/dates.js?v=0470164d89";
-import { summarize } from "./domain/status.js?v=0470164d89";
-import { createHighlights, pickHighlights } from "./ui/highlights.js?v=0470164d89";
-import { createAdsView } from "./ui/ads-portal.js?v=0470164d89";
-import { renderCalendar, renderAgenda, renderLegend, setupDayPopover } from "./ui/calendar.js?v=0470164d89";
-import { createDrawer } from "./ui/drawer.js?v=0470164d89";
-import { renderIdeas, setupIdeaModal } from "./ui/ideas.js?v=0470164d89";
-import { toast } from "./ui/toast.js?v=0470164d89";
+import { createSupabaseRepository } from "./data/supabase-repository.js?v=e96162d7e7";
+import { createAuth } from "./lib/auth.js?v=e96162d7e7";
+import { SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY } from "./config.js?v=e96162d7e7";
+import { $, esc, on, reduceMotion } from "./lib/dom.js?v=e96162d7e7";
+import { icon, brandMark } from "./lib/icons.js?v=e96162d7e7";
+import { monthKey, addMonths, addDays, monthLabel, weekLabel, weekDays, todayISO, fromISO, daysInMonth } from "./lib/dates.js?v=e96162d7e7";
+import { summarize } from "./domain/status.js?v=e96162d7e7";
+import { createHighlights, pickHighlights } from "./ui/highlights.js?v=e96162d7e7";
+import { createAdsView } from "./ui/ads-portal.js?v=e96162d7e7";
+import { buildCalendarPdf, pdfFileName } from "./ui/calendar-pdf.js?v=e96162d7e7";
+import { renderCalendar, renderAgenda, renderLegend, setupDayPopover } from "./ui/calendar.js?v=e96162d7e7";
+import { createDrawer } from "./ui/drawer.js?v=e96162d7e7";
+import { renderIdeas, setupIdeaModal } from "./ui/ideas.js?v=e96162d7e7";
+import { toast } from "./ui/toast.js?v=e96162d7e7";
 
 /* O portal não abre dentro de outro site (proteção contra clique disfarçado).
    A página fica invisível até esta checagem (body.portal em style.css). */
@@ -394,6 +395,26 @@ function setupEvents() {
     el.calendar.querySelector(`[data-select="${state.selected}"].cal__date`)?.scrollIntoView({ block: "center", behavior: reduceMotion() ? "auto" : "smooth" });
   });
   on(document, "click", '[data-action="refresh"]', () => refreshQuietly({ announce: true }));
+  // PDF do mês mostrado: grade com os dias e títulos + lista completa (montado aqui no navegador)
+  on(document, "click", '[data-action="pdf"]', (event, button) => {
+    if (!state.loaded) return;
+    try {
+      button.disabled = true;
+      const bytes = buildCalendarPdf({ client: state.client.name, month: state.month, activities: state.activities, approvals: state.approvals });
+      const url = URL.createObjectURL(new Blob([bytes], { type: "application/pdf" }));
+      const link = Object.assign(document.createElement("a"), { href: url, download: pdfFileName(state.client.name, state.month) });
+      document.body.append(link);
+      link.click();
+      link.remove();
+      setTimeout(() => URL.revokeObjectURL(url), 60000);
+      toast(`PDF de ${monthLabel(state.month).toLowerCase()} gerado`);
+    } catch (error) {
+      console.error(error);
+      toast("Não foi possível gerar o PDF agora. Tente de novo.", "info");
+    } finally {
+      button.disabled = false;
+    }
+  });
   on(document, "click", '[data-action="new-idea"]', () => ideaModal.open());
   on(el.ideasList, "click", "[data-edit-idea]", (event, button) => {
     const idea = state.ideas.find((i) => i.id === button.dataset.editIdea);

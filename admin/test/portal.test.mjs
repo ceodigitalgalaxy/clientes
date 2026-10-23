@@ -345,8 +345,8 @@ ok("capa da referência: imagem, YouTube, Drive e arquivo de vídeo; Vimeo/TikTo
 /* ---------- Anúncios ---------- */
 responses = [{ status: 200, body: [{ id: "ad1", title: "Promo", platform: "meta", format: "imagem", status: "aguardando_aprovacao", version: 2, submitted_at: "2026-10-23T12:00:00Z", assets: [{ kind: "image", storage_path: null, url: "https://cdn.exemplo.com/a.png" }], history: [{ event: "enviado", version: 2 }] }] }];
 const adsList = await repo.listAds();
-ok("anúncios: só pela função portal_ads, sem id de cliente", () => {
-  assert.equal(calls.at(-1).url, "https://exemplo.supabase.co/rest/v1/rpc/portal_ads");
+ok("anúncios: só pela função portal_ad_list, sem id de cliente", () => {
+  assert.equal(calls.at(-1).url, "https://exemplo.supabase.co/rest/v1/rpc/portal_ad_list");
   assert.deepEqual(calls.at(-1).body, {});
   assert.equal(adsList[0].assets[0].src, "https://cdn.exemplo.com/a.png");
   assert.equal(adsList[0].history.length, 1);
@@ -380,9 +380,11 @@ ok("anúncios: validação do cadastro", () => {
     const [carrossel, video, linkedin, semTitulo, gif, repetido] = r.items;
     assert.deepEqual([carrossel.value.platform, carrossel.value.format, carrossel.value.objective, carrossel.send, carrossel.creative.length], ["meta", "carrossel", "vendas", true, 2]);
     assert.equal(carrossel.value.internal_notes, "INTERNO-X");
+    assert.equal(carrossel.value.creative_stage, "referencia", "links da planilha contam como referência");
     assert.deepEqual([video.value.platform, video.value.format, video.send, video.creative[0].kind], ["google", "video", false, "video"]);
     assert.deepEqual([linkedin.value.platform, linkedin.value.platform_other, linkedin.value.objective, linkedin.send], ["outra", "LinkedIn Ads", "leads", false]);
     assert.ok(linkedin.valid && linkedin.warnings.some((w) => /rascunho/.test(w)), "sem criativo: vira rascunho com aviso");
+    assert.equal(linkedin.value.creative_stage, "final");
     assert.ok(!semTitulo.valid && !gif.valid);
     assert.ok(gif.errors.some((e) => /Formato desconhecido/.test(e)));
     assert.ok(repetido.duplicate && repetido.valid);

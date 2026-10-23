@@ -7,7 +7,7 @@ import { StoreError } from "../../site/admin/js/data/store.js";
 
 const EDITABLE = ["rascunho", "alteracoes_solicitadas"];
 const CLIENT_STATUS = ["aguardando_aprovacao", "alteracoes_solicitadas", "aprovado", "arquivado"];
-const FIELDS = ["client_id", "title", "campaign_context", "objective", "platform", "platform_other", "format", "primary_text", "headline", "description", "cta", "destination_url", "client_notes", "internal_notes"];
+const FIELDS = ["client_id", "title", "campaign_context", "objective", "platform", "platform_other", "format", "creative_stage", "primary_text", "headline", "description", "cta", "destination_url", "client_notes", "internal_notes"];
 const fail = (key) => new StoreError(400, key, "P0001");
 
 export function createAdsMemory({ clients, members, now, tick }) {
@@ -37,7 +37,7 @@ export function createAdsMemory({ clients, members, now, tick }) {
     async createAd(value, actor) {
       await tick();
       if (!clients.has(value.client_id)) throw new StoreError(409, "Cliente não encontrado.", "23503");
-      const ad = { id: randomUUID(), ...Object.fromEntries(FIELDS.map((f) => [f, value[f] ?? null])), status: "rascunho", version: 1, submitted_at: null, submitted_by: null, first_submitted_at: null, created_by: actor.id, created_at: now(), updated_at: now() };
+      const ad = { id: randomUUID(), ...Object.fromEntries(FIELDS.map((f) => [f, value[f] ?? null])), creative_stage: value.creative_stage || "final", status: "rascunho", version: 1, submitted_at: null, submitted_by: null, first_submitted_at: null, created_by: actor.id, created_at: now(), updated_at: now() };
       ads.set(ad.id, ad);
       event(ad, "criado", actor, { to_status: "rascunho" });
       return { ...ad };
@@ -51,6 +51,14 @@ export function createAdsMemory({ clients, members, now, tick }) {
       FIELDS.forEach((f) => { if (f in value) ad[f] = value[f] ?? null; });
       ad.updated_at = now();
       return { ...ad };
+    },
+    /** PATCH de vários (uma instrução só: se algum não puder, nenhum muda) */
+    async setAdsStage(ids, stage) {
+      await tick();
+      const list = ids.map((id) => ads.get(id)).filter(Boolean);
+      if (list.some((ad) => !EDITABLE.includes(ad.status))) throw fail("anuncio_bloqueado");
+      list.forEach((ad) => { ad.creative_stage = stage; ad.updated_at = now(); });
+      return list.map(({ id, creative_stage }) => ({ id, creative_stage }));
     },
     async deleteAd(id) {
       await tick();
