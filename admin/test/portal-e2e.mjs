@@ -241,6 +241,17 @@ await step("Reel do Instagram aparece pelo player oficial do Instagram", async (
   assert.equal(await portal.getAttribute("#drawer .media--instagram a.media__open", "href"), "https://www.instagram.com/padariacentral/reel/Cabc123/");
   await portal.click('#drawer [data-do="close"]');
   await portal.waitForSelector("#drawer:not([open])", { state: "attached" });
+  // No carrossel de destaques, o post oficial vira a capa (carregado só quando o destaque aparece)
+  const i = await portal.$$eval(".slide", (slides) => slides.findIndex((n) => n.textContent.includes("Reel do Instagram")));
+  assert.ok(i >= 0, "reel nos destaques");
+  await portal.click(`.spot__dot[data-dot="${i}"]`);
+  await portal.waitForSelector(".slide.is-active .slide__embed--instagram iframe");
+  assert.equal(await portal.getAttribute(".slide.is-active .slide__embed--instagram iframe", "src"), "https://www.instagram.com/p/Cabc123/embed/");
+  await portal.click(".slide.is-active .slide__hit");
+  await portal.waitForSelector("#drawer[open]");
+  assert.equal(await portal.textContent("#drawer-title"), "Reel do Instagram", "clicar na capa abre os detalhes");
+  await portal.click('#drawer [data-do="close"]');
+  await portal.waitForSelector("#drawer:not([open])", { state: "attached" });
 });
 
 await step("Link que não pode ser incorporado e imagem quebrada: aviso amigável com o link original", async () => {

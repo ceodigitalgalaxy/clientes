@@ -8,18 +8,18 @@
    para a aba e no botão "Atualizar").
    ========================================================================== */
 
-import { createSupabaseRepository } from "./data/supabase-repository.js?v=b3c5769ca7";
-import { createAuth } from "./lib/auth.js?v=b3c5769ca7";
-import { SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY } from "./config.js?v=b3c5769ca7";
-import { $, esc, on, reduceMotion } from "./lib/dom.js?v=b3c5769ca7";
-import { icon, brandMark } from "./lib/icons.js?v=b3c5769ca7";
-import { monthKey, addMonths, addDays, monthLabel, weekLabel, weekDays, todayISO, fromISO, daysInMonth } from "./lib/dates.js?v=b3c5769ca7";
-import { summarize } from "./domain/status.js?v=b3c5769ca7";
-import { createHighlights, pickHighlights } from "./ui/highlights.js?v=b3c5769ca7";
-import { renderCalendar, renderAgenda, renderLegend, setupDayPopover } from "./ui/calendar.js?v=b3c5769ca7";
-import { createDrawer } from "./ui/drawer.js?v=b3c5769ca7";
-import { renderIdeas, setupIdeaModal } from "./ui/ideas.js?v=b3c5769ca7";
-import { toast } from "./ui/toast.js?v=b3c5769ca7";
+import { createSupabaseRepository } from "./data/supabase-repository.js?v=d5af9cfdc2";
+import { createAuth } from "./lib/auth.js?v=d5af9cfdc2";
+import { SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY } from "./config.js?v=d5af9cfdc2";
+import { $, esc, on, reduceMotion } from "./lib/dom.js?v=d5af9cfdc2";
+import { icon, brandMark } from "./lib/icons.js?v=d5af9cfdc2";
+import { monthKey, addMonths, addDays, monthLabel, weekLabel, weekDays, todayISO, fromISO, daysInMonth } from "./lib/dates.js?v=d5af9cfdc2";
+import { summarize } from "./domain/status.js?v=d5af9cfdc2";
+import { createHighlights, pickHighlights } from "./ui/highlights.js?v=d5af9cfdc2";
+import { renderCalendar, renderAgenda, renderLegend, setupDayPopover } from "./ui/calendar.js?v=d5af9cfdc2";
+import { createDrawer } from "./ui/drawer.js?v=d5af9cfdc2";
+import { renderIdeas, setupIdeaModal } from "./ui/ideas.js?v=d5af9cfdc2";
+import { toast } from "./ui/toast.js?v=d5af9cfdc2";
 
 /* O portal não abre dentro de outro site (proteção contra clique disfarçado).
    A página fica invisível até esta checagem (body.portal em style.css). */

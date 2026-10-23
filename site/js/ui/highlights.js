@@ -12,11 +12,11 @@
    Embaixo, os números do mês, pequenos.
    ========================================================================== */
 
-import { esc, reduceMotion } from "../lib/dom.js?v=b3c5769ca7";
-import { icon } from "../lib/icons.js?v=b3c5769ca7";
-import { addDays, longDayLabel, dayLabel, timeLabel, monthName } from "../lib/dates.js?v=b3c5769ca7";
-import { ACTIVITY_TYPES, PLATFORMS } from "../domain/model.js?v=b3c5769ca7";
-import { mediaCover, coverHtml } from "./media.js?v=b3c5769ca7";
+import { esc, reduceMotion } from "../lib/dom.js?v=d5af9cfdc2";
+import { icon } from "../lib/icons.js?v=d5af9cfdc2";
+import { addDays, longDayLabel, dayLabel, timeLabel, monthName } from "../lib/dates.js?v=d5af9cfdc2";
+import { ACTIVITY_TYPES, PLATFORMS } from "../domain/model.js?v=d5af9cfdc2";
+import { mediaCover, coverHtml, embedCover } from "./media.js?v=d5af9cfdc2";
 
 const AUTOPLAY_MS = 6000;
 const MAX_PUBLISHED = 4;
@@ -69,6 +69,8 @@ function slide(activity, index, total, today) {
   const group = GROUPS[activity.status];
   const type = ACTIVITY_TYPES[activity.type] || ACTIVITY_TYPES.outro;
   const art = cover(activity);
+  // Sem capa em imagem (ex.: Instagram): o post oficial vira a capa, carregado só quando o destaque aparece
+  const live = !art && activity.media[0] ? embedCover(activity.media[0].src, activity.media[0].kind) : null;
   const hasVideo = art?.play || (!art && (activity.final.some((f) => f.kind === "video") || activity.media[0]?.kind === "video"));
   const network = activity.platforms.map((p) => PLATFORMS[p] || p).join(", ");
   let tag = group.tag;
@@ -80,11 +82,13 @@ function slide(activity, index, total, today) {
   const pending = activity.status === "aguardando";
   return `
     <li class="slide slide--${esc(activity.status)}" role="group" aria-roledescription="destaque" aria-label="${index + 1} de ${total}: ${esc(activity.title)}" data-slide="${index}">
-      <button class="slide__media type--${esc(activity.type)}" type="button" data-highlight="${esc(activity.id)}" tabindex="-1" aria-hidden="true">
-        ${coverHtml(art, "data-slide-img")}
+      <div class="slide__media type--${esc(activity.type)}">
         <span class="slide__placeholder">${icon(hasVideo ? "play" : type.icon)}</span>
+        ${coverHtml(art, "data-slide-img")}
+        ${live ? `<span class="slide__embed slide__embed--${esc(live.provider.toLowerCase())}" data-embed="${esc(live.src)}" data-embed-title="${esc(`${live.provider}: ${activity.title}`)}"></span>` : ""}
         ${art && hasVideo ? `<span class="play-badge">${icon("play")}</span>` : ""}
-      </button>
+        <button class="slide__hit" type="button" data-highlight="${esc(activity.id)}" tabindex="-1" aria-hidden="true"></button>
+      </div>
       <div class="slide__body">
         <span class="slide__tag">${icon(group.tagIcon)}${esc(tag)}</span>
         <h3 class="slide__title">${esc(activity.title)}</h3>
@@ -136,6 +140,21 @@ export function createHighlights({ container }) {
     container.querySelectorAll(".slide").forEach((s, i) => {
       s.toggleAttribute("inert", i !== index);
       s.classList.toggle("is-active", i === index);
+      // Post oficial (Instagram/Vimeo): carrega no destaque atual e no próximo; depois fica
+      const near = i === index || i === (index + 1) % total;
+      const slot = s.querySelector("[data-embed]:not(.is-loaded)");
+      if (slot && near) {
+        slot.classList.add("is-loaded");
+        const frame = document.createElement("iframe");
+        frame.src = slot.dataset.embed;
+        frame.title = slot.dataset.embedTitle;
+        frame.loading = "lazy";
+        frame.tabIndex = -1;
+        frame.setAttribute("aria-hidden", "true");
+        frame.setAttribute("referrerpolicy", "strict-origin-when-cross-origin");
+        frame.setAttribute("sandbox", "allow-scripts allow-same-origin");
+        slot.append(frame);
+      }
     });
     // Computador: "A seguir" com os próximos destaques (clicar leva até ele)
     const queue = container.querySelector(".spot__queue-list");

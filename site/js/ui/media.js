@@ -17,8 +17,8 @@
    A política de conteúdo (CSP) das páginas libera só esses players.
    ========================================================================== */
 
-import { esc } from "../lib/dom.js?v=b3c5769ca7";
-import { icon } from "../lib/icons.js?v=b3c5769ca7";
+import { esc } from "../lib/dom.js?v=d5af9cfdc2";
+import { icon } from "../lib/icons.js?v=d5af9cfdc2";
 
 const VIDEO_FILE = /\.(mp4|webm|ogv|ogg|m4v|mov)$/i;
 const YOUTUBE_ID = /^[A-Za-z0-9_-]{11}$/;
@@ -120,6 +120,17 @@ export function mediaCover(rawUrl, kind = "image") {
   if (media.poster) return { kind: "image", src: media.poster };
   if (media.type === "video") return { kind: "video", src: `${media.src.split("#")[0]}#t=0.5` };
   return null;
+}
+
+/**
+ * Para quem não tem capa em imagem (Instagram e Vimeo): o player oficial,
+ * usado como "capa viva" no carrossel. Carregar só quando for aparecer.
+ * @returns {{src: string, provider: string} | null}
+ */
+export function embedCover(rawUrl, kind = "image") {
+  if (!rawUrl) return null;
+  const media = describeMedia(rawUrl, kind);
+  return media.type === "embed" && !media.poster && ["Instagram", "Vimeo"].includes(media.provider) ? { src: media.src, provider: media.provider } : null;
 }
 
 /** HTML da capa (imagem ou primeiro quadro do vídeo, sem som e sem controles) */
