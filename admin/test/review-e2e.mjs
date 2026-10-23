@@ -122,7 +122,7 @@ await step("Entrar no painel e no portal", async () => {
   await signIn(admin, "admdg-teste", "Senha-de-teste-123");
   await portal.goto(`${ORIGIN}/`);
   await signIn(portal, "padaria", "Senha-padaria-123");
-  assert.equal(await portal.locator("#client-badge img").count(), 0, "sem foto ainda: iniciais");
+  assert.equal(await portal.locator("#profile-avatar img").count(), 0, "sem foto ainda: iniciais");
 });
 
 await step("Foto do cliente: escolher, salvar e aparecer no cartão", async () => {
@@ -144,8 +144,9 @@ await step("Foto do cliente: escolher, salvar e aparecer no cartão", async () =
 
 await step("Foto aparece no portal do cliente", async () => {
   await portal.reload();
-  await portal.waitForSelector("#client-badge img.avatar--photo");
-  await portal.waitForFunction(() => document.querySelector("#client-badge img")?.naturalWidth > 0);
+  await portal.waitForSelector("#profile-avatar img");
+  await portal.waitForFunction(() => document.querySelector("#profile-avatar img")?.naturalWidth > 0);
+  assert.equal(await portal.locator("#client-badge img, #client-badge .avatar").count(), 0, "logo só uma vez no topo (no botão do perfil)");
   assert.ok((await portal.getAttribute("#profile-avatar img", "src")).includes("client-logos"));
 });
 

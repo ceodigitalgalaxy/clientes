@@ -8,20 +8,20 @@
    para a aba e no botão "Atualizar").
    ========================================================================== */
 
-import { createSupabaseRepository } from "./data/supabase-repository.js?v=794e2a0209";
-import { createAuth } from "./lib/auth.js?v=794e2a0209";
-import { SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY } from "./config.js?v=794e2a0209";
-import { $, esc, on, reduceMotion } from "./lib/dom.js?v=794e2a0209";
-import { icon, brandMark } from "./lib/icons.js?v=794e2a0209";
-import { monthKey, addMonths, addDays, monthLabel, weekLabel, weekDays, todayISO, fromISO, daysInMonth } from "./lib/dates.js?v=794e2a0209";
-import { summarize } from "./domain/status.js?v=794e2a0209";
-import { createHighlights, pickHighlights } from "./ui/highlights.js?v=794e2a0209";
-import { createAdsView } from "./ui/ads-portal.js?v=794e2a0209";
-import { buildCalendarPdf, pdfFileName } from "./ui/calendar-pdf.js?v=794e2a0209";
-import { renderCalendar, renderAgenda, renderLegend, setupDayPopover } from "./ui/calendar.js?v=794e2a0209";
-import { createDrawer } from "./ui/drawer.js?v=794e2a0209";
-import { renderIdeas, setupIdeaModal } from "./ui/ideas.js?v=794e2a0209";
-import { toast } from "./ui/toast.js?v=794e2a0209";
+import { createSupabaseRepository } from "./data/supabase-repository.js?v=88233407a6";
+import { createAuth } from "./lib/auth.js?v=88233407a6";
+import { SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY } from "./config.js?v=88233407a6";
+import { $, esc, on, reduceMotion } from "./lib/dom.js?v=88233407a6";
+import { icon, brandMark } from "./lib/icons.js?v=88233407a6";
+import { monthKey, addMonths, addDays, monthLabel, weekLabel, weekDays, todayISO, fromISO, daysInMonth } from "./lib/dates.js?v=88233407a6";
+import { summarize } from "./domain/status.js?v=88233407a6";
+import { createHighlights, pickHighlights } from "./ui/highlights.js?v=88233407a6";
+import { createAdsView } from "./ui/ads-portal.js?v=88233407a6";
+import { buildCalendarPdf, pdfFileName } from "./ui/calendar-pdf.js?v=88233407a6";
+import { renderCalendar, renderAgenda, renderLegend, setupDayPopover } from "./ui/calendar.js?v=88233407a6";
+import { createDrawer } from "./ui/drawer.js?v=88233407a6";
+import { renderIdeas, setupIdeaModal } from "./ui/ideas.js?v=88233407a6";
+import { toast } from "./ui/toast.js?v=88233407a6";
 
 /* O portal não abre dentro de outro site (proteção contra clique disfarçado).
    A página fica invisível até esta checagem (body.portal em style.css). */
@@ -149,9 +149,8 @@ function renderIdeasArea() {
 
 function renderHeader() {
   const { client } = state;
-  // Foto/logo do cliente (cadastrada no painel) ou as iniciais
-  const photo = client.logoUrl ? `<img class="avatar avatar--client avatar--photo" src="${esc(client.logoUrl)}" alt="">` : `<span class="avatar avatar--client" aria-hidden="true">${esc(client.initials)}</span>`;
-  $("#client-badge").innerHTML = `${photo}<span class="client-badge__text"><span class="client-badge__name"></span><span class="client-badge__segment"></span></span>`;
+  // Nome no topo; a foto/logo do cliente fica só no botão do perfil (à direita)
+  $("#client-badge").innerHTML = `<span class="client-badge__text"><span class="client-badge__name"></span><span class="client-badge__segment"></span></span>`;
   $(".client-badge__name").textContent = client.name;
   $(".client-badge__segment").textContent = client.segment;
   $("#profile-avatar").innerHTML = client.logoUrl ? `<img src="${esc(client.logoUrl)}" alt="">` : esc(client.initials);
@@ -504,7 +503,24 @@ async function enterApp() {
   if (features.ads && !adsView.loaded) adsView.load({ quiet: true }).catch(() => {});
 }
 
+/** Mostrar/ocultar a senha (para conferir o que foi digitado) */
+function setPasswordVisible(visible) {
+  const input = el.loginForm.elements.password;
+  const toggle = el.loginForm.querySelector('[data-action="toggle-password"]');
+  input.type = visible ? "text" : "password";
+  toggle.setAttribute("aria-pressed", String(visible));
+  toggle.setAttribute("aria-label", visible ? "Ocultar senha" : "Mostrar senha");
+  toggle.title = visible ? "Ocultar senha" : "Mostrar senha";
+  toggle.innerHTML = icon(visible ? "eyeOff" : "eye");
+}
+
 function setupLogin() {
+  setPasswordVisible(false);
+  el.loginForm.querySelector('[data-action="toggle-password"]').addEventListener("click", () => {
+    const input = el.loginForm.elements.password;
+    setPasswordVisible(input.type === "password");
+    input.focus();
+  });
   el.loginForm.addEventListener("submit", async (event) => {
     event.preventDefault();
     const { username, password } = el.loginForm.elements;
@@ -520,6 +536,7 @@ function setupLogin() {
     submit.disabled = true;
     submit.classList.add("is-loading");
     setLoginMessage("");
+    setPasswordVisible(false);   // a senha não fica à mostra depois de entrar
     try {
       await auth.signIn(username.value, password.value);
       password.value = "";

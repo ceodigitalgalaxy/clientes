@@ -1,11 +1,11 @@
 /* "Compartilhar uma ideia": modal com o formulário e a lista das ideias enviadas.
    O mesmo modal serve para editar uma ideia já enviada. */
 
-import { esc, reduceMotion } from "../lib/dom.js?v=794e2a0209";
-import { icon } from "../lib/icons.js?v=794e2a0209";
-import { dayLabel, stampLabel } from "../lib/dates.js?v=794e2a0209";
-import { IDEA_STATUS } from "../domain/model.js?v=794e2a0209";
-import { toast } from "./toast.js?v=794e2a0209";
+import { esc, reduceMotion } from "../lib/dom.js?v=88233407a6";
+import { icon } from "../lib/icons.js?v=88233407a6";
+import { dayLabel, stampLabel } from "../lib/dates.js?v=88233407a6";
+import { IDEA_STATUS } from "../domain/model.js?v=88233407a6";
+import { toast } from "./toast.js?v=88233407a6";
 
 export function renderIdeas(container, ideas) {
   container.innerHTML = ideas.length

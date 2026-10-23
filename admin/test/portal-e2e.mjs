@@ -128,6 +128,22 @@ await step("Portal sem login: só a entrada, nenhum dado pedido ao banco", async
   await shot(portal, "p00-entrar");
 });
 
+await step("Entrada: botão mostra e oculta a senha", async () => {
+  const pw = '#login-form [name="password"]';
+  const toggle = '#login-form [data-action="toggle-password"]';
+  await portal.fill(pw, "abc123");
+  assert.equal(await portal.getAttribute(pw, "type"), "password");
+  assert.equal(await portal.getAttribute(toggle, "aria-label"), "Mostrar senha");
+  await portal.click(toggle);
+  assert.deepEqual([await portal.getAttribute(pw, "type"), await portal.getAttribute(toggle, "aria-pressed"), await portal.getAttribute(toggle, "aria-label")], ["text", "true", "Ocultar senha"]);
+  assert.equal(await portal.inputValue(pw), "abc123", "o texto digitado continua");
+  await shot(portal, "p00b-senha-visivel");
+  await portal.click(toggle);
+  assert.equal(await portal.getAttribute(pw, "type"), "password");
+  await portal.click(toggle);   // deixa visível: ao entrar, volta a ficar oculta
+  await portal.fill(pw, "");
+});
+
 await step("Conta da equipe não entra no portal do cliente", async () => {
   await signIn(portal, "admdg-teste", "Senha-de-teste-123");
   await portal.waitForFunction(() => /Usuário ou senha incorretos/.test(document.querySelector("#login .form-error").textContent));
@@ -138,6 +154,8 @@ await step("Cliente entra e vê o próprio portal, ainda vazio", async () => {
   await signIn(portal, "padaria", "Senha-padaria-123");
   await portal.waitForSelector("#app:not([hidden])");
   assert.equal(await portal.textContent("#welcome-hello"), "Olá, Padaria Central Ltda!");
+  assert.equal(await portal.getAttribute('#login-form [name="password"]', "type"), "password", "senha volta a ficar oculta ao entrar");
+  assert.equal(await portal.locator("#client-badge img, #client-badge .avatar").count(), 0, "logo só no botão do perfil");
   await portal.waitForSelector(".cal__empty-title");
   assert.equal(await portal.textContent(".cal__empty-title"), "Ainda não há conteúdos liberados para este mês");
   assert.equal(await portal.isVisible("#ideias"), false, "ideias ainda não existem no banco");

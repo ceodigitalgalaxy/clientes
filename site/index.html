@@ -17,9 +17,9 @@
   <link rel="apple-touch-icon" href="images/logo/apple-touch-icon.png">
   <link rel="preload" href="fonts/sora-latin-400-normal.woff2" as="font" type="font/woff2" crossorigin>
   <link rel="preload" href="fonts/sora-latin-600-normal.woff2" as="font" type="font/woff2" crossorigin>
-  <link rel="stylesheet" href="css/style.css?v=794e2a0209">
-  <link rel="stylesheet" href="css/responsive.css?v=794e2a0209">
-  <script type="module" src="js/main.js?v=794e2a0209"></script>
+  <link rel="stylesheet" href="css/style.css?v=88233407a6">
+  <link rel="stylesheet" href="css/responsive.css?v=88233407a6">
+  <script type="module" src="js/main.js?v=88233407a6"></script>
 </head>
 <body class="portal">
   <!-- Entrada do cliente -->
@@ -35,7 +35,10 @@
         </label>
         <label class="field">
           <span class="field__label">Senha</span>
-          <input class="field__input" name="password" type="password" autocomplete="current-password" maxlength="72" required>
+          <span class="password-field">
+            <input class="field__input" name="password" type="password" autocomplete="current-password" maxlength="72" required>
+            <button class="password-field__toggle" type="button" data-action="toggle-password" aria-label="Mostrar senha" aria-pressed="false"></button>
+          </span>
         </label>
         <p class="form-error" role="alert" hidden></p>
         <button class="btn btn--primary login__submit" type="submit">Entrar</button>
