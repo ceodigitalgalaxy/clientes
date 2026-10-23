@@ -13,9 +13,9 @@
   <link rel="preload" href="../fonts/sora-latin-400-normal.woff2" as="font" type="font/woff2" crossorigin>
   <link rel="preload" href="../fonts/sora-latin-600-normal.woff2" as="font" type="font/woff2" crossorigin>
   <!-- Mesmos tokens e componentes do portal do cliente -->
-  <link rel="stylesheet" href="../css/style.css?v=e96162d7e7">
-  <link rel="stylesheet" href="css/admin.css?v=e96162d7e7">
-  <script type="module" src="js/main.js?v=e96162d7e7"></script>
+  <link rel="stylesheet" href="../css/style.css?v=794e2a0209">
+  <link rel="stylesheet" href="css/admin.css?v=794e2a0209">
+  <script type="module" src="js/main.js?v=794e2a0209"></script>
 </head>
 <body class="admin">
   <!-- Tela de entrada: aparece enquanto ninguém estiver logado -->
@@ -413,8 +413,9 @@
           <input class="field__input" name="title" maxlength="160" autocomplete="off" required placeholder="Ex.: Promoção de inverno · público frio">
         </label>
         <label class="field form-grid__wide">
-          <span class="field__label">Descrição e contexto da campanha <span class="field__optional">(opcional)</span></span>
-          <textarea class="field__input field__input--area" name="campaign_context" rows="3" maxlength="2000" placeholder="Para quem é, período, oferta, por que este criativo..."></textarea>
+          <span class="field__label">Escopo, ideia e referências</span>
+          <textarea class="field__input field__input--area" name="campaign_context" rows="5" maxlength="2000" placeholder="Para quem é, período, oferta, o que vamos criar, a ideia do criativo e as referências (cores, estilo, exemplos)..."></textarea>
+          <span class="field__hint">O cliente lê este texto. Marcado como Referência, o anúncio pode ir para aprovação só com ele, sem arquivo nem link.</span>
         </label>
         <label class="field">
           <span class="field__label">Objetivo da campanha <span class="field__optional">(opcional)</span></span>

@@ -23,6 +23,16 @@ export const AD_STAGES = {
   final: { label: "Arte final", long: "Arte final (pronta para veicular)", hint: "O criativo que vai ao ar." }
 };
 
+/** Pode ir ao cliente? Com arquivo/link sempre; sem, só a REFERÊNCIA com o
+    escopo/ideia escrito (a mesma regra da função ad_transition no banco) */
+export const adHasScope = (ad) => Boolean(String(ad?.campaign_context ?? "").trim());
+export const adCanSend = (ad) => (ad?.assets?.length ?? 0) > 0 || (ad?.creative_stage === "referencia" && adHasScope(ad));
+/** Por que não pode (texto para o aviso) */
+export const adSendBlock = (ad) => adCanSend(ad) ? ""
+  : ad?.creative_stage === "referencia"
+    ? "Escreva o escopo, a ideia e as referências (ou anexe um arquivo/link) antes de enviar."
+    : "Arte final precisa de pelo menos um arquivo ou link. Para mandar só a ideia, marque como Referência e escreva o escopo.";
+
 export const AD_PLATFORMS = { meta: "Meta Ads (Facebook e Instagram)", google: "Google Ads", tiktok: "TikTok Ads", outra: "Outra plataforma" };
 export const AD_PLATFORMS_SHORT = { meta: "Meta Ads", google: "Google Ads", tiktok: "TikTok Ads", outra: "Outra" };
 

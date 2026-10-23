@@ -26,7 +26,8 @@ const AD_ASSET_FIELDS = "id,ad_id,kind,storage_path,url,position,created_at";
 
 /** Recusas das funções do fluxo de anúncios (raise exception) em português */
 export const AD_ERRORS = {
-  sem_criativo: "Envie pelo menos um arquivo ou link do criativo antes de mandar para aprovação.",
+  sem_criativo: "Arte final precisa de pelo menos um arquivo ou link. Para mandar só a ideia, marque como Referência e escreva o escopo.",
+  sem_escopo: "Escreva o escopo, a ideia e as referências (ou anexe um arquivo/link) antes de enviar.",
   anuncio_bloqueado: "Este anúncio está com o cliente (ou já foi aprovado/arquivado). Recolha ou reabra para editar.",
   use_fluxo_do_anuncio: "O status muda só pelos botões do anúncio.",
   cliente_fixo: "Depois do primeiro envio, o anúncio não muda de cliente.",

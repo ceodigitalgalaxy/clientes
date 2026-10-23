@@ -384,7 +384,10 @@ ok("anúncios: validação do cadastro", () => {
     assert.deepEqual([video.value.platform, video.value.format, video.send, video.creative[0].kind], ["google", "video", false, "video"]);
     assert.deepEqual([linkedin.value.platform, linkedin.value.platform_other, linkedin.value.objective, linkedin.send], ["outra", "LinkedIn Ads", "leads", false]);
     assert.ok(linkedin.valid && linkedin.warnings.some((w) => /rascunho/.test(w)), "sem criativo: vira rascunho com aviso");
-    assert.equal(linkedin.value.creative_stage, "final");
+    assert.equal(linkedin.value.creative_stage, "referencia", "marcado para enviar sem link: referência");
+    // Referência sem link, mas com o escopo escrito: vai para aprovação
+    const soEscopo = mapAdRows([["Título do anúncio", "Plataforma", "Formato", "Escopo, ideia e referências", "Enviar para aprovação"], ["Ideia de Natal", "Meta Ads", "Imagem", "Mesa posta, luz quente", "sim"]], { clientId: "11111111-1111-4111-8111-111111111111" });
+    assert.deepEqual([soEscopo.items[0].value.creative_stage, soEscopo.items[0].send, soEscopo.items[0].value.campaign_context], ["referencia", true, "Mesa posta, luz quente"]);
     assert.ok(!semTitulo.valid && !gif.valid);
     assert.ok(gif.errors.some((e) => /Formato desconhecido/.test(e)));
     assert.ok(repetido.duplicate && repetido.valid);

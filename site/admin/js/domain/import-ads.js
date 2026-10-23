@@ -13,16 +13,16 @@
    - Cada linha passa pela MESMA validação do cadastro manual (validateAd).
    ========================================================================== */
 
-import { validateAd, AD_PLATFORMS, AD_FORMATS } from "./rules.js?v=e96162d7e7";
-import { norm, lookup, isEmptyRow, MAX_IMPORT_ROWS } from "./import.js?v=e96162d7e7";
-import { describeMedia } from "../../../js/ui/media.js?v=e96162d7e7";
+import { validateAd, adCanSend, AD_PLATFORMS, AD_FORMATS } from "./rules.js?v=794e2a0209";
+import { norm, lookup, isEmptyRow, MAX_IMPORT_ROWS } from "./import.js?v=794e2a0209";
+import { describeMedia } from "../../../js/ui/media.js?v=794e2a0209";
 
 export const AD_COLUMNS = {
   title: ["titulo", "titulo do anuncio", "nome do anuncio", "anuncio", "nome"],
   platform: ["plataforma", "plataforma de veiculacao", "rede", "canal", "veiculacao"],
   format: ["formato", "tipo", "formato do anuncio"],
   objective: ["objetivo", "objetivo da campanha"],
-  campaign_context: ["contexto", "descricao da campanha", "contexto da campanha", "descricao e contexto da campanha", "campanha", "publico", "briefing"],
+  campaign_context: ["contexto", "descricao da campanha", "contexto da campanha", "descricao e contexto da campanha", "campanha", "publico", "briefing", "escopo", "ideia", "escopo e ideia", "escopo ideia e referencias", "ideia e referencias", "referencias", "escopo da campanha"],
   primary_text: ["texto principal", "texto", "copy", "texto do anuncio", "legenda"],
   headline: ["headline", "titulo headline", "titulo do criativo", "chamada", "manchete"],
   description: ["descricao", "descricao complementar", "descricao do anuncio"],
@@ -35,7 +35,7 @@ export const AD_COLUMNS = {
   send: ["enviar para aprovacao", "enviar", "enviar ao cliente", "mandar para aprovacao"]
 };
 export const AD_COLUMN_LABELS = {
-  title: "Título do anúncio", platform: "Plataforma", format: "Formato", objective: "Objetivo", campaign_context: "Contexto da campanha",
+  title: "Título do anúncio", platform: "Plataforma", format: "Formato", objective: "Objetivo", campaign_context: "Escopo, ideia e referências",
   primary_text: "Texto principal", headline: "Headline", description: "Descrição", cta: "CTA", destination_url: "Link de destino",
   creative: "Link do criativo", stage: "Tipo do criativo", client_notes: "Observação para o cliente", internal_notes: "Observações internas", send: "Enviar para aprovação"
 };
@@ -141,10 +141,10 @@ export function mapAdRows(rows, { clientId, existing = [] }) {
       creative.push({ url, kind });
     }
     if (creative.length > 20) errors.push("Use até 20 links de criativo por anúncio.");
-    if (send && !creative.length) warnings.push("Sem link do criativo: entra como rascunho (envie o arquivo pelo painel e mande para aprovação).");
     if (format === "carrossel" && creative.length === 1) warnings.push("Carrossel com um só item.");
-    // Tipo do criativo: sem a coluna, links da planilha contam como referência (arquivos finais vão pelo painel)
-    let stage = creative.length ? "referencia" : "final";
+    // Tipo do criativo: sem a coluna, links da planilha contam como referência (arquivos finais vão pelo painel);
+    // sem link e marcado para enviar, também (vai só com o escopo escrito)
+    let stage = creative.length || send ? "referencia" : "final";
     if (text("stage")) {
       const found = lookup(STAGE_ALIASES, cell("stage"));
       if (found) stage = found;
@@ -176,7 +176,11 @@ export function mapAdRows(rows, { clientId, existing = [] }) {
     const duplicate = Boolean(value.title && seen.has(norm(value.title)));
     if (duplicate) warnings.push("Já existe um anúncio com este título para o cliente.");
     if (value.title) seen.add(norm(value.title));
-    items.push({ line: i + 1, value, creative, send: send && creative.length > 0, errors, warnings, duplicate, valid: errors.length === 0 });
+    const canSend = adCanSend({ assets: creative, creative_stage: value.creative_stage, campaign_context: value.campaign_context });
+    if (send && !canSend) warnings.push(value.creative_stage === "referencia"
+      ? "Sem link e sem escopo/ideia escrito: entra como rascunho (preencha o escopo ou anexe o criativo e mande para aprovação)."
+      : "Arte final sem link do criativo: entra como rascunho (envie o arquivo pelo painel e mande para aprovação).");
+    items.push({ line: i + 1, value, creative, send: send && canSend, errors, warnings, duplicate, valid: errors.length === 0 });
   }
   return { columns, missing, items };
 }

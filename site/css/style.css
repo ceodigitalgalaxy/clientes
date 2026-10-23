@@ -742,6 +742,9 @@ body.admin:not(.is-ready) { visibility: hidden; }
 .ad-card__media { position: relative; display: grid; place-items: center; aspect-ratio: 4 / 3; overflow: hidden; color: var(--brand); background: var(--brand-soft); }
 .ad-card__media img, .ad-card__media video { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; pointer-events: none; }
 .ad-card__placeholder .icon { width: 36px; height: 36px; opacity: 0.6; }
+.ad-card__placeholder { display: grid; justify-items: center; gap: 8px; }
+.ad-card__idea { font-size: 13px; font-weight: 700; letter-spacing: 0.02em; color: var(--brand-deep); }
+.detail__text--pre { white-space: pre-line; }
 .ad-card__count { position: absolute; right: 10px; top: 10px; display: inline-flex; align-items: center; gap: 4px; height: 26px; padding: 0 8px; border-radius: 999px; font-size: 12px; font-weight: 600; color: #fff; background: rgba(22, 11, 46, 0.6); }
 .ad-card__count .icon { width: 14px; height: 14px; }
 .ad-card__body { display: grid; gap: 6px; padding: 16px; }

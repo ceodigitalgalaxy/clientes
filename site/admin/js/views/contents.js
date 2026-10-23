@@ -1,15 +1,15 @@
 /* Seção Conteúdos: filtros, lista, detalhes, cadastro, edição e exclusão */
 
-import { $, esc, on } from "../../../js/lib/dom.js?v=e96162d7e7";
-import { icon } from "../../../js/lib/icons.js?v=e96162d7e7";
-import { longDayLabel, timeLabel, todayISO } from "../../../js/lib/dates.js?v=e96162d7e7";
-import { typeBadge } from "../../../js/ui/badges.js?v=e96162d7e7";
-import { renderMedia, wireMediaFallbacks } from "../../../js/ui/media.js?v=e96162d7e7";
-import { CONTENT_STATUS, CLIENT_VISIBLE_STATUS, NETWORKS, FORMATS, LIMITS, validateContent, validateContentFilters } from "../domain/rules.js?v=e96162d7e7";
-import { closeDialog, wireDialog, showFieldErrors, setBusy } from "../ui/dialogs.js?v=e96162d7e7";
-import { stateBlock, loadingRows, button } from "../ui/states.js?v=e96162d7e7";
-import { reviewSections, mountReview } from "./content-review.js?v=e96162d7e7";
-import { describeMedia, mediaCover, coverHtml } from "../../../js/ui/media.js?v=e96162d7e7";
+import { $, esc, on } from "../../../js/lib/dom.js?v=794e2a0209";
+import { icon } from "../../../js/lib/icons.js?v=794e2a0209";
+import { longDayLabel, timeLabel, todayISO } from "../../../js/lib/dates.js?v=794e2a0209";
+import { typeBadge } from "../../../js/ui/badges.js?v=794e2a0209";
+import { renderMedia, wireMediaFallbacks } from "../../../js/ui/media.js?v=794e2a0209";
+import { CONTENT_STATUS, CLIENT_VISIBLE_STATUS, NETWORKS, FORMATS, LIMITS, validateContent, validateContentFilters } from "../domain/rules.js?v=794e2a0209";
+import { closeDialog, wireDialog, showFieldErrors, setBusy } from "../ui/dialogs.js?v=794e2a0209";
+import { stateBlock, loadingRows, button } from "../ui/states.js?v=794e2a0209";
+import { reviewSections, mountReview } from "./content-review.js?v=794e2a0209";
+import { describeMedia, mediaCover, coverHtml } from "../../../js/ui/media.js?v=794e2a0209";
 
 const shortDate = (iso) => iso.split("-").reverse().join("/");
 const statusChip = (status) => `<span class="content-status cs--${esc(status)}">${esc(CONTENT_STATUS[status]?.label || status)}</span>`;

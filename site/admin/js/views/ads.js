@@ -11,16 +11,16 @@
    Endereço: #/anuncios?status=...&client_id=...
    ========================================================================== */
 
-import { $, esc, on } from "../../../js/lib/dom.js?v=e96162d7e7";
-import { icon } from "../../../js/lib/icons.js?v=e96162d7e7";
-import { stampLabel } from "../../../js/lib/dates.js?v=e96162d7e7";
-import { renderMedia, mediaFallback, mediaCover, coverHtml, embedCoverHtml, wireMediaFallbacks } from "../../../js/ui/media.js?v=e96162d7e7";
-import { wireCarousel } from "../../../js/ui/preview.js?v=e96162d7e7";
-import { renderAdMock, renderAdTexts, renderAdHistory, adStatusBadge } from "../../../js/ui/ad-preview.js?v=e96162d7e7";
-import { UPLOAD_LIMITS } from "../../../js/lib/storage.js?v=e96162d7e7";
-import { AD_STAGES, AD_STATUS, AD_PLATFORMS, AD_OBJECTIVES, AD_FORMATS, AD_CTAS, platformLabel, validateAdFilters } from "../domain/rules.js?v=e96162d7e7";
-import { closeDialog, wireDialog, showFieldErrors, setBusy } from "../ui/dialogs.js?v=e96162d7e7";
-import { stateBlock, loadingCards, button } from "../ui/states.js?v=e96162d7e7";
+import { $, esc, on } from "../../../js/lib/dom.js?v=794e2a0209";
+import { icon } from "../../../js/lib/icons.js?v=794e2a0209";
+import { stampLabel } from "../../../js/lib/dates.js?v=794e2a0209";
+import { renderMedia, mediaFallback, mediaCover, coverHtml, embedCoverHtml, wireMediaFallbacks } from "../../../js/ui/media.js?v=794e2a0209";
+import { wireCarousel } from "../../../js/ui/preview.js?v=794e2a0209";
+import { renderAdMock, renderAdTexts, renderAdHistory, adStatusBadge } from "../../../js/ui/ad-preview.js?v=794e2a0209";
+import { UPLOAD_LIMITS } from "../../../js/lib/storage.js?v=794e2a0209";
+import { AD_STAGES, AD_STATUS, AD_PLATFORMS, AD_OBJECTIVES, AD_FORMATS, AD_CTAS, platformLabel, adCanSend, adSendBlock, validateAdFilters } from "../domain/rules.js?v=794e2a0209";
+import { closeDialog, wireDialog, showFieldErrors, setBusy } from "../ui/dialogs.js?v=794e2a0209";
+import { stateBlock, loadingCards, button } from "../ui/states.js?v=794e2a0209";
 
 const ACCEPT = UPLOAD_LIMITS.mediaTypes.join(",");
 const EDITABLE = ["rascunho", "alteracoes_solicitadas"];
@@ -42,7 +42,7 @@ function cardCover(ad) {
   const cover = first ? (first.storage_path ? (first.src ? { kind: first.kind, src: first.src + (first.kind === "video" ? "#t=0.5" : "") } : null) : mediaCover(first.url, first.kind)) : null;
   return `
     <span class="ad-card__media">
-      <span class="ad-card__placeholder">${icon(fmt.icon)}</span>
+      <span class="ad-card__placeholder">${!ad.assets.length && ad.creative_stage === "referencia" ? `${icon("lightbulb")}<span class="ad-card__idea">Ideia e escopo</span>` : icon(fmt.icon)}</span>
       ${coverHtml(cover, "data-ad-thumb")}
       ${!cover && first?.url ? embedCoverHtml(first.url, first.kind, ad.title) : ""}
       ${first?.kind === "video" && cover ? `<span class="play-badge play-badge--sm">${icon("play")}</span>` : ""}
@@ -251,13 +251,13 @@ export function setupAds({ api, state, toast, confirm, navigate }) {
     if (action.startsWith("stage:")) { await bulkStage(action.slice(6), chosen, button); return; }
     // Quem pode receber a ação (o banco confere de novo cada um)
     const ok = action === "enviar"
-      ? chosen.filter((a) => EDITABLE.includes(a.status) && a.assets.length)
+      ? chosen.filter((a) => EDITABLE.includes(a.status) && adCanSend(a))
       : chosen.filter((a) => a.status !== "arquivado");
-    const noCreative = action === "enviar" ? chosen.filter((a) => EDITABLE.includes(a.status) && !a.assets.length) : [];
+    const noCreative = action === "enviar" ? chosen.filter((a) => EDITABLE.includes(a.status) && !adCanSend(a)) : [];
     const skipped = chosen.length - ok.length;
     if (!ok.length) {
       toast(action === "enviar"
-        ? (noCreative.length ? "Nenhum dos marcados pode ser enviado: falta o criativo (arquivo ou link)." : "Nenhum dos marcados está em rascunho ou com alterações pedidas.")
+        ? (noCreative.length ? "Nenhum dos marcados pode ser enviado: falta o criativo (arquivo ou link) ou, nas referências, o escopo escrito." : "Nenhum dos marcados está em rascunho ou com alterações pedidas.")
         : "Os marcados já estão arquivados.", "error");
       return;
     }
@@ -265,7 +265,7 @@ export function setupAds({ api, state, toast, confirm, navigate }) {
     const clientsHit = [...new Set(ok.map((a) => clientName(a.client_id)))];
     const notes = [];
     if (action === "enviar") notes.push(`${clientsHit.length === 1 ? clientsHit[0] : `${clientsHit.length} clientes`} ${clientsHit.length === 1 ? "passa" : "passam"} a ver ${n === 1 ? "o anúncio" : "os anúncios"} para aprovar.`);
-    if (noCreative.length) notes.push(`${noCreative.length} sem criativo ${noCreative.length === 1 ? "fica" : "ficam"} de fora.`);
+    if (noCreative.length) notes.push(`${noCreative.length} sem criativo nem escopo ${noCreative.length === 1 ? "fica" : "ficam"} de fora.`);
     if (skipped - noCreative.length > 0) notes.push(`${skipped - noCreative.length} já ${skipped - noCreative.length === 1 ? "está" : "estão"} com o cliente, aprovado${skipped - noCreative.length === 1 ? "" : "s"} ou arquivado${skipped - noCreative.length === 1 ? "" : "s"} e ${skipped - noCreative.length === 1 ? "fica" : "ficam"} de fora.`);
     const yes = await confirm({
       title: action === "enviar" ? `Enviar ${n} ${n === 1 ? "anúncio" : "anúncios"} para aprovação?` : `Arquivar ${n} ${n === 1 ? "anúncio" : "anúncios"}?`,
@@ -358,7 +358,7 @@ export function setupAds({ api, state, toast, confirm, navigate }) {
     if (ad.status === "aguardando_aprovacao") return `<div class="decision decision--aguardando"><span class="decision__icon">${icon("clock")}</span><div><p class="decision__title">Com o cliente desde ${esc(stampLabel(ad.submitted_at))}</p><p class="decision__text">Para mudar algo, recolha o anúncio (ele sai da tela do cliente até você enviar de novo).</p></div></div>`;
     if (ad.status === "aprovado") return `<div class="decision decision--aprovado"><span class="decision__icon">${icon("check")}</span><div><p class="decision__title">Aprovado pelo cliente (versão ${esc(ad.version)})</p><p class="decision__text">Pronto para subir na plataforma.</p></div></div>`;
     if (ad.status === "arquivado") return `<div class="decision decision--info">${icon("box")}<div><p class="decision__title">Arquivado</p><p class="decision__text">Fora do fluxo ativo. O cliente ainda vê na aba "Arquivados" se o anúncio já tinha sido enviado.</p></div></div>`;
-    return `<div class="decision decision--info">${icon("edit")}<div><p class="decision__title">Rascunho: só a equipe vê</p><p class="decision__text">Envie o criativo abaixo e clique em "Enviar para aprovação".</p></div></div>`;
+    return `<div class="decision decision--info">${icon("edit")}<div><p class="decision__title">Rascunho: só a equipe vê</p><p class="decision__text">${ad.creative_stage === "referencia" && !ad.assets.length ? "Referência: pode ir só com o escopo e a ideia escritos (ou anexe referências abaixo). Depois clique em \"Enviar para aprovação\"." : "Envie o criativo abaixo e clique em \"Enviar para aprovação\"."}</p></div></div>`;
   }
 
   function creativeSection(ad) {
@@ -378,7 +378,7 @@ export function setupAds({ api, state, toast, confirm, navigate }) {
     return `
       <section class="detail final-art">
         <div class="detail__head"><h3 class="detail__title">Criativo</h3><span class="field__hint">${ad.format === "carrossel" ? "Os itens na ordem do carrossel" : AD_FORMATS[ad.format]?.label || ""}</span></div>
-        ${ad.assets.length ? `<ol class="final-list">${items}</ol>` : '<p class="final-art__empty">Nenhum arquivo ainda. Envie a imagem, o vídeo ou os itens do carrossel.</p>'}
+        ${ad.assets.length ? `<ol class="final-list">${items}</ol>` : `<p class="final-art__empty">${ad.creative_stage === "referencia" ? "Nenhum arquivo. Opcional na referência: o cliente vê o escopo e a ideia escritos. Se quiser, anexe imagens ou links de inspiração." : "Nenhum arquivo ainda. Envie a imagem, o vídeo ou os itens do carrossel."}</p>`}
         ${editable ? `
           <div class="final-art__add">
             <label class="btn btn--ghost btn--sm final-art__choose">
@@ -491,7 +491,7 @@ export function setupAds({ api, state, toast, confirm, navigate }) {
   on(drawer, "click", "[data-ad-action]", async (event, b) => {
     if (busy) return;
     const action = b.dataset.adAction;
-    if (action === "enviar" && !current.assets.length) { toast("Envie pelo menos um arquivo ou link do criativo antes.", "error"); return; }
+    if (action === "enviar" && !adCanSend(current)) { toast(adSendBlock(current), "error"); return; }
     const message = drawer.querySelector("[data-ad-message]")?.value || (changeNote.id === current.id ? changeNote.text : "");
     const ok = await confirm({ ...CONFIRMS[action](current), tone: action === "arquivar" ? "danger" : "primary" });
     if (!ok) return;

@@ -103,7 +103,10 @@ export function createAdsMemory({ clients, members, now, tick }) {
       let to; let name; let version = ad.version;
       if (p_action === "enviar") {
         if (!EDITABLE.includes(from)) throw fail("transicao_invalida");
-        if (!assetsOf(ad.id).length) throw fail("sem_criativo");
+        if (!assetsOf(ad.id).length) {
+          if (ad.creative_stage !== "referencia") throw fail("sem_criativo");
+          if (!String(ad.campaign_context ?? "").trim()) throw fail("sem_escopo");
+        }
         if (ad.first_submitted_at) version += 1;
         to = "aguardando_aprovacao"; name = "enviado";
       } else if (p_action === "recolher") { if (from !== "aguardando_aprovacao") throw fail("transicao_invalida"); to = "rascunho"; name = "recolhido"; }

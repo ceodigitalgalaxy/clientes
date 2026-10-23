@@ -11,12 +11,12 @@
        Solicitar alterações → comentário obrigatório → registrado.
    ========================================================================== */
 
-import { esc, on, reduceMotion } from "../lib/dom.js?v=e96162d7e7";
-import { icon } from "../lib/icons.js?v=e96162d7e7";
-import { renderAdMock, renderAdTexts, renderAdHistory, adStatusBadge } from "./ad-preview.js?v=e96162d7e7";
-import { coverHtml, mediaCover, embedCoverHtml, wireMediaFallbacks } from "./media.js?v=e96162d7e7";
-import { wireCarousel } from "./preview.js?v=e96162d7e7";
-import { AD_STATUS, AD_STAGES, AD_FORMATS, AD_LIMITS, platformLabel } from "../domain/ads.js?v=e96162d7e7";
+import { esc, on, reduceMotion } from "../lib/dom.js?v=794e2a0209";
+import { icon } from "../lib/icons.js?v=794e2a0209";
+import { renderAdMock, renderAdTexts, renderAdHistory, adStatusBadge } from "./ad-preview.js?v=794e2a0209";
+import { coverHtml, mediaCover, embedCoverHtml, wireMediaFallbacks } from "./media.js?v=794e2a0209";
+import { wireCarousel } from "./preview.js?v=794e2a0209";
+import { AD_STATUS, AD_STAGES, AD_FORMATS, AD_LIMITS, platformLabel } from "../domain/ads.js?v=794e2a0209";
 
 const TABS = [
   ["", "Todos"],
@@ -35,6 +35,8 @@ const EMPTY = {
 const dateLabel = (iso) => (iso ? new Date(iso).toLocaleDateString("pt-BR") : "");
 const stamp = (iso) => (iso ? new Date(iso).toLocaleString("pt-BR", { day: "2-digit", month: "2-digit", year: "numeric", hour: "2-digit", minute: "2-digit" }).replace(",", " às") : "");
 
+const hasTexts = (ad) => ["objective", "primary_text", "headline", "description", "cta", "destination_url"].some((k) => String(ad[k] ?? "").trim());
+
 function cardCover(ad) {
   const first = ad.assets[0];
   const fmt = AD_FORMATS[ad.format] || AD_FORMATS.imagem;
@@ -43,7 +45,7 @@ function cardCover(ad) {
     : mediaCover(first.src, first.kind);
   return `
     <span class="ad-card__media">
-      <span class="ad-card__placeholder">${icon(fmt.icon)}</span>
+      <span class="ad-card__placeholder">${!ad.assets.length && ad.creative_stage === "referencia" ? `${icon("lightbulb")}<span class="ad-card__idea">Ideia e escopo</span>` : icon(fmt.icon)}</span>
       ${coverHtml(cover, "data-ad-thumb")}
       ${!cover && first?.src && !first.file ? embedCoverHtml(first.src, first.kind, ad.title) : ""}
       ${first?.kind === "video" && cover ? `<span class="play-badge play-badge--sm">${icon("play")}</span>` : ""}
@@ -133,7 +135,7 @@ export function createAdsView({ section, dialog, repo, getClient, toast, onCount
     }
     if (ad.status === "arquivado") return `<div class="decision decision--info">${icon("box")}<div><p class="decision__title">Anúncio arquivado</p><p class="decision__text">Este anúncio saiu do fluxo ativo e não precisa de resposta.</p></div></div>`;
     const resent = ad.version > 1 ? `<p class="decision__note">${icon("refresh")}Nova versão (versão ${esc(ad.version)}) preparada depois do seu pedido.</p>` : "";
-    return `<div class="decision decision--aguardando"><span class="decision__icon">${icon("clock")}</span><div><p class="decision__title">Este anúncio espera a sua aprovação</p><p class="decision__text">Confira a prévia, os textos e o link. Se estiver tudo certo, aprove. Se não, peça alterações.</p>${resent}</div></div>`;
+    return `<div class="decision decision--aguardando"><span class="decision__icon">${icon("clock")}</span><div><p class="decision__title">Este anúncio espera a sua aprovação</p><p class="decision__text">${ad.assets.length ? "Confira a prévia, os textos e o link." : "Leia o escopo e a ideia."} Se estiver tudo certo, aprove. Se não, peça alterações.</p>${resent}</div></div>`;
   }
 
   function footer(ad) {
@@ -187,10 +189,10 @@ export function createAdsView({ section, dialog, repo, getClient, toast, onCount
           </dl>
           <section class="detail" aria-live="polite">${statusBlock(ad)}</section>
           ${ad.creative_stage === "referencia" ? `<p class="stage-note">${icon("lightbulb")}<span><b>Isto é uma referência.</b> Você está aprovando a ideia e a inspiração do anúncio. Depois, a nossa equipe produz a arte final e envia para você aprovar de novo.</span></p>` : ""}
-          ${ad.campaign_context ? `<section class="detail"><div class="detail__head"><h3 class="detail__title">Sobre a campanha</h3></div><p class="detail__text">${esc(ad.campaign_context)}</p></section>` : ""}
-          <section class="detail"><div class="detail__head"><h3 class="detail__title">Como o anúncio vai aparecer</h3></div>
-            ${renderAdMock(ad, { brandName: client.name, logoUrl: client.logoUrl, initials: client.initials })}</section>
-          <section class="detail"><div class="detail__head"><h3 class="detail__title">Textos do anúncio</h3></div>${renderAdTexts(ad, { showContext: false })}</section>
+          ${ad.campaign_context ? `<section class="detail"><div class="detail__head"><h3 class="detail__title">${ad.creative_stage === "referencia" ? "Escopo, ideia e referências" : "Sobre a campanha"}</h3></div><p class="detail__text detail__text--pre">${esc(ad.campaign_context)}</p></section>` : ""}
+          ${ad.assets.length ? `<section class="detail"><div class="detail__head"><h3 class="detail__title">${ad.creative_stage === "referencia" ? "Referências visuais" : "Como o anúncio vai aparecer"}</h3></div>
+            ${renderAdMock(ad, { brandName: client.name, logoUrl: client.logoUrl, initials: client.initials })}</section>` : ""}
+          ${hasTexts(ad) ? `<section class="detail"><div class="detail__head"><h3 class="detail__title">${ad.assets.length ? "Textos do anúncio" : "Textos propostos"}</h3></div>${renderAdTexts(ad, { showContext: false })}</section>` : ""}
           ${ad.client_notes ? `<section class="detail"><div class="detail__head"><h3 class="detail__title">Observações da Digital Galaxy</h3></div>
             <div class="note note--agencia note--shared"><span class="avatar avatar--xs avatar--brand">DG</span><div class="note__body"><p class="note__text">${esc(ad.client_notes)}</p></div></div></section>` : ""}
           <section class="detail"><div class="detail__head"><h3 class="detail__title">Histórico</h3></div>${renderAdHistory(ad.history, { viewer: "cliente", teamLabel: "Digital Galaxy" })}</section>

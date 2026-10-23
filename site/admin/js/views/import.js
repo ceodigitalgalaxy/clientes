@@ -5,18 +5,18 @@
       que parece repetido (desmarcado). Miniatura da referência em cada linha.
    3. Importar os marcados de uma vez (tudo ou nada). */
 
-import { $, esc, on } from "../../../js/lib/dom.js?v=e96162d7e7";
-import { icon } from "../../../js/lib/icons.js?v=e96162d7e7";
-import { timeLabel } from "../../../js/lib/dates.js?v=e96162d7e7";
-import { typeBadge } from "../../../js/ui/badges.js?v=e96162d7e7";
-import { describeMedia, mediaCover, coverHtml } from "../../../js/ui/media.js?v=e96162d7e7";
-import { NETWORKS, CONTENT_STATUS } from "../domain/rules.js?v=e96162d7e7";
-import { readSpreadsheet } from "../lib/spreadsheet.js?v=e96162d7e7";
-import { mapRows, COLUMN_LABELS } from "../domain/import.js?v=e96162d7e7";
-import { mapAdRows, AD_COLUMN_LABELS } from "../domain/import-ads.js?v=e96162d7e7";
-import { AD_FORMATS, platformLabel } from "../domain/rules.js?v=e96162d7e7";
-import { setBusy } from "../ui/dialogs.js?v=e96162d7e7";
-import { stateBlock } from "../ui/states.js?v=e96162d7e7";
+import { $, esc, on } from "../../../js/lib/dom.js?v=794e2a0209";
+import { icon } from "../../../js/lib/icons.js?v=794e2a0209";
+import { timeLabel } from "../../../js/lib/dates.js?v=794e2a0209";
+import { typeBadge } from "../../../js/ui/badges.js?v=794e2a0209";
+import { describeMedia, mediaCover, coverHtml } from "../../../js/ui/media.js?v=794e2a0209";
+import { NETWORKS, CONTENT_STATUS } from "../domain/rules.js?v=794e2a0209";
+import { readSpreadsheet } from "../lib/spreadsheet.js?v=794e2a0209";
+import { mapRows, COLUMN_LABELS } from "../domain/import.js?v=794e2a0209";
+import { mapAdRows, AD_COLUMN_LABELS } from "../domain/import-ads.js?v=794e2a0209";
+import { AD_FORMATS, platformLabel } from "../domain/rules.js?v=794e2a0209";
+import { setBusy } from "../ui/dialogs.js?v=794e2a0209";
+import { stateBlock } from "../ui/states.js?v=794e2a0209";
 
 const shortDate = (iso) => (iso ? iso.split("-").reverse().join("/") : "—");
 
@@ -39,7 +39,7 @@ const MODES = {
   },
   ads: {
     template: "modelo-importacao-anuncios.xlsx",
-    hint: "Colunas: Título do anúncio, Plataforma, Formato, Objetivo, Contexto da campanha, Texto principal, Headline, Descrição, CTA, Link de destino, Link do criativo, Observação para o cliente, Observações internas e Tipo do criativo (Referência ou Arte final) e Enviar para aprovação. Só Título, Plataforma e Formato são obrigatórias. Links do criativo contam como referência, a não ser que a coluna diga “Arte final”. Os anúncios entram como rascunho; os marcados com \"sim\" (e com link do criativo) já vão para o cliente aprovar.",
+    hint: "Colunas: Título do anúncio, Plataforma, Formato, Objetivo, Escopo/ideia, Texto principal, Headline, Descrição, CTA, Link de destino, Link do criativo, Observação para o cliente, Observações internas e Tipo do criativo (Referência ou Arte final) e Enviar para aprovação. Só Título, Plataforma e Formato são obrigatórias. Links do criativo contam como referência, a não ser que a coluna diga “Arte final”. Os anúncios entram como rascunho; os marcados com \"sim\" já vão para o cliente aprovar. Sem link, vai como referência só com o escopo e a ideia escritos.",
     one: "anúncio", many: "anúncios"
   }
 };
