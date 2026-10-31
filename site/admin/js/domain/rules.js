@@ -167,11 +167,11 @@ export function validateContentFilters(input = {}) {
 }
 
 /* Regras de usuário e senha: as mesmas do portal do cliente (site/js/domain/accounts.js) */
-export { USERNAME_LIMITS, PASSWORD_LIMITS, normalizeUsername, parseUsername, loginEmail, usernameFromEmail, accountKind, passwordProblem } from "../../../js/domain/accounts.js?v=4e9810fb40";
+export { USERNAME_LIMITS, PASSWORD_LIMITS, normalizeUsername, parseUsername, loginEmail, usernameFromEmail, accountKind, passwordProblem } from "../../../js/domain/accounts.js?v=a8e5774c6e";
 
 /* ---------- Anúncios ---------- */
-export { AD_STAGES, AD_STATUS, AD_CLIENT_STATUS, AD_PLATFORMS, AD_OBJECTIVES, AD_FORMATS, AD_CTAS, AD_LIMITS, AD_EVENTS, platformLabel, adCanSend, adSendBlock } from "../../../js/domain/ads.js?v=4e9810fb40";
-import { AD_STAGES as STAGES_OF_ADS, AD_STATUS as STATUS_OF_ADS, AD_PLATFORMS as PLATFORMS_OF_ADS, AD_OBJECTIVES as OBJECTIVES_OF_ADS, AD_FORMATS as FORMATS_OF_ADS, AD_LIMITS as L } from "../../../js/domain/ads.js?v=4e9810fb40";
+export { AD_STAGES, AD_STATUS, AD_CLIENT_STATUS, AD_PLATFORMS, AD_OBJECTIVES, AD_FORMATS, AD_CTAS, AD_LIMITS, AD_EVENTS, platformLabel, adCanSend, adSendBlock } from "../../../js/domain/ads.js?v=a8e5774c6e";
+import { AD_STAGES as STAGES_OF_ADS, AD_STATUS as STATUS_OF_ADS, AD_PLATFORMS as PLATFORMS_OF_ADS, AD_OBJECTIVES as OBJECTIVES_OF_ADS, AD_FORMATS as FORMATS_OF_ADS, AD_LIMITS as L } from "../../../js/domain/ads.js?v=a8e5774c6e";
 
 const isHttpUrl = (value) => { try { return ["http:", "https:"].includes(new URL(value).protocol); } catch { return false; } };
 
@@ -229,6 +229,7 @@ export function validateAdFilters(input = {}) {
 /* ---------- Gerador de artes: identidade do cliente ---------- */
 export const BRAND_COLORS = { primaria: "Cor principal (fundo)", secundaria: "Cor de apoio (detalhes)", preco: "Cor do preço", alerta: "Cor de alerta (faixas)", titulo: "Cor do título da campanha" };
 export const BRAND_CAMPAIGNS = { padrao: "Identidade da marca", verao: "Verão", natal: "Natal", halloween: "Halloween", blackfriday: "Black Friday", pascoa: "Páscoa", maes: "Dia das Mães", pais: "Dia dos Pais", pets: "Dia dos Animais" };
+export const BRAND_MODELS = { oferta: "Oferta de produto (varejo)", plano: "Plano, pacote ou serviço", evento: "Evento, aula ou episódio", antesdepois: "Antes e depois", frase: "Frase, dica ou depoimento", aviso: "Aviso (feriado, horário)" };
 export const BRAND_LOGO_SLOTS = { emblema: "Símbolo (redondo)", principal: "Logo principal", alternativo: "Logo alternativo" };
 const HEX_COLOR = /^#[0-9a-f]{6}$/i;
 const UNIT_ID = /^[a-z0-9]+(-[a-z0-9]+)*$/;
@@ -261,9 +262,11 @@ export function validateBrandKit(input = {}) {
   units.forEach((u, i) => { if (ids.has(u.id)) u.id = `${u.id}-${i + 1}`; ids.add(u.id); });
   const campaigns = [...new Set((Array.isArray(input.campaigns) ? input.campaigns : []).filter((c) => BRAND_CAMPAIGNS[c]))];
   if (!campaigns.includes("padrao")) campaigns.unshift("padrao");
+  const models = [...new Set((Array.isArray(input.models) ? input.models : []).filter((m) => BRAND_MODELS[m]))];
+  if (!models.length) errors.models = "Escolha pelo menos um modelo.";
   const legal = String(input.legal || "").trim();
   if (legal.length > 200) errors.legal = "Use até 200 caracteres.";
   const logos = {};
   Object.keys(BRAND_LOGO_SLOTS).forEach((key) => { const v = input.logos?.[key]; if (typeof v === "string" && /^[0-9a-f-]{36}\/[A-Za-z0-9._-]+$/.test(v)) logos[key] = v; });
-  return { value: { enabled: input.enabled !== false, colors, logos, units, campaigns, legal: legal || null }, errors };
+  return { value: { enabled: input.enabled !== false, colors, logos, units, campaigns, models, legal: legal || null }, errors };
 }

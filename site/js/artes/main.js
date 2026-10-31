@@ -6,13 +6,13 @@
    A arte é desenhada no navegador (engine.js) e baixada em PNG.
    ========================================================================== */
 
-import { SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY } from "../config.js?v=4e9810fb40";
-import { createAuth } from "../lib/auth.js?v=4e9810fb40";
-import { createSupabaseRepository } from "../data/supabase-repository.js?v=4e9810fb40";
-import { icon, brandMark } from "../lib/icons.js?v=4e9810fb40";
-import { $, esc } from "../lib/dom.js?v=4e9810fb40";
-import { createEngine, FORMATS, CAMPAIGNS, STATUS, isMoney, formatPhone } from "./engine.js?v=4e9810fb40";
-import { imageFromBlob, imageFromUrl, removeBackground, thumbnail } from "./photos.js?v=4e9810fb40";
+import { SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY } from "../config.js?v=a8e5774c6e";
+import { createAuth } from "../lib/auth.js?v=a8e5774c6e";
+import { createSupabaseRepository } from "../data/supabase-repository.js?v=a8e5774c6e";
+import { icon, brandMark } from "../lib/icons.js?v=a8e5774c6e";
+import { $, esc } from "../lib/dom.js?v=a8e5774c6e";
+import { createEngine, FORMATS, CAMPAIGNS, STATUS, MODELS, isMoney, formatPhone } from "./engine.js?v=a8e5774c6e";
+import { imageFromBlob, imageFromUrl, removeBackground, thumbnail } from "./photos.js?v=a8e5774c6e";
 
 const auth = createAuth({ url: SUPABASE_URL, apiKey: SUPABASE_PUBLISHABLE_KEY, kind: "cliente" });
 const repo = createSupabaseRepository({ url: SUPABASE_URL, apiKey: SUPABASE_PUBLISHABLE_KEY, auth });
@@ -20,7 +20,8 @@ const UNIT_KEY = "dg-artes-unidade";
 
 const el = { login: $("#login"), noKit: $("#no-kit"), app: $("#app"), form: $("#art-form"), canvas: $("#cv"), download: $("#baixar"), status: $("#status"), tag: $("#prev-tag") };
 let engine = null, kit = null, current = null;
-const photos = { oferta: { raw: null, ready: null }, plano: { raw: null, ready: null }, aviso: { raw: null, ready: null } };
+const photos = Object.fromEntries(["oferta", "plano", "aviso", "evento", "antes", "depois", "frase"].map((k) => [k, { raw: null, ready: null, shadow: true }]));
+let pickers = {};
 
 /* ---------- utilidades ---------- */
 const val = (id) => $(`#${id}`).value.trim();
@@ -45,6 +46,10 @@ const fontsReady = () => Promise.all(["500", "600", "700", "800", "900"].map((w)
   .concat([document.fonts.load("italic 800 40px Montserrat"), document.fonts.load("40px Anton"), document.fonts.load('40px "Lilita One"')])).catch(() => {});
 
 /* ---------- formulário ---------- */
+/** Imagem de um link: pelo servidor (ler-produto), senão direto/repassada */
+async function loadWebImage(url) {
+  try { return await imageFromBlob(await repo.productImage(url)); } catch { return imageFromUrl(url); }
+}
 function photoField(model, { label, required, nobg }) {
   const box = el.form.querySelector(`[data-photo-field="${model}"]`);
   box.innerHTML = `
@@ -53,8 +58,8 @@ function photoField(model, { label, required, nobg }) {
     <input class="visually-hidden" type="file" id="ph-${model}" accept="image/*">
     <div class="art-paste"><input class="field__input" type="text" autocomplete="off" placeholder="Ou cole aqui a imagem copiada ou o link" aria-label="Colar imagem ou link"><button class="btn btn--ghost btn--sm" type="button">Usar link</button></div>
     <span class="field__hint">Na web: clique com o botão direito na imagem, "Copiar imagem", e cole no campo acima.</span>
-    ${nobg ? '<label class="check"><input type="checkbox" checked><span>Remover o fundo automaticamente</span></label>' : ""}`;
-  const file = box.querySelector("input[type=file]"), link = box.querySelector(".art-paste input"), drop = box.querySelector(".art-drop"), nobgBox = box.querySelector(".check input");
+    ${nobg ? '<span class="art-checks"><label class="check"><input type="checkbox" data-nobg checked><span>Remover o fundo automaticamente</span></label><label class="check"><input type="checkbox" data-shadow checked><span>Sombra no recorte</span></label></span>' : ""}`;
+  const file = box.querySelector("input[type=file]"), link = box.querySelector(".art-paste input"), drop = box.querySelector(".art-drop"), nobgBox = box.querySelector("[data-nobg]"), shadowBox = box.querySelector("[data-shadow]");
   const thumb = drop.querySelector("img"), text = drop.querySelector("span");
   const apply = () => {
     const raw = photos[model].raw;
@@ -67,7 +72,7 @@ function photoField(model, { label, required, nobg }) {
   const fromBlob = async (blob, name) => { try { set(await imageFromBlob(blob), name); } catch (error) { say(error.message, true); } };
   const fromUrl = async (url) => {
     say("Buscando a imagem…");
-    try { set(await imageFromUrl(url), "Imagem da web"); link.value = ""; say("Imagem carregada."); } catch (error) { say(error.message, true); }
+    try { set(await loadWebImage(url), "Imagem da web"); link.value = ""; say("Imagem carregada."); } catch (error) { say(error.message, true); }
   };
   file.addEventListener("change", () => { if (file.files[0]) fromBlob(file.files[0], file.files[0].name); });
   link.addEventListener("paste", (event) => {
@@ -88,7 +93,8 @@ function photoField(model, { label, required, nobg }) {
     if (url) fromUrl(url);
   });
   nobgBox?.addEventListener("change", apply);
-  return { fromBlob };
+  shadowBox?.addEventListener("change", () => { photos[model].shadow = shadowBox.checked; stale(); preview(); });
+  return { fromBlob, fromUrl };
 }
 
 function buildUnits() {
@@ -110,6 +116,12 @@ function showContact() {
   const u = engine.units.find((x) => x.id === $("#unidade").value);
   $("#unit-contact").textContent = u ? [u.endereco, u.whatsapp ? `WhatsApp ${formatPhone(u.whatsapp)}` : ""].filter(Boolean).join(" · ") : "";
 }
+function buildModels() {
+  const list = (kit.models || []).filter((m) => MODELS[m]);
+  const models = list.length ? list : ["oferta", "plano", "aviso"];
+  $("#model-seg").innerHTML = models.map((m, i) => `<input type="radio" name="modelo" id="m-${m}" value="${m}"${i === 0 ? " checked" : ""}><label for="m-${m}">${esc(MODELS[m].label)}<small>${esc(MODELS[m].hint)}</small></label>`).join("");
+  $("#model-seg").hidden = models.length === 1;
+}
 function buildCampaigns() {
   const list = kit.campaigns.filter((c) => CAMPAIGNS[c]);
   if (!list.includes("padrao")) list.unshift("padrao");
@@ -125,6 +137,7 @@ function example() {
   const iso = t.toISOString().slice(0, 10);
   $("#o-validade").value = iso; $("#p-validade").value = iso;
   $("#a-selo").value = "Aproveite o"; $("#a-titulo").value = "Feriadão"; $("#a-cta").value = "Faça sua reserva:";
+  $("#e-cta").value = "Garanta sua vaga:"; $("#d-cta").value = "Agende o seu:"; $("#f-tipo").value = "Dica do dia";
 }
 
 function read() {
@@ -135,6 +148,11 @@ function read() {
     selo: val("a-selo"), titulo: val("a-titulo"), sub: val("a-sub"), destaque: val("a-destaque"), retorno: val("a-retorno"), cta: val("a-cta"), photo: photos.aviso.ready,
     units: engine.units.map((u) => ({ nome: u.nome, status: el.form.querySelector(`[data-unit-status="${CSS.escape(u.id)}"]`).value, horario: el.form.querySelector(`[data-unit-hours="${CSS.escape(u.id)}"]`).value.trim() }))
   });
+  if (d.modelo === "oferta") Object.assign(d, { descricao: val("o-desc"), shadow: photos.oferta.shadow });
+  if (d.modelo === "aviso") d.shadow = photos.aviso.shadow;
+  if (d.modelo === "evento") Object.assign(d, { chamada: val("e-chamada"), titulo: val("e-titulo"), data: val("e-data"), horario: val("e-horario"), local: val("e-local"), descricao: val("e-desc"), cta: val("e-cta"), photo: photos.evento.ready });
+  if (d.modelo === "antesdepois") Object.assign(d, { chamada: val("d-chamada"), titulo: val("d-titulo"), descricao: val("d-desc"), cta: val("d-cta"), photo: photos.antes.ready, photo2: photos.depois.ready });
+  if (d.modelo === "frase") Object.assign(d, { tipo: val("f-tipo"), texto: val("f-texto"), autor: val("f-autor"), detalhe: val("f-detalhe"), photo: photos.frase.ready });
   return d;
 }
 /** Texto de exemplo quando o campo ainda está vazio (só na prévia) */
@@ -143,6 +161,9 @@ function withPlaceholders(d) {
   if (x.modelo === "oferta") { x.produto ||= "Nome do produto"; x.por ||= "99,90"; }
   if (x.modelo === "plano") { x.titulo ||= "Nome do plano"; x.valor ||= x.modo === "desconto" ? "10" : "199,90"; }
   if (x.modelo === "aviso") { x.selo ||= "Aviso"; x.titulo ||= "Título"; }
+  if (x.modelo === "evento") { x.titulo ||= "Título do evento"; if (!x.data && !x.horario && !x.local) { x.data = "Data"; x.horario = "Horário"; } }
+  if (x.modelo === "antesdepois") x.titulo ||= "Resultado";
+  if (x.modelo === "frase") x.texto ||= "Escreva aqui a frase, a dica ou o depoimento do seu cliente.";
   x.nome ||= " ";
   return x;
 }
@@ -158,7 +179,10 @@ function validate(d) {
     field.insertAdjacentHTML("beforeend", `<span class="art-error">${esc(field.dataset.req)}</span>`);
     bad.push(field);
   };
-  if (d.modelo !== "aviso") check($("#c-nome"), !d.nome);
+  if (["oferta", "plano"].includes(d.modelo)) check($("#c-nome"), !d.nome);
+  if (d.modelo === "evento") check($("#e-titulo"), !d.titulo);
+  if (d.modelo === "antesdepois") { check(el.form.querySelector('[data-photo-field="antes"]'), !d.photo); check(el.form.querySelector('[data-photo-field="depois"]'), !d.photo2); check($("#d-titulo"), !d.titulo); }
+  if (d.modelo === "frase") check($("#f-texto"), !d.texto);
   if (d.modelo === "oferta") { check(el.form.querySelector('[data-photo-field="oferta"]'), !d.photo); check($("#o-produto"), !d.produto); check($("#o-por"), !isMoney(d.por)); check($("#o-validade"), !d.validade); }
   if (d.modelo === "plano") { check(el.form.querySelector('[data-photo-field="plano"]'), !d.photo); check($("#p-titulo"), !d.titulo); check($("#p-validade"), !d.validade); check($("#p-valor"), d.modo === "desconto" ? !/\d/.test(d.valor) : !isMoney(d.valor)); }
   if (d.modelo === "aviso") { check($("#a-selo"), !d.selo); check($("#a-titulo"), !d.titulo); check($("#a-units"), d.units.every((u) => u.status === "oculto")); }
@@ -173,17 +197,41 @@ function stale() {
 }
 function switchModel() {
   const m = radio("modelo");
-  ["oferta", "plano", "aviso"].forEach((k) => { $(`#sec-${k}`).hidden = m !== k; });
-  $("#camp-row").hidden = m === "aviso";
+  Object.keys(MODELS).forEach((k) => { $(`#sec-${k}`).hidden = m !== k; });
+  $("#camp-row").hidden = !["oferta", "plano"].includes(m);
   campaignDefaults(false);
 }
 
 function wire() {
-  const pickers = {
+  pickers = {
     oferta: photoField("oferta", { label: "Foto do produto", required: true, nobg: true }),
     plano: photoField("plano", { label: "Foto", required: true, nobg: false }),
-    aviso: photoField("aviso", { label: "Foto de pet", required: false, nobg: true })
+    aviso: photoField("aviso", { label: "Foto sem fundo", required: false, nobg: true }),
+    evento: photoField("evento", { label: "Foto (professor, convidado, lugar)", required: false, nobg: false }),
+    antes: photoField("antes", { label: "Foto do antes", required: true, nobg: false }),
+    depois: photoField("depois", { label: "Foto do depois", required: true, nobg: false }),
+    frase: photoField("frase", { label: "Foto de quem disse", required: false, nobg: false })
   };
+  // Link do produto: nome, descrição, preço e foto preenchidos sozinhos
+  const fetchProduct = async () => {
+    const link = val("o-link");
+    if (!/^https?:\/\//i.test(link)) { say("Cole o link da página do produto (começa com http).", true); return; }
+    const button = $("#o-buscar"); button.disabled = true; say("Lendo a página do produto…");
+    try {
+      const p = await repo.readProduct(link);
+      if (p.nome) $("#o-produto").value = p.nome.slice(0, 90);
+      if (p.descricao) $("#o-desc").value = p.descricao.slice(0, 140);
+      if (p.preco) $("#o-por").value = p.preco;
+      if (p.precoAntigo) $("#o-de").value = p.precoAntigo;
+      if (p.imagem) await pickers.oferta.fromUrl(p.imagem);
+      stale(); preview();
+      say(`Dados de ${p.site || "a loja"} preenchidos. Confira o preço antes de gerar.`);
+    } catch (error) {
+      say(error.message || "Não deu para ler esse link. Preencha à mão.", true);
+    } finally { button.disabled = false; }
+  };
+  $("#o-buscar").addEventListener("click", fetchProduct);
+  $("#o-link").addEventListener("keydown", (event) => { if (event.key === "Enter") { event.preventDefault(); fetchProduct(); } });
   ["c-nome", "c-chamada"].forEach((id) => $(`#${id}`).addEventListener("input", () => { $("#c-nome").dataset.touched = "1"; }));
   el.form.querySelectorAll('input[name="p-modo"]').forEach((r) => r.addEventListener("change", () => {
     const pct = radio("p-modo") === "desconto";
@@ -192,7 +240,7 @@ function wire() {
   }));
   el.form.addEventListener("change", (event) => {
     const t = event.target;
-    if (t.type === "file" || t.type === "checkbox" || t.closest(".art-paste")) return;
+    if (t.type === "file" || t.type === "checkbox" || t.closest(".art-paste") || t.id === "o-link") return;
     if (t.name === "modelo") switchModel();
     if (t.id === "tema") campaignDefaults(false);
     if (t.id === "unidade") { store.set(UNIT_KEY, t.value); showContact(); }
@@ -213,7 +261,8 @@ function wire() {
     const item = [...(event.clipboardData?.items || [])].find((i) => i.type.startsWith("image/"));
     if (!item) return;
     event.preventDefault();
-    pickers[radio("modelo")].fromBlob(item.getAsFile(), "Imagem colada");
+    const target = { antesdepois: "antes" }[radio("modelo")] || radio("modelo");
+    pickers[target].fromBlob(item.getAsFile(), "Imagem colada");
   });
   el.form.addEventListener("submit", (event) => {
     event.preventDefault();
@@ -268,7 +317,7 @@ async function enter() {
   engine = createEngine({ kit, logos });
   if (!engine.units.length) engine.units.push({ id: "unica", nome: kit.client, marca: kit.client, whatsapp: "", logo: "principal" });
   $("#art-client").innerHTML = `${kit.logos.emblema ? `<img src="${esc(kit.logos.emblema)}" alt="">` : ""}<span>${esc(kit.client)}</span>`;
-  buildUnits(); buildCampaigns(); example();
+  buildUnits(); buildModels(); buildCampaigns(); example();
   if (!wire.done) { wire(); wire.done = true; }
   switchModel();
   el.app.hidden = false;

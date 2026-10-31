@@ -12,10 +12,10 @@
   <meta name="theme-color" content="#F5F3FA">
   <link rel="icon" href="../images/logo/favicon.svg" type="image/svg+xml">
   <link rel="icon" href="../images/logo/icon-96.png" type="image/png" sizes="96x96">
-  <link rel="stylesheet" href="../css/style.css?v=4e9810fb40">
-  <link rel="stylesheet" href="../css/responsive.css?v=4e9810fb40">
-  <link rel="stylesheet" href="../css/artes.css?v=4e9810fb40">
-  <script type="module" src="../js/artes/main.js?v=4e9810fb40"></script>
+  <link rel="stylesheet" href="../css/style.css?v=a8e5774c6e">
+  <link rel="stylesheet" href="../css/responsive.css?v=a8e5774c6e">
+  <link rel="stylesheet" href="../css/artes.css?v=a8e5774c6e">
+  <script type="module" src="../js/artes/main.js?v=a8e5774c6e"></script>
 </head>
 <body class="portal">
   <!-- Entrada (mesmo usuário e senha do portal) -->
@@ -82,11 +82,7 @@
 
           <section class="art-box">
             <h2 class="art-box__title">Modelo, formato e campanha</h2>
-            <div class="seg" role="radiogroup" aria-label="Modelo">
-              <input type="radio" name="modelo" id="m-oferta" value="oferta" checked><label for="m-oferta">Oferta<small>produto</small></label>
-              <input type="radio" name="modelo" id="m-plano" value="plano"><label for="m-plano">Plano<small>serviço</small></label>
-              <input type="radio" name="modelo" id="m-aviso" value="aviso"><label for="m-aviso">Aviso<small>feriado, horário</small></label>
-            </div>
+            <div class="seg seg--models" role="radiogroup" aria-label="Modelo" id="model-seg"></div>
             <div class="seg" role="radiogroup" aria-label="Formato">
               <input type="radio" name="formato" id="fm-story" value="story" checked><label for="fm-story">Stories<small>1080×1920</small></label>
               <input type="radio" name="formato" id="fm-feed" value="feed"><label for="fm-feed">Feed<small>1080×1080</small></label>
@@ -102,9 +98,16 @@
           <!-- OFERTA -->
           <section class="art-box" id="sec-oferta">
             <h2 class="art-box__title">Produto</h2>
+            <div class="field art-fetch">
+              <span class="field__label">Link do produto <span class="field__optional">(opcional: preenche tudo sozinho)</span></span>
+              <div class="art-paste"><input class="field__input" type="url" id="o-link" autocomplete="off" placeholder="Cole o link da página do produto"><button class="btn btn--ghost btn--sm" type="button" id="o-buscar">Buscar dados</button></div>
+              <span class="field__hint">Funciona com a maioria das lojas online. Confira os dados antes de gerar.</span>
+            </div>
             <div class="field" data-req="Envie a foto do produto." data-photo-field="oferta"></div>
             <label class="field" data-req="Escreva o nome do produto."><span class="field__label">Nome do produto <span class="req">*</span></span>
               <textarea class="field__input field__input--area" id="o-produto" rows="2" maxlength="90" placeholder="Ex.: Antipulgas Bravecto para Cães de 10 a 20 kg"></textarea></label>
+            <label class="field"><span class="field__label">Descrição curta <span class="field__optional">(opcional)</span></span>
+              <textarea class="field__input field__input--area" id="o-desc" rows="2" maxlength="140"></textarea></label>
             <div class="art-row">
               <label class="field"><span class="field__label">Preço de (R$) <span class="field__optional">(opcional)</span></span><input class="field__input" id="o-de" inputmode="decimal"></label>
               <label class="field" data-req="Coloque o preço."><span class="field__label">Por apenas (R$) <span class="req">*</span></span><input class="field__input" id="o-por" inputmode="decimal" placeholder="Ex.: 182,90"></label>
@@ -115,6 +118,46 @@
               <label class="field" data-req="Escolha até quando vale."><span class="field__label">Válido até <span class="req">*</span></span><input class="field__input" type="date" id="o-validade"></label>
             </div>
             <label class="field"><span class="field__label">Frase extra <span class="field__optional">(opcional)</span></span><input class="field__input" id="o-extra" maxlength="40" placeholder="Ex.: Consulte opção de tele grátis"></label>
+          </section>
+
+          <!-- EVENTO -->
+          <section class="art-box" id="sec-evento" hidden>
+            <h2 class="art-box__title">Evento, aula ou episódio</h2>
+            <div class="field" data-photo-field="evento"></div>
+            <label class="field"><span class="field__label">Etiqueta <span class="field__optional">(opcional)</span></span><input class="field__input" id="e-chamada" maxlength="28" list="e-chamada-sug" placeholder="Ex.: Aula experimental grátis"></label>
+            <datalist id="e-chamada-sug"><option value="Aula experimental grátis"></option><option value="Novo episódio"></option><option value="Ao vivo"></option><option value="Evento"></option><option value="Inscrições abertas"></option><option value="Mutirão"></option></datalist>
+            <label class="field" data-req="Escreva o título."><span class="field__label">Título <span class="req">*</span></span><input class="field__input" id="e-titulo" maxlength="60" placeholder="Ex.: Jiu-jitsu para iniciantes"></label>
+            <div class="art-row">
+              <label class="field"><span class="field__label">Data</span><input class="field__input" id="e-data" maxlength="30" placeholder="Ex.: Sábado, 15/11"></label>
+              <label class="field"><span class="field__label">Horário</span><input class="field__input" id="e-horario" maxlength="24" placeholder="Ex.: 10h"></label>
+            </div>
+            <label class="field"><span class="field__label">Local ou onde assistir</span><input class="field__input" id="e-local" maxlength="50" placeholder="Ex.: Spotify e YouTube"></label>
+            <label class="field"><span class="field__label">Descrição <span class="field__optional">(opcional)</span></span><textarea class="field__input field__input--area" id="e-desc" rows="2" maxlength="140"></textarea></label>
+            <label class="field"><span class="field__label">Faixa de chamada</span><input class="field__input" id="e-cta" maxlength="28" placeholder="Ex.: Garanta sua vaga:"><span class="field__hint">O WhatsApp da unidade entra depois desse texto.</span></label>
+          </section>
+
+          <!-- ANTES E DEPOIS -->
+          <section class="art-box" id="sec-antesdepois" hidden>
+            <h2 class="art-box__title">Antes e depois</h2>
+            <div class="field" data-req="Envie a foto do antes." data-photo-field="antes"></div>
+            <div class="field" data-req="Envie a foto do depois." data-photo-field="depois"></div>
+            <label class="field"><span class="field__label">Chamada <span class="field__optional">(opcional)</span></span><input class="field__input" id="d-chamada" maxlength="26" placeholder="Ex.: Olha esse resultado"></label>
+            <label class="field" data-req="Escreva o título."><span class="field__label">Título <span class="req">*</span></span><input class="field__input" id="d-titulo" maxlength="22" placeholder="Ex.: Higienização completa"></label>
+            <label class="field"><span class="field__label">Descrição <span class="field__optional">(opcional)</span></span><textarea class="field__input field__input--area" id="d-desc" rows="2" maxlength="120"></textarea></label>
+            <label class="field"><span class="field__label">Faixa de chamada</span><input class="field__input" id="d-cta" maxlength="28" placeholder="Ex.: Agende o seu:"></label>
+          </section>
+
+          <!-- FRASE -->
+          <section class="art-box" id="sec-frase" hidden>
+            <h2 class="art-box__title">Frase, dica ou depoimento</h2>
+            <label class="field"><span class="field__label">Tipo</span><input class="field__input" id="f-tipo" maxlength="24" list="f-tipo-sug" placeholder="Ex.: Dica do dia"></label>
+            <datalist id="f-tipo-sug"><option value="Dica do dia"></option><option value="Depoimento"></option><option value="Frase da semana"></option><option value="Trecho do episódio"></option><option value="Você sabia?"></option></datalist>
+            <label class="field" data-req="Escreva o texto."><span class="field__label">Texto <span class="req">*</span></span><textarea class="field__input field__input--area" id="f-texto" rows="4" maxlength="240"></textarea></label>
+            <div class="art-row">
+              <label class="field"><span class="field__label">Quem disse <span class="field__optional">(opcional)</span></span><input class="field__input" id="f-autor" maxlength="40"></label>
+              <label class="field"><span class="field__label">Detalhe <span class="field__optional">(opcional)</span></span><input class="field__input" id="f-detalhe" maxlength="40" placeholder="Ex.: Aluno há 2 anos"></label>
+            </div>
+            <div class="field" data-photo-field="frase"></div>
           </section>
 
           <!-- PLANO -->

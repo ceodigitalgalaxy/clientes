@@ -13,9 +13,9 @@
   <link rel="preload" href="../fonts/sora-latin-400-normal.woff2" as="font" type="font/woff2" crossorigin>
   <link rel="preload" href="../fonts/sora-latin-600-normal.woff2" as="font" type="font/woff2" crossorigin>
   <!-- Mesmos tokens e componentes do portal do cliente -->
-  <link rel="stylesheet" href="../css/style.css?v=4e9810fb40">
-  <link rel="stylesheet" href="css/admin.css?v=4e9810fb40">
-  <script type="module" src="js/main.js?v=4e9810fb40"></script>
+  <link rel="stylesheet" href="../css/style.css?v=a8e5774c6e">
+  <link rel="stylesheet" href="css/admin.css?v=a8e5774c6e">
+  <script type="module" src="js/main.js?v=a8e5774c6e"></script>
 </head>
 <body class="admin">
   <!-- Tela de entrada: aparece enquanto ninguém estiver logado -->
@@ -233,6 +233,12 @@
           <span class="field__label">Unidades <span class="field__optional">(nome, marca, endereço e WhatsApp)</span></span>
           <div class="brand-units" data-brand-units></div>
           <button class="btn btn--ghost btn--sm brand-units__add" type="button" data-action="add-unit" data-icon="users">Adicionar unidade</button>
+        </div>
+        <div class="field form-grid__wide">
+          <span class="field__label">Modelos de arte liberados</span>
+          <div class="brand-campaigns" data-brand-models></div>
+          <input type="hidden" name="models">
+          <span class="field__hint">Escolha os que fazem sentido para o negócio: varejo usa oferta; academia, evento e plano; podcast, evento e frase; estética automotiva, antes e depois.</span>
         </div>
         <div class="field form-grid__wide">
           <span class="field__label">Campanhas liberadas</span>

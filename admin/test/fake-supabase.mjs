@@ -65,7 +65,7 @@ export function createFakeSupabase({ store, publishableKey }) {
       const member = store.findMembers({ userId: user.id })[0];
       const profile = member ? (await store.portalProfile(user.id))[0] : null;
       const kit = member && brandKits.get(member.client_id);
-      return profile && kit?.enabled ? { client: profile.name, colors: kit.colors, logos: kit.logos, units: kit.units, campaigns: kit.campaigns, legal: kit.legal } : null;
+      return profile && kit?.enabled ? { client: profile.name, colors: kit.colors, logos: kit.logos, units: kit.units, campaigns: kit.campaigns, models: kit.models || ["oferta", "plano", "aviso"], legal: kit.legal } : null;
     }
     const actor = { id: user.id, role: user.member ? "equipe" : "cliente", username: usernameFromEmail(user.email) };
     if (name === "ad_transition" && ["p_action,p_ad_id", "p_action,p_ad_id,p_message"].includes(keys)) return store.adTransition(actor, body);

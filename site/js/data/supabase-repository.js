@@ -21,9 +21,9 @@
      listComments, countComments, listIdeas → vazios por enquanto
    ========================================================================== */
 
-import { activityFromContent } from "../domain/content-mapping.js?v=4e9810fb40";
-import { daysInMonth } from "../lib/dates.js?v=4e9810fb40";
-import { createStorage } from "../lib/storage.js?v=4e9810fb40";
+import { activityFromContent } from "../domain/content-mapping.js?v=a8e5774c6e";
+import { daysInMonth } from "../lib/dates.js?v=a8e5774c6e";
+import { createStorage } from "../lib/storage.js?v=a8e5774c6e";
 
 /** Respostas de portal_decide → mensagens para o cliente */
 const DECISION_ERRORS = {
@@ -114,6 +114,22 @@ export function createSupabaseRepository({ url, apiKey, auth, fetchImpl = global
     try { return await response.json(); } catch { throw new RepositoryError(502, "Resposta inesperada do servidor. Tente de novo.", "server"); }
   }
 
+  /** Funções do servidor (Edge Functions), com o login do cliente */
+  async function callFunction(name, body, retry = true) {
+    let token;
+    try { token = await auth.accessToken(); } catch (error) { throw new RepositoryError(401, error.message, "session"); }
+    let response;
+    try {
+      response = await fetchImpl(`${url.replace(/\/+$/, "")}/functions/v1/${name}`, { method: "POST", headers: { apikey: apiKey, Authorization: `Bearer ${token}`, "Content-Type": "application/json" }, body: JSON.stringify(body), signal: AbortSignal.timeout(20000) });
+    } catch { throw new RepositoryError(503, "Não foi possível conectar. Verifique a internet e tente de novo.", "offline"); }
+    if (response.status === 401 && retry) { try { await auth.refresh(); } catch { /* segue para o erro */ } return callFunction(name, body, false); }
+    if (!response.ok) {
+      const data = await response.json().catch(() => null);
+      throw new RepositoryError(response.status, data?.error || "Não foi possível ler esse link agora.", "function");
+    }
+    return response;
+  }
+
   return {
     isDemo: false,
     features: { approvals: true, ads: true, comments: false, ideas: false, plans: false },
@@ -182,7 +198,18 @@ export function createSupabaseRepository({ url, apiKey, auth, fetchImpl = global
       if (!kit || typeof kit !== "object" || Array.isArray(kit)) return null;
       const logos = {};
       Object.entries(kit.logos || {}).forEach(([key, path]) => { if (typeof path === "string" && path) logos[key] = files.publicUrl("client-logos", path); });
-      return { client: kit.client || "", colors: kit.colors || {}, logos, units: Array.isArray(kit.units) ? kit.units : [], campaigns: Array.isArray(kit.campaigns) ? kit.campaigns : ["padrao"], legal: kit.legal || "" };
+      return { client: kit.client || "", colors: kit.colors || {}, logos, units: Array.isArray(kit.units) ? kit.units : [], campaigns: Array.isArray(kit.campaigns) ? kit.campaigns : ["padrao"], models: Array.isArray(kit.models) && kit.models.length ? kit.models : ["oferta", "plano", "aviso"], legal: kit.legal || "" };
+    },
+
+    /** Dados do produto a partir do link da loja (função ler-produto, no servidor) */
+    async readProduct(link) {
+      const response = await callFunction("ler-produto", { url: link });
+      return response.json();
+    },
+    /** Imagem de outro site, buscada pelo servidor (sem bloqueio no navegador) */
+    async productImage(link) {
+      const response = await callFunction("ler-produto", { imagem: link });
+      return response.blob();
     },
 
     async listComments() { return []; },

@@ -35,7 +35,16 @@ export async function imageFromUrl(raw) {
   throw new Error("Esse link não abriu. Na página da imagem, clique com o botão direito, escolha \"Copiar imagem\" e cole no campo.");
 }
 
-/** Tira o fundo liso a partir das bordas; devolve um canvas recortado (ou a própria imagem) */
+/**
+ * Tira o fundo liso a partir das bordas e limpa o recorte:
+ * 1. Cor do fundo = mediana das bordas; tolerância maior se a borda variar (sombra, degradê).
+ * 2. Preenche a partir das bordas tudo o que tem a cor do fundo (e, em fundo claro,
+ *    as sombras cinzentas da foto da loja, que viram mancha no card).
+ * 3. Vãos internos (ex.: entre a alça e a embalagem) com a mesma cor exata do fundo também saem.
+ * 4. Tira a franja: 2 passadas apagando a borda clara que sobra em volta do produto.
+ * 5. Suaviza a borda (antisserrilhado) sem o halo da cor do fundo e recorta nas bordas do produto.
+ * Devolve um canvas (ou a própria imagem, se ela já não tiver fundo ou o fundo não for liso).
+ */
 export function removeBackground(im) {
   const W0 = DW(im), H0 = DH(im), k = Math.min(1, 1600 / Math.max(W0, H0)), w = Math.round(W0 * k), h = Math.round(H0 * k);
   const c = document.createElement("canvas"); c.width = w; c.height = h;
@@ -47,26 +56,45 @@ export function removeBackground(im) {
   for (let j = 0; j < h; j++) border.push(j * w, j * w + w - 1);
   if (border.filter((b) => p[b * 4 + 3] < 20).length > border.length * 0.5) return im;   // já está sem fundo
   const med = (ch) => { const v = border.map((b) => p[b * 4 + ch]).sort((a, b) => a - b); return v[v.length >> 1]; };
-  const br = med(0), bg = med(1), bb = med(2), tol = 40;
+  const br = med(0), bg = med(1), bb = med(2);
   const dist = (q) => { const i = q * 4, a = p[i] - br, b = p[i + 1] - bg, d = p[i + 2] - bb; return Math.sqrt(a * a + b * b + d * d); };
-  const mask = new Uint8Array(N), queue = new Int32Array(N);
+  // Borda irregular (sombra, degradê) pede mais tolerância
+  const spread = border.reduce((sum, b) => sum + dist(b), 0) / border.length;
+  const tol = Math.min(70, 36 + spread * 1.5);
+  // Fundo claro: sombras cinzentas (sem cor) ligadas a ele também são fundo
+  const lightBg = (br + bg + bb) / 3 > 200;
+  const isBg = (q) => {
+    if (dist(q) < tol) return true;
+    if (!lightBg) return false;
+    const i = q * 4, mx = Math.max(p[i], p[i + 1], p[i + 2]), mn = Math.min(p[i], p[i + 1], p[i + 2]);
+    return mx - mn < 14 && mn > 150;
+  };
+  const BG = 1, mask = new Uint8Array(N), queue = new Int32Array(N);
   let head = 0, tail = 0;
-  for (const b of border) if (!mask[b] && dist(b) < tol) { mask[b] = 1; queue[tail++] = b; }
-  while (head < tail) {
-    const q = queue[head++], cx = q % w, cy = (q / w) | 0;
-    for (const n of [cx > 0 ? q - 1 : -1, cx < w - 1 ? q + 1 : -1, cy > 0 ? q - w : -1, cy < h - 1 ? q + w : -1]) {
-      if (n >= 0 && !mask[n] && dist(n) < tol) { mask[n] = 1; queue[tail++] = n; }
-    }
+  const neighbors = (q) => { const cx = q % w, cy = (q / w) | 0; return [cx > 0 ? q - 1 : -1, cx < w - 1 ? q + 1 : -1, cy > 0 ? q - w : -1, cy < h - 1 ? q + w : -1]; };
+  for (const b of border) if (!mask[b] && isBg(b)) { mask[b] = BG; queue[tail++] = b; }
+  while (head < tail) { const q = queue[head++]; for (const n of neighbors(q)) if (n >= 0 && !mask[n] && isBg(n)) { mask[n] = BG; queue[tail++] = n; } }
+  if (tail < N * 0.03) return im;   // quase nada para tirar: o fundo não é liso
+  // Vãos internos: regiões fechadas com a cor do fundo quase exata e tamanho visível
+  const seen = new Uint8Array(N), strict = Math.min(16, tol * 0.4), minArea = Math.max(60, N * 0.0012);
+  for (let q = 0; q < N; q++) {
+    if (mask[q] || seen[q] || dist(q) >= strict) continue;
+    const region = [q]; seen[q] = 1;
+    for (let r = 0; r < region.length; r++) for (const n of neighbors(region[r])) if (n >= 0 && !mask[n] && !seen[n] && dist(n) < strict) { seen[n] = 1; region.push(n); }
+    if (region.length >= minArea) region.forEach((r) => { mask[r] = BG; });
   }
-  if (tail < N * 0.03) return im;   // quase nada para tirar
+  // Franja: borda clara/da cor do fundo que sobra colada ao recorte
+  for (let pass = 0; pass < 2; pass++) {
+    const eat = [];
+    for (let q = 0; q < N; q++) if (!mask[q] && dist(q) < tol * 1.6 && neighbors(q).some((n) => n >= 0 && mask[n])) eat.push(q);
+    eat.forEach((q) => { mask[q] = BG; });
+  }
   const clamp = (v) => Math.min(255, Math.max(0, v));
   for (let q = 0; q < N; q++) {
     const i = q * 4;
     if (mask[q]) { p[i + 3] = 0; continue; }
-    const cx = q % w, cy = (q / w) | 0;
-    const edge = (cx > 0 && mask[q - 1]) || (cx < w - 1 && mask[q + 1]) || (cy > 0 && mask[q - w]) || (cy < h - 1 && mask[q + w]);
-    if (edge) {   // borda suave, sem o halo da cor do fundo
-      const a = Math.max(0.15, Math.min(1, (dist(q) - tol * 0.5) / (tol * 1.6)));
+    if (neighbors(q).some((n) => n >= 0 && mask[n])) {   // borda suave, sem o halo da cor do fundo
+      const a = Math.max(0.35, Math.min(1, (dist(q) - tol * 0.6) / (tol * 1.4)));
       p[i] = clamp((p[i] - br * (1 - a)) / a); p[i + 1] = clamp((p[i + 1] - bg * (1 - a)) / a); p[i + 2] = clamp((p[i + 2] - bb * (1 - a)) / a); p[i + 3] = Math.round(p[i + 3] * a);
     }
   }
@@ -76,6 +104,7 @@ export function removeBackground(im) {
   if (x1 <= x0 || y1 <= y0) return im;
   const out = document.createElement("canvas"); out.width = x1 - x0 + 1; out.height = y1 - y0 + 1;
   out.getContext("2d").drawImage(c, x0, y0, out.width, out.height, 0, 0, out.width, out.height);
+  out.dataset.cutout = "1";
   return out;
 }
 

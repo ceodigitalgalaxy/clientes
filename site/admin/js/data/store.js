@@ -164,7 +164,7 @@ export function createSupabaseStore({ url, apiKey, secretKey, getToken, onUnauth
 
     /* Identidade do cliente para o gerador de artes (brand_kits) */
     async getBrandKit(clientId) {
-      const rows = await request(`brand_kits?select=client_id,enabled,colors,logos,units,campaigns,legal,updated_at&client_id=eq.${enc(clientId)}`);
+      const rows = await request(`brand_kits?select=client_id,enabled,colors,logos,units,campaigns,models,legal,updated_at&client_id=eq.${enc(clientId)}`);
       return Array.isArray(rows) && rows[0] ? rows[0] : null;
     },
     async saveBrandKit(row) {

@@ -1,10 +1,10 @@
 /* Identidade do cliente para o gerador de artes (logos, cores, unidades e campanhas).
    Abre pelo botão "Identidade para artes" do cartão do cliente. */
 
-import { $, esc, on } from "../../../js/lib/dom.js?v=4e9810fb40";
-import { icon } from "../../../js/lib/icons.js?v=4e9810fb40";
-import { BRAND_COLORS, BRAND_CAMPAIGNS, BRAND_LOGO_SLOTS } from "../domain/rules.js?v=4e9810fb40";
-import { closeDialog, wireDialog, showFieldErrors, setBusy } from "../ui/dialogs.js?v=4e9810fb40";
+import { $, esc, on } from "../../../js/lib/dom.js?v=a8e5774c6e";
+import { icon } from "../../../js/lib/icons.js?v=a8e5774c6e";
+import { BRAND_COLORS, BRAND_CAMPAIGNS, BRAND_LOGO_SLOTS, BRAND_MODELS } from "../domain/rules.js?v=a8e5774c6e";
+import { closeDialog, wireDialog, showFieldErrors, setBusy } from "../ui/dialogs.js?v=a8e5774c6e";
 
 const DEFAULT_COLORS = { primaria: "#06603A", secundaria: "#A9CF45", preco: "#F28C00", alerta: "#E53935", titulo: "#F59E0B" };
 const MAX_UNITS = 12;
@@ -30,6 +30,8 @@ export function setupBrand({ api, state, toast }) {
       <input type="color" name="color_${key}" value="${DEFAULT_COLORS[key]}">
       <span>${esc(label)}</span>
     </label>`).join("");
+  form.querySelector("[data-brand-models]").innerHTML = Object.entries(BRAND_MODELS).map(([key, label]) => `
+    <label class="check"><input type="checkbox" name="model" value="${key}"${["oferta", "plano", "aviso"].includes(key) ? " checked" : ""}><span>${esc(label)}</span></label>`).join("");
   form.querySelector("[data-brand-campaigns]").innerHTML = Object.entries(BRAND_CAMPAIGNS).map(([key, label]) => `
     <label class="check"><input type="checkbox" name="campaigns" value="${key}"${key === "padrao" ? " checked disabled" : ""}><span>${esc(label)}</span></label>`).join("");
 
@@ -91,6 +93,7 @@ export function setupBrand({ api, state, toast }) {
         Object.keys(BRAND_COLORS).forEach((key) => { if (kit.colors?.[key]) form.elements[`color_${key}`].value = kit.colors[key].toLowerCase(); });
         form.querySelectorAll('[name="campaigns"]').forEach((box) => { box.checked = box.value === "padrao" || (kit.campaigns || []).includes(box.value); });
         form.elements.legal.value = kit.legal || "";
+        if (Array.isArray(kit.models)) form.querySelectorAll('[name="model"]').forEach((box) => { box.checked = kit.models.includes(box.value); });
         renderUnits(kit.units?.length ? kit.units : [{}]);
         renderLogos();
       }
@@ -142,6 +145,7 @@ export function setupBrand({ api, state, toast }) {
         logos: next,
         units: readUnits(),
         campaigns: [...form.querySelectorAll('[name="campaigns"]:checked')].map((box) => box.value),
+        models: [...form.querySelectorAll('[name="model"]:checked')].map((box) => box.value),
         legal: form.elements.legal.value
       });
       // Arquivos que saíram da identidade

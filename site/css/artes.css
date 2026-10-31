@@ -31,6 +31,7 @@
 
 /* Escolha em botões (modelo e formato) */
 .seg { display: grid; grid-auto-flow: column; grid-auto-columns: 1fr; gap: 4px; padding: 4px; border-radius: var(--radius); background: var(--surface-muted); border: 1px solid var(--line); }
+.seg--models { grid-auto-flow: row; grid-template-columns: repeat(3, minmax(0, 1fr)); }
 .seg input { position: absolute; opacity: 0; pointer-events: none; }
 .seg label { display: grid; justify-items: center; align-content: center; gap: 2px; min-height: 56px; padding: 8px 4px; border-radius: 10px; font-size: 14px; font-weight: 600; line-height: 1.2; text-align: center; color: var(--text-muted); cursor: pointer; transition: background-color 200ms var(--ease), color 200ms var(--ease); }
 .seg label small { font-size: 12px; font-weight: 400; color: var(--text-subtle); }
@@ -73,3 +74,7 @@
   .art-row, .art-unit { grid-template-columns: minmax(0, 1fr); }
   .topbar__actions .btn { padding: 0 12px; }
 }
+
+.art-fetch .art-paste .btn { white-space: nowrap; }
+@media (max-width: 420px) { .seg--models { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+.art-checks { display: flex; flex-wrap: wrap; gap: 8px 24px; }

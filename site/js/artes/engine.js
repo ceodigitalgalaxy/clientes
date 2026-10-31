@@ -25,6 +25,16 @@ export const CAMPAIGNS = {
   pets: { label: "Dia dos Animais", titulo: ["Especial", "Dia dos Animais"], plano: ["Dia dos Animais", ""] }
 };
 
+/** Modelos de arte (a agência libera os que fazem sentido para cada cliente) */
+export const MODELS = {
+  oferta: { label: "Oferta", hint: "produto e preço" },
+  plano: { label: "Plano", hint: "serviço ou pacote" },
+  evento: { label: "Evento", hint: "aula, episódio, data" },
+  antesdepois: { label: "Antes e depois", hint: "resultado" },
+  frase: { label: "Frase", hint: "dica, depoimento" },
+  aviso: { label: "Aviso", hint: "feriado, horário" }
+};
+
 export const STATUS = { normal: "Funciona normalmente", reduzido: "Horário reduzido", especial: "Horário especial", fechado: "Fechada", oculto: "Não mostrar no card" };
 
 /* ---------- cores ---------- */
@@ -133,6 +143,25 @@ function placeholder(ctx, x, y, w, h, label) {
   ctx.save(); ctx.strokeStyle = "rgba(255,255,255,.55)"; ctx.setLineDash([14, 10]); ctx.lineWidth = 3; rr(ctx, x, y, w, h, 24); ctx.stroke();
   ctx.fillStyle = "rgba(255,255,255,.85)"; ctx.font = f(700, Math.max(22, w / 16)); ctx.textAlign = "center"; ctx.textBaseline = "middle"; ctx.fillText(label, x + w / 2, y + h / 2); ctx.restore();
 }
+
+/** Foto recortada com sombra de contato no chão + sombra suave (esconde a borda do recorte) */
+function cutout(ctx, im, x, y, w, h, { shadow = true, valign } = {}) {
+  if (!im) return;
+  const r = Math.min(w / DW(im), h / DH(im)), iw = DW(im) * r, ih = DH(im) * r;
+  const ix = x + (w - iw) / 2, iy = valign === "bottom" ? y + h - ih : y + (h - ih) / 2;
+  if (shadow) {
+    ctx.save();
+    const cx = ix + iw / 2, cy = iy + ih - ih * 0.01, rx = iw * 0.46, ry = Math.max(10, iw * 0.07);
+    const g = ctx.createRadialGradient(cx, cy, 0, cx, cy, rx);
+    g.addColorStop(0, "rgba(0,0,0,.45)"); g.addColorStop(0.55, "rgba(0,0,0,.18)"); g.addColorStop(1, "rgba(0,0,0,0)");
+    ctx.translate(cx, cy); ctx.scale(1, ry / rx); ctx.translate(-cx, -cy);
+    ctx.fillStyle = g; ctx.beginPath(); ctx.arc(cx, cy, rx, 0, Math.PI * 2); ctx.fill();
+    ctx.restore();
+    ctx.save(); ctx.shadowColor = "rgba(0,0,0,.38)"; ctx.shadowBlur = Math.max(18, iw * 0.05); ctx.shadowOffsetY = Math.max(8, iw * 0.025);
+    ctx.drawImage(im, ix, iy, iw, ih); ctx.restore();
+  } else ctx.drawImage(im, ix, iy, iw, ih);
+}
+function coverRound(ctx, im, x, y, w, h, r) { ctx.save(); rr(ctx, x, y, w, h, r); ctx.clip(); cover(ctx, im, x, y, w, h); ctx.restore(); }
 
 /**
  * @param {object} options
@@ -247,15 +276,17 @@ export function createEngine({ kit, logos }) {
     let need = 0;
     if (d.selo) need += 54 * s + 16 * s;
     need += lines(ctx, d.produto, f(800, 34 * s), rw, 4).length * 34 * s * 1.18 + 18 * s;
+    if (d.descricao) need += lines(ctx, d.descricao, f(500, 24 * s), rw, 3).length * 24 * s * 1.35 + 14 * s;
     need += priceBlock(ctx, { x: rx, y: 0, w: rw, d, T, s, draw: false });
     if (y + need > bottom) return bottom + 1;
     let ry = Math.min(bottom - need, y + Math.max(0, (bottomL - y - need) / 2));
     if (draw) {
-      if (d.photo) { ctx.save(); ctx.shadowColor = "rgba(0,0,0,.35)"; ctx.shadowBlur = 30; ctx.shadowOffsetY = 16; contain(ctx, d.photo, lx, y, lw, bottomL - y); ctx.restore(); }
+      if (d.photo) cutout(ctx, d.photo, lx, y, lw, bottomL - y, { shadow: d.shadow !== false });
       else placeholder(ctx, lx, y, lw, bottomL - y, "Foto do produto");
     }
     if (d.selo) { if (draw) tagPill(ctx, rx, ry, d.selo, T, s); ry += 54 * s + 16 * s; }
     ry = textBlock(ctx, d.produto, { font: f(800, 34 * s), x: rx, y: ry, w: rw, lh: 34 * s * 1.18, max: 4, color: "#FFFFFF", draw }) + 18 * s;
+    if (d.descricao) ry = textBlock(ctx, d.descricao, { font: f(500, 24 * s), x: rx, y: ry - 4 * s, w: rw, lh: 24 * s * 1.35, max: 3, color: T.sub, draw }) + 14 * s;
     priceBlock(ctx, { x: rx, y: ry, w: rw, d, T, s, draw });
     if (draw) {
       const lwid = logo(ctx, U?.logo || "principal", pad, H - hw * 0.62 - logoH, logoH);
@@ -397,7 +428,7 @@ export function createEngine({ kit, logos }) {
     if (d.retorno) { y += 22 * s; y = textBlock(ctx, d.retorno, { font: f(700, 28 * s), x: pad, y, w: cw, lh: 28 * s * 1.3, max: 2, color: "#FFFFFF", align: "center", draw }); }
     if (y > bandY - 16 * s) return H;
     if (!draw) return -(bandY - 16 * s - y);
-    if (hasPhoto) { ctx.save(); ctx.shadowColor = "rgba(0,0,0,.3)"; ctx.shadowBlur = 30; contain(ctx, d.photo, W * 0.5, rowsTop - 60 * s, W * 0.5 - pad * 0.3, bandY - rowsTop + 60 * s, "bottom"); ctx.restore(); }
+    if (hasPhoto) cutout(ctx, d.photo, W * 0.5, rowsTop - 60 * s, W * 0.5 - pad * 0.3, bandY - rowsTop + 60 * s - 12, { shadow: d.shadow !== false, valign: "bottom" });
     ctx.fillStyle = T.alert; ctx.fillRect(0, bandY, W, A.band);
     const t = `${(d.cta || "Fale conosco:").toUpperCase()} ${U?.whatsapp ? formatPhone(U.whatsapp) : ""}`.trim();
     let fs = (40 * W) / 1080; ctx.font = f(900, fs); const m = ctx.measureText(t).width; if (m > W - pad * 2) fs *= (W - pad * 2) / m;
@@ -405,8 +436,121 @@ export function createEngine({ kit, logos }) {
     return 0;
   }
 
+  /** Faixa de chamada no rodapé: texto + WhatsApp da unidade */
+  function band(ctx, F, T, text, U, y, h) {
+    const { W } = F, pad = W * 0.06;
+    const t = [String(text || "").toUpperCase(), U?.whatsapp ? formatPhone(U.whatsapp) : ""].filter(Boolean).join(" ");
+    ctx.fillStyle = T.alert; ctx.fillRect(0, y, W, h);
+    if (!t) return;
+    let fs = (38 * W) / 1080; ctx.font = f(900, fs); const m = ctx.measureText(t).width; if (m > W - pad * 2) fs *= (W - pad * 2) / m;
+    ctx.font = f(900, fs); ctx.fillStyle = "#FFFFFF"; ctx.textAlign = "center"; ctx.textBaseline = "middle"; ctx.fillText(t, W / 2, y + h / 2 + 2); ctx.textAlign = "left";
+  }
+  const bandSize = (F) => (F.H > F.W * 1.5 ? { y: F.H - 300, h: 110 } : { y: F.H - Math.round(F.W * 0.09), h: Math.round(F.W * 0.09) });
+
+  /* ----- EVENTO: foto no alto, título, data/hora/local e chamada ----- */
+  function evento(ctx, F, T, d, U, s, draw) {
+    const { W, H } = F, pad = W * 0.065, cw = W - pad * 2, B = bandSize(F);
+    const photoH = d.photo ? H * (F.H > F.W * 1.5 ? 0.4 : 0.42) : 0;
+    if (draw) {
+      background(ctx, F, T, 0, Boolean(d.photo));
+      if (d.photo) {
+        ctx.save(); ctx.beginPath(); ctx.rect(0, 0, W, photoH); ctx.clip(); cover(ctx, d.photo, 0, 0, W, photoH); ctx.restore();
+        const g = ctx.createLinearGradient(0, photoH * 0.55, 0, photoH); g.addColorStop(0, "rgba(0,0,0,0)"); g.addColorStop(1, T.bg1);
+        ctx.fillStyle = g; ctx.fillRect(0, photoH * 0.55, W, photoH * 0.45 + 2);
+      }
+      logo(ctx, "emblema", d.photo ? pad : W - pad - W * 0.13, (F.H > F.W * 1.5 ? 200 : pad * 0.7), W * 0.13);
+    }
+    let y = d.photo ? photoH - 30 * s : (F.H > F.W * 1.5 ? 420 : H * 0.2) + (d.shift || 0);
+    if (d.chamada) { if (draw) tagPill(ctx, pad, y, d.chamada, T, s); y += 54 * s + 22 * s; }
+    ctx.save(); ls(ctx, 1);
+    y = textBlock(ctx, String(d.titulo).toUpperCase(), { font: ANTON(110 * s), x: pad, y, w: cw, lh: 110 * s * 1.02, max: 3, color: "#FFFFFF", draw });
+    ctx.restore(); y += 22 * s;
+    const infos = [["cal", d.data], ["clock", d.horario], ["pin", d.local]].filter(([, v]) => v);
+    for (const [kind, text] of infos) {
+      if (draw) {
+        const r = 26 * s, cx = pad + r, cy = y + r;
+        ctx.fillStyle = T.tag; ctx.beginPath(); ctx.arc(cx, cy, r, 0, Math.PI * 2); ctx.fill();
+        ctx.strokeStyle = T.tagInk; ctx.lineWidth = 4 * s; ctx.lineCap = "round"; ctx.lineJoin = "round"; ctx.beginPath();
+        if (kind === "cal") { ctx.rect(cx - 11 * s, cy - 9 * s, 22 * s, 19 * s); ctx.moveTo(cx - 11 * s, cy - 3 * s); ctx.lineTo(cx + 11 * s, cy - 3 * s); }
+        else if (kind === "clock") { ctx.arc(cx, cy, 12 * s, 0, Math.PI * 2); ctx.moveTo(cx, cy - 7 * s); ctx.lineTo(cx, cy); ctx.lineTo(cx + 5 * s, cy + 4 * s); }
+        else { ctx.moveTo(cx, cy + 13 * s); ctx.bezierCurveTo(cx - 16 * s, cy - 2 * s, cx - 9 * s, cy - 15 * s, cx, cy - 14 * s); ctx.bezierCurveTo(cx + 9 * s, cy - 15 * s, cx + 16 * s, cy - 2 * s, cx, cy + 13 * s); }
+        ctx.stroke();
+        ctx.fillStyle = "#FFFFFF"; ctx.font = f(800, 32 * s); ctx.textBaseline = "middle"; ctx.fillText(text, pad + r * 2 + 18 * s, cy + 1, cw - r * 2 - 18 * s);
+      }
+      y += 52 * s + 16 * s;
+    }
+    if (d.descricao) { y += 8 * s; y = textBlock(ctx, d.descricao, { font: f(600, 30 * s), x: pad, y, w: cw, lh: 30 * s * 1.35, max: 3, color: T.sub, draw }); }
+    if (y > B.y - 24 * s) return H;
+    if (!draw) return d.photo ? 0 : -(B.y - 24 * s - y);
+    band(ctx, F, T, d.cta, U, B.y, B.h);
+    return 0;
+  }
+
+  /* ----- ANTES E DEPOIS: duas fotos lado a lado (feed) ou uma sobre a outra ----- */
+  function antesdepois(ctx, F, T, d, U, s, draw) {
+    const { W, H } = F, pad = W * 0.06, cw = W - pad * 2, B = bandSize(F), tall = F.H > F.W * 1.2;
+    if (draw) background(ctx, F, T, 0);
+    let y = tall ? (F.H > F.W * 1.5 ? 210 : 90) : 64;
+    y = campaign(ctx, { x: pad, y, w: cw, chamada: d.chamada, nome: d.titulo, T, max: (tall ? 150 : 110) * Math.min(s, 1), draw });
+    y += 16 * s;
+    const descH = d.descricao ? lines(ctx, d.descricao, f(600, 30 * s), cw, 2).length * 30 * s * 1.35 + 20 * s : 0;
+    const avail = B.y - 28 * s - y - descH, gap = 24 * s;
+    if (avail < (tall ? 500 : 280) * s) return H;
+    if (draw) {
+      const boxes = tall ? [[pad, y, cw, (avail - gap) / 2], [pad, y + (avail - gap) / 2 + gap, cw, (avail - gap) / 2]]
+        : [[pad, y, (cw - gap) / 2, avail], [pad + (cw - gap) / 2 + gap, y, (cw - gap) / 2, avail]];
+      [["ANTES", d.photo, T.ribbon2, "#FFFFFF"], ["DEPOIS", d.photo2, T.tag, T.tagInk]].forEach(([label, im, bg, ink], i) => {
+        const [bx, by, bw, bh] = boxes[i];
+        ctx.save(); ctx.shadowColor = "rgba(0,0,0,.3)"; ctx.shadowBlur = 24; ctx.shadowOffsetY = 10; ctx.fillStyle = "#FFFFFF"; rr(ctx, bx, by, bw, bh, 28 * s); ctx.fill(); ctx.restore();
+        if (im) coverRound(ctx, im, bx + 8 * s, by + 8 * s, bw - 16 * s, bh - 16 * s, 22 * s);
+        else placeholder(ctx, bx + 8 * s, by + 8 * s, bw - 16 * s, bh - 16 * s, `Foto ${label.toLowerCase()}`);
+        ctx.font = f(900, 28 * s); ls(ctx, 3); const lw = ctx.measureText(label).width + 48 * s;
+        ctx.fillStyle = bg; rr(ctx, bx + 24 * s, by + 24 * s, lw, 54 * s, 27 * s); ctx.fill();
+        ctx.fillStyle = ink; ctx.textBaseline = "middle"; ctx.fillText(label, bx + 48 * s, by + 51 * s + 1); ls(ctx, 0);
+      });
+    }
+    y += avail + 20 * s;
+    if (d.descricao) textBlock(ctx, d.descricao, { font: f(600, 30 * s), x: pad, y, w: cw, lh: 30 * s * 1.35, max: 2, color: "#FFFFFF", align: "center", draw });
+    if (draw) band(ctx, F, T, d.cta, U, B.y, B.h);
+    return 0;
+  }
+
+  /* ----- FRASE: dica, frase ou depoimento em destaque, com autor ----- */
+  function frase(ctx, F, T, d, U, s, draw) {
+    const { W, H } = F, pad = W * 0.09, cw = W - pad * 2, tall = F.H > F.W * 1.2;
+    const logoH = tall ? 190 : 140, bottom = H - logoH - (F.H > F.W * 1.5 ? 260 : 70);
+    const ts = 58 * s, tl = balanced(ctx, d.texto, f(800, ts), cw, 8), textH = tl.length * ts * 1.28;
+    const authorH = d.autor ? 130 * s : 0, need = 54 * s + 40 * s + 120 * s + textH + 40 * s + authorH;
+    const top = Math.max(F.H > F.W * 1.5 ? 220 : 60, ((bottom - need) / 2));
+    if (top + need > bottom) return H;
+    if (!draw) return 0;
+    background(ctx, F, T, 0);
+    let y = top;
+    if (d.tipo) { ctx.font = f(900, 26 * s); ls(ctx, 2); const w = ctx.measureText(d.tipo.toUpperCase()).width + 56 * s; ls(ctx, 0); tagPill(ctx, (W - w) / 2, y, d.tipo, T, s); }
+    y += 54 * s + 40 * s;
+    ctx.font = `bold ${Math.round(260 * s)}px Georgia, "Times New Roman", serif`; ctx.fillStyle = T.deco1; ctx.textAlign = "center"; ctx.textBaseline = "top"; ctx.fillText("\u201C", W / 2, y - 40 * s);
+    y += 120 * s;
+    ctx.font = f(800, ts); ctx.fillStyle = "#FFFFFF"; tl.forEach((l, i) => ctx.fillText(l, W / 2, y + i * ts * 1.28)); y += textH + 40 * s;
+    if (d.autor) {
+      const av = d.photo ? 104 * s : 0;
+      ctx.font = f(800, 34 * s); const nw = ctx.measureText(d.autor).width; ctx.font = f(600, 26 * s); const dw = d.detalhe ? ctx.measureText(d.detalhe).width : 0;
+      const tw = Math.max(nw, dw), total = av + (av ? 24 * s : 0) + tw, x0 = (W - total) / 2;
+      if (av) {
+        ctx.save(); ctx.beginPath(); ctx.arc(x0 + av / 2, y + av / 2, av / 2, 0, Math.PI * 2); ctx.clip(); cover(ctx, d.photo, x0, y, av, av); ctx.restore();
+        ctx.strokeStyle = T.deco1; ctx.lineWidth = 5 * s; ctx.beginPath(); ctx.arc(x0 + av / 2, y + av / 2, av / 2, 0, Math.PI * 2); ctx.stroke();
+      }
+      const tx = x0 + av + (av ? 24 * s : 0); ctx.textAlign = "left";
+      ctx.font = f(800, 34 * s); ctx.fillStyle = "#FFFFFF"; ctx.fillText(d.autor, tx, y + (d.detalhe ? 14 : 34) * s);
+      if (d.detalhe) { ctx.font = f(600, 26 * s); ctx.fillStyle = T.sub; ctx.fillText(d.detalhe, tx, y + 58 * s); }
+    }
+    ctx.textAlign = "left";
+    const lw = logoOf("principal") ? (logoH * DW(logoOf("principal"))) / DH(logoOf("principal")) : 0;
+    logo(ctx, "principal", (W - lw) / 2, bottom + (F.H > F.W * 1.5 ? 60 : 20), logoH);
+    return 0;
+  }
+
   // tamanho inicial das letras por modelo e formato (diminui sozinho se não couber)
-  const S0 = { oferta: { story: 1.3, feed: 1, a4: 1.25 }, plano: { story: 1.22, feed: 1, a4: 1.2 }, aviso: { story: 1.4, feed: 1, a4: 1.3 } };
+  const S0 = { oferta: { story: 1.3, feed: 1, a4: 1.25 }, plano: { story: 1.22, feed: 1, a4: 1.2 }, aviso: { story: 1.4, feed: 1, a4: 1.3 }, evento: { story: 1.3, feed: 1, a4: 1.25 }, antesdepois: { story: 1.25, feed: 1, a4: 1.2 }, frase: { story: 1.35, feed: 1, a4: 1.3 } };
 
   return {
     units,
@@ -415,10 +559,10 @@ export function createEngine({ kit, logos }) {
       const F = FORMATS[d.formato], T = themeFor(d.tema, kit.colors), U = units.find((u) => u.id === d.unidade) || units[0];
       canvas.width = F.W * scale; canvas.height = F.H * scale;
       const ctx = canvas.getContext("2d"); ctx.setTransform(scale, 0, 0, scale, 0, 0);
-      const body = { oferta, plano, aviso }[d.modelo], s0 = S0[d.modelo][d.formato];
+      const body = { oferta, plano, aviso, evento, antesdepois, frase }[d.modelo], s0 = S0[d.modelo][d.formato];
       let s = s0;
       while (s > s0 * 0.55 && body(ctx, F, T, d, U, s, false) > 0) s -= 0.04;
-      if (d.modelo === "aviso") d = { ...d, shift: Math.max(0, -body(ctx, F, T, d, U, s, false)) * 0.45 };
+      if (d.modelo === "aviso" || d.modelo === "evento") d = { ...d, shift: Math.max(0, -body(ctx, F, T, d, U, s, false)) * 0.45 };
       ctx.clearRect(0, 0, F.W, F.H);
       body(ctx, F, T, d, U, s, true);
     }

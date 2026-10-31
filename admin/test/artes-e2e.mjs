@@ -48,6 +48,16 @@ async function newPage(name, options = {}) {
     if (answer === "abort") return route.abort("failed");
     return route.fulfill(answer);
   });
+  // Função ler-produto (link do produto): respondida aqui, com o mesmo formato da função real
+  await context.route(`${SUPABASE_URL}/functions/v1/ler-produto`, async (route) => {
+    const req = route.request();
+    if (req.method() === "OPTIONS") return route.fulfill({ status: 204, headers: { "access-control-allow-origin": "*", "access-control-allow-headers": "*" } });
+    if (!/^Bearer \S+/.test(req.headers().authorization || "")) return route.fulfill({ status: 401, contentType: "application/json", body: '{"error":"Entre de novo."}' });
+    const body = JSON.parse(req.postData() || "{}");
+    const cors = { "access-control-allow-origin": "*" };
+    if (body.imagem) return route.fulfill({ status: 200, contentType: "image/png", headers: cors, body: PNG });
+    return route.fulfill({ status: 200, contentType: "application/json", headers: cors, body: JSON.stringify({ nome: "Coleira Seresto Cães acima de 8 kg", descricao: "Proteção de até 8 meses contra pulgas e carrapatos.", preco: "189,90", precoAntigo: "259,90", imagem: "https://loja.exemplo.com/seresto.png", site: "loja.exemplo.com" }) });
+  });
   // "Imagem da web" colada por link: respondida aqui (sem internet)
   await context.route("https://loja.exemplo.com/**", (route) => route.fulfill({ status: 200, contentType: "image/png", headers: { "access-control-allow-origin": "*" }, body: PNG }));
   const page = await context.newPage();
@@ -83,6 +93,7 @@ await step("Painel: identidade para artes (logos, cores, unidades e campanhas) �
   await admin.fill('#brand-modal [name="unit_1_nome"]', "Bairro Alto");
   await admin.fill('#brand-modal [name="unit_1_whatsapp"]', "51988887777");
   await admin.check('#brand-modal [name="campaigns"][value="natal"]');
+  for (const m of ["evento", "antesdepois", "frase"]) await admin.check(`#brand-modal [name="model"][value="${m}"]`);
   await shot(admin, "artes-01-painel-identidade");
   await admin.click("#brand-modal [type=submit]");
   await admin.waitForSelector("#brand-modal:not([open])", { state: "attached" });
@@ -91,6 +102,7 @@ await step("Painel: identidade para artes (logos, cores, unidades e campanhas) �
   assert.equal(kit.colors.primaria, "#0B5D3B");
   assert.deepEqual(kit.units.map((u) => [u.id, u.whatsapp]), [["centro", "51999991234"], ["bairro-alto", "51988887777"]]);
   assert.deepEqual(kit.campaigns, ["padrao", "natal"]);
+  assert.deepEqual(kit.models, ["oferta", "plano", "evento", "antesdepois", "frase", "aviso"]);
   assert.match(kit.logos.emblema, new RegExp(`^${petshop.id}/marca-emblema-`));
   assert.ok(kit.logos.principal);
 });
@@ -172,6 +184,47 @@ await step("Criar artes: aviso com as unidades e o WhatsApp da unidade escolhida
   await cliente.waitForFunction(() => !document.querySelector("#baixar").disabled);
   assert.match(await cliente.textContent("#unit-contact"), /\(51\) 98888-7777/);
   await shot(cliente, "artes-04-aviso");
+});
+
+await step("Criar artes: link do produto preenche nome, descrição, preços e foto", async () => {
+  await cliente.click('label[for="m-oferta"]');
+  await cliente.fill("#o-link", "https://loja.exemplo.com/seresto/p");
+  await cliente.click("#o-buscar");
+  await cliente.waitForFunction(() => document.querySelector("#o-produto").value.startsWith("Coleira Seresto"));
+  assert.equal(await cliente.inputValue("#o-por"), "189,90");
+  assert.equal(await cliente.inputValue("#o-de"), "259,90");
+  assert.match(await cliente.inputValue("#o-desc"), /8 meses/);
+  await cliente.waitForFunction(() => /Imagem da web/.test(document.querySelector('[data-photo-field="oferta"] .art-drop span').textContent));
+  await cliente.click("#art-form [type=submit]");
+  await cliente.waitForFunction(() => !document.querySelector("#baixar").disabled);
+  await shot(cliente, "artes-06-link-produto");
+});
+
+await step("Criar artes: evento, antes e depois e frase (modelos liberados pela agência)", async () => {
+  assert.deepEqual(await cliente.$$eval('#model-seg input', (n) => n.map((x) => x.value)), ["oferta", "plano", "evento", "antesdepois", "frase", "aviso"]);
+  await cliente.click('label[for="m-evento"]');
+  await cliente.fill("#e-titulo", "Aula experimental de jiu-jitsu");
+  await cliente.fill("#e-data", "Sábado, 15/11");
+  await cliente.fill("#e-horario", "10h");
+  await cliente.click("#art-form [type=submit]");
+  await cliente.waitForFunction(() => !document.querySelector("#baixar").disabled);
+  await shot(cliente, "artes-07-evento");
+  await cliente.click('label[for="m-antesdepois"]');
+  await cliente.click("#art-form [type=submit]");
+  await cliente.waitForSelector('[data-photo-field="antes"].is-invalid');
+  await cliente.setInputFiles("#ph-antes", PNG_FILE);
+  await cliente.setInputFiles("#ph-depois", PNG_FILE);
+  await cliente.fill("#d-titulo", "Lavagem completa");
+  await cliente.click("#art-form [type=submit]");
+  await cliente.waitForFunction(() => !document.querySelector("#baixar").disabled);
+  await shot(cliente, "artes-08-antes-depois");
+  await cliente.click('label[for="m-frase"]');
+  await cliente.fill("#f-texto", "Treinar me ensinou disciplina dentro e fora do tatame.");
+  await cliente.fill("#f-autor", "Rafael");
+  await cliente.click("#art-form [type=submit]");
+  await cliente.waitForFunction(() => !document.querySelector("#baixar").disabled);
+  await shot(cliente, "artes-09-frase");
+  await cliente.click('label[for="m-aviso"]');
 });
 
 await step("Criar artes: mudar o formulário pede para gerar de novo", async () => {

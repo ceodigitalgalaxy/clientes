@@ -90,6 +90,9 @@ O cliente cria artes prontas (oferta de produto, plano/pacote de serviço e avis
 
 - **Na agência (painel → Clientes → botão ✦ "Identidade para artes"):** logos (símbolo, principal e alternativo, de preferência PNG sem fundo), cores (principal, apoio, preço, alerta e título), unidades (nome, marca, endereço, WhatsApp e qual logo usar), campanhas liberadas (Natal, Black Friday, Verão…) e a frase depois da validade. Desmarcar "Gerador de artes liberado" tira a aba do cliente.
 - **No portal do cliente:** escolhe a unidade (o WhatsApp entra sozinho no card), o modelo, o formato e a campanha, preenche os campos obrigatórios e toca em **Gerar arte** e **Baixar imagem**. A foto pode vir do aparelho, colada da web ("Copiar imagem") ou por link; nas fotos de produto, o fundo liso (branco) sai automaticamente.
+- **Modelos por nicho:** a agência escolhe quais aparecem para cada cliente: Oferta de produto (varejo), Plano/pacote/serviço, Evento/aula/episódio (academias, podcasts, eventos), Antes e depois (estética automotiva, limpeza, beleza), Frase/dica/depoimento e Aviso (feriado, horário).
+- **Link do produto:** na Oferta, colar o link da página do produto e tocar em **Buscar dados** preenche nome, descrição, preço (e o "de", se a loja mostrar) e a foto, já sem fundo. A leitura é feita no servidor pela função `ler-produto` (Supabase Edge Function), só para quem está logado. Algumas lojas grandes bloqueiam leitura automática; aí é colar a imagem e escrever os dados.
+- **Recorte:** tira fundo branco/liso, as sombras cinzentas da foto da loja, a franja clara da borda e os vãos internos com a cor do fundo; a opção **Sombra no recorte** põe uma sombra de chão e uma sombra suave no produto.
 - Os dados ficam na tabela `brand_kits` (só a equipe lê e altera); o cliente lê a própria identidade por `portal_brand_kit()`.
 
 ### Estrutura
