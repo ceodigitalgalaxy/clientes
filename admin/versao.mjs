@@ -19,7 +19,7 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 
 const SITE = path.join(path.dirname(fileURLToPath(import.meta.url)), "..", "site");
-const PAGES = ["index.html", "admin/index.html"].map((p) => path.join(SITE, p));
+const PAGES = ["index.html", "admin/index.html", "artes/index.html"].map((p) => path.join(SITE, p));
 const CODE_DIRS = ["js", "admin/js", "css", "admin/css"].map((d) => path.join(SITE, d));
 
 const walk = (dir) => readdirSync(dir).flatMap((name) => {

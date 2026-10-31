@@ -9,21 +9,22 @@
    O banco aplica as mesmas regras (RLS): esconder a tela não é a proteção.
    ========================================================================== */
 
-import { $, on } from "../../js/lib/dom.js?v=88233407a6";
-import { icon, brandMark } from "../../js/lib/icons.js?v=88233407a6";
-import { toast } from "../../js/ui/toast.js?v=88233407a6";
-import { SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY } from "../../js/config.js?v=88233407a6";
-import { createAuth } from "../../js/lib/auth.js?v=88233407a6";
-import { createStorage } from "../../js/lib/storage.js?v=88233407a6";
-import { createSupabaseStore } from "./data/store.js?v=88233407a6";
-import { createApi } from "./api.js?v=88233407a6";
-import { validateContentFilters } from "./domain/rules.js?v=88233407a6";
-import { createConfirm, showFieldErrors, setBusy } from "./ui/dialogs.js?v=88233407a6";
-import { setupClients } from "./views/clients.js?v=88233407a6";
-import { setupContents } from "./views/contents.js?v=88233407a6";
-import { setupAccess } from "./views/access.js?v=88233407a6";
-import { setupImport } from "./views/import.js?v=88233407a6";
-import { setupAds } from "./views/ads.js?v=88233407a6";
+import { $, on } from "../../js/lib/dom.js?v=4e9810fb40";
+import { icon, brandMark } from "../../js/lib/icons.js?v=4e9810fb40";
+import { toast } from "../../js/ui/toast.js?v=4e9810fb40";
+import { SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY } from "../../js/config.js?v=4e9810fb40";
+import { createAuth } from "../../js/lib/auth.js?v=4e9810fb40";
+import { createStorage } from "../../js/lib/storage.js?v=4e9810fb40";
+import { createSupabaseStore } from "./data/store.js?v=4e9810fb40";
+import { createApi } from "./api.js?v=4e9810fb40";
+import { validateContentFilters } from "./domain/rules.js?v=4e9810fb40";
+import { createConfirm, showFieldErrors, setBusy } from "./ui/dialogs.js?v=4e9810fb40";
+import { setupClients } from "./views/clients.js?v=4e9810fb40";
+import { setupContents } from "./views/contents.js?v=4e9810fb40";
+import { setupAccess } from "./views/access.js?v=4e9810fb40";
+import { setupImport } from "./views/import.js?v=4e9810fb40";
+import { setupAds } from "./views/ads.js?v=4e9810fb40";
+import { setupBrand } from "./views/brand.js?v=4e9810fb40";
 
 /* O painel não abre dentro de outro site (proteção contra clique disfarçado).
    A página fica invisível até esta checagem (veja .admin em admin.css). */
@@ -82,6 +83,7 @@ async function loadClients() {
 }
 
 const clients = setupClients({ api, state, toast, confirm, navigate, onClientsChanged: async () => { await loadClients(); if (state.route === "conteudos") await contents.load(); } });
+setupBrand({ api, state, toast });
 const contents = setupContents({ api, state, toast, confirm, navigate });
 setupAccess({ api, state, toast, confirm, onChanged: () => loadClients() });
 const importer = setupImport({ api, state, toast, navigate });

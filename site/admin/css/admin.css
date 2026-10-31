@@ -366,3 +366,22 @@ select.field__input { padding-right: 40px; appearance: none; background-image: u
 
 .ad-stage .check { align-items: flex-start; }
 .ad-stage .check span { font-size: 14px; line-height: 1.45; }
+
+/* Identidade para artes (gerador de artes do cliente) */
+.brand-logos { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 16px; }
+.brand-logo { display: grid; justify-items: start; gap: 8px; padding: 16px; border: 1px solid var(--line); border-radius: var(--radius); }
+.brand-logo__preview { display: grid; place-items: center; width: 96px; height: 96px; border-radius: 12px; color: var(--text-subtle); background: repeating-conic-gradient(#E9E6F0 0 25%, #FFFFFF 0 50%) 0 0 / 12px 12px; overflow: hidden; }
+.brand-logo__preview img { width: 100%; height: 100%; object-fit: contain; }
+.brand-logo__preview .icon { width: 24px; height: 24px; }
+.brand-logo__label { font-size: 14px; font-weight: 600; }
+.brand-colors { display: grid; grid-template-columns: repeat(auto-fill, minmax(160px, 1fr)); gap: 8px 16px; }
+.brand-color { display: flex; align-items: center; gap: 8px; font-size: 14px; }
+.brand-color input { width: 44px; height: 44px; flex: none; padding: 2px; border: 1px solid var(--line-strong); border-radius: 10px; background: var(--surface); cursor: pointer; }
+.brand-units { display: grid; gap: 16px; }
+.brand-unit { position: relative; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px 16px; padding: 16px 56px 16px 16px; border: 1px solid var(--line); border-radius: var(--radius); }
+.brand-unit__remove { position: absolute; top: 16px; right: 8px; }
+.brand-units__add { justify-self: start; }
+.brand-campaigns { display: flex; flex-wrap: wrap; gap: 8px 24px; }
+@media (max-width: 720px) {
+  .brand-logos, .brand-unit { grid-template-columns: minmax(0, 1fr); }
+}

@@ -162,6 +162,15 @@ export function createSupabaseStore({ url, apiKey, secretKey, getToken, onUnauth
       return request(`clients?select=${CLIENT_FIELDS}&id=eq.${enc(id)}`, { method: "PATCH", body: { logo_path: logoPath }, single: true, prefer: "return=representation" });
     },
 
+    /* Identidade do cliente para o gerador de artes (brand_kits) */
+    async getBrandKit(clientId) {
+      const rows = await request(`brand_kits?select=client_id,enabled,colors,logos,units,campaigns,legal,updated_at&client_id=eq.${enc(clientId)}`);
+      return Array.isArray(rows) && rows[0] ? rows[0] : null;
+    },
+    async saveBrandKit(row) {
+      return request("brand_kits?on_conflict=client_id", { method: "POST", body: row, single: true, prefer: "resolution=merge-duplicates,return=representation" });
+    },
+
     /* Arte final (content_assets): arquivos ou links, na ordem do carrossel */
     async listAssets(contentId) {
       return request(`content_assets?select=id,content_id,kind,storage_path,url,position,created_at&content_id=eq.${enc(contentId)}&order=position.asc,created_at.asc`);

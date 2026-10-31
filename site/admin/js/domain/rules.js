@@ -167,11 +167,11 @@ export function validateContentFilters(input = {}) {
 }
 
 /* Regras de usuário e senha: as mesmas do portal do cliente (site/js/domain/accounts.js) */
-export { USERNAME_LIMITS, PASSWORD_LIMITS, normalizeUsername, parseUsername, loginEmail, usernameFromEmail, accountKind, passwordProblem } from "../../../js/domain/accounts.js?v=88233407a6";
+export { USERNAME_LIMITS, PASSWORD_LIMITS, normalizeUsername, parseUsername, loginEmail, usernameFromEmail, accountKind, passwordProblem } from "../../../js/domain/accounts.js?v=4e9810fb40";
 
 /* ---------- Anúncios ---------- */
-export { AD_STAGES, AD_STATUS, AD_CLIENT_STATUS, AD_PLATFORMS, AD_OBJECTIVES, AD_FORMATS, AD_CTAS, AD_LIMITS, AD_EVENTS, platformLabel, adCanSend, adSendBlock } from "../../../js/domain/ads.js?v=88233407a6";
-import { AD_STAGES as STAGES_OF_ADS, AD_STATUS as STATUS_OF_ADS, AD_PLATFORMS as PLATFORMS_OF_ADS, AD_OBJECTIVES as OBJECTIVES_OF_ADS, AD_FORMATS as FORMATS_OF_ADS, AD_LIMITS as L } from "../../../js/domain/ads.js?v=88233407a6";
+export { AD_STAGES, AD_STATUS, AD_CLIENT_STATUS, AD_PLATFORMS, AD_OBJECTIVES, AD_FORMATS, AD_CTAS, AD_LIMITS, AD_EVENTS, platformLabel, adCanSend, adSendBlock } from "../../../js/domain/ads.js?v=4e9810fb40";
+import { AD_STAGES as STAGES_OF_ADS, AD_STATUS as STATUS_OF_ADS, AD_PLATFORMS as PLATFORMS_OF_ADS, AD_OBJECTIVES as OBJECTIVES_OF_ADS, AD_FORMATS as FORMATS_OF_ADS, AD_LIMITS as L } from "../../../js/domain/ads.js?v=4e9810fb40";
 
 const isHttpUrl = (value) => { try { return ["http:", "https:"].includes(new URL(value).protocol); } catch { return false; } };
 
@@ -224,4 +224,46 @@ export function validateAdFilters(input = {}) {
   if (input.client_id && isUuid(input.client_id)) filters.client_id = input.client_id;
   if (input.status && STATUS_OF_ADS[input.status]) filters.status = input.status;
   return filters;
+}
+
+/* ---------- Gerador de artes: identidade do cliente ---------- */
+export const BRAND_COLORS = { primaria: "Cor principal (fundo)", secundaria: "Cor de apoio (detalhes)", preco: "Cor do preço", alerta: "Cor de alerta (faixas)", titulo: "Cor do título da campanha" };
+export const BRAND_CAMPAIGNS = { padrao: "Identidade da marca", verao: "Verão", natal: "Natal", halloween: "Halloween", blackfriday: "Black Friday", pascoa: "Páscoa", maes: "Dia das Mães", pais: "Dia dos Pais", pets: "Dia dos Animais" };
+export const BRAND_LOGO_SLOTS = { emblema: "Símbolo (redondo)", principal: "Logo principal", alternativo: "Logo alternativo" };
+const HEX_COLOR = /^#[0-9a-f]{6}$/i;
+const UNIT_ID = /^[a-z0-9]+(-[a-z0-9]+)*$/;
+
+/** Confere a identidade das artes; devolve { value, errors } como as outras validações */
+export function validateBrandKit(input = {}) {
+  const errors = {};
+  const colors = {};
+  Object.keys(BRAND_COLORS).forEach((key) => {
+    const v = String(input.colors?.[key] || "").trim();
+    if (!v) return;
+    if (!HEX_COLOR.test(v)) errors[`color_${key}`] = "Use uma cor no formato #RRGGBB.";
+    else colors[key] = v.toUpperCase();
+  });
+  if (!colors.primaria) errors.color_primaria = "Escolha a cor principal.";
+  const units = [];
+  (Array.isArray(input.units) ? input.units : []).forEach((u, i) => {
+    const nome = String(u.nome || "").trim(), marca = String(u.marca || "").trim(), endereco = String(u.endereco || "").trim();
+    const whatsapp = String(u.whatsapp || "").replace(/\D/g, "");
+    if (!nome && !marca && !endereco && !whatsapp) return;
+    if (!nome) errors[`unit_${i}_nome`] = "Dê um nome para a unidade.";
+    if (nome.length > 60 || marca.length > 60) errors[`unit_${i}_nome`] = "Use até 60 caracteres.";
+    if (endereco.length > 120) errors[`unit_${i}_endereco`] = "Use até 120 caracteres.";
+    if (whatsapp && (whatsapp.length < 10 || whatsapp.length > 13)) errors[`unit_${i}_whatsapp`] = "Use DDD + número (ex.: 51999999999).";
+    const id = slugify(nome || `unidade-${i + 1}`).slice(0, 40) || `unidade-${i + 1}`;
+    units.push({ id: UNIT_ID.test(id) ? id : `unidade-${i + 1}`, nome, marca, endereco, whatsapp, logo: u.logo === "alternativo" ? "alternativo" : "principal" });
+  });
+  if (units.length > 12) errors.units = "Cadastre até 12 unidades.";
+  const ids = new Set();
+  units.forEach((u, i) => { if (ids.has(u.id)) u.id = `${u.id}-${i + 1}`; ids.add(u.id); });
+  const campaigns = [...new Set((Array.isArray(input.campaigns) ? input.campaigns : []).filter((c) => BRAND_CAMPAIGNS[c]))];
+  if (!campaigns.includes("padrao")) campaigns.unshift("padrao");
+  const legal = String(input.legal || "").trim();
+  if (legal.length > 200) errors.legal = "Use até 200 caracteres.";
+  const logos = {};
+  Object.keys(BRAND_LOGO_SLOTS).forEach((key) => { const v = input.logos?.[key]; if (typeof v === "string" && /^[0-9a-f-]{36}\/[A-Za-z0-9._-]+$/.test(v)) logos[key] = v; });
+  return { value: { enabled: input.enabled !== false, colors, logos, units, campaigns, legal: legal || null }, errors };
 }

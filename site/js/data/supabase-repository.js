@@ -7,6 +7,7 @@
      portal_client()                 → o cliente do login atual (com a foto)
      portal_calendar(p_from, p_to)   → conteúdos liberados, arte final e decisão
      portal_decide(...)              → aprovar ou pedir ajuste (só a versão atual)
+     portal_brand_kit()              → identidade do cliente para o gerador de artes
    A arte final em arquivo chega por links assinados do armazenamento
    (o banco só assina para o cliente os arquivos liberados dele).
    Observações do cliente e ideias ainda não existem no banco.
@@ -20,9 +21,9 @@
      listComments, countComments, listIdeas → vazios por enquanto
    ========================================================================== */
 
-import { activityFromContent } from "../domain/content-mapping.js?v=88233407a6";
-import { daysInMonth } from "../lib/dates.js?v=88233407a6";
-import { createStorage } from "../lib/storage.js?v=88233407a6";
+import { activityFromContent } from "../domain/content-mapping.js?v=4e9810fb40";
+import { daysInMonth } from "../lib/dates.js?v=4e9810fb40";
+import { createStorage } from "../lib/storage.js?v=4e9810fb40";
 
 /** Respostas de portal_decide → mensagens para o cliente */
 const DECISION_ERRORS = {
@@ -172,6 +173,16 @@ export function createSupabaseRepository({ url, apiKey, auth, fetchImpl = global
       const rows = await rpc("portal_ad_decide", { p_ad_id: id, p_version: version, p_decision: decision, p_message: message || null });
       const row = Array.isArray(rows) ? rows[0] : rows;
       return { status: row?.new_status, version: row?.new_version };
+    },
+
+    /* ---------- Gerador de artes ---------- */
+    /** Identidade do cliente para as artes (cores, logos, unidades) ou null se não liberado */
+    async getBrandKit() {
+      const kit = await rpc("portal_brand_kit");
+      if (!kit || typeof kit !== "object" || Array.isArray(kit)) return null;
+      const logos = {};
+      Object.entries(kit.logos || {}).forEach(([key, path]) => { if (typeof path === "string" && path) logos[key] = files.publicUrl("client-logos", path); });
+      return { client: kit.client || "", colors: kit.colors || {}, logos, units: Array.isArray(kit.units) ? kit.units : [], campaigns: Array.isArray(kit.campaigns) ? kit.campaigns : ["padrao"], legal: kit.legal || "" };
     },
 
     async listComments() { return []; },

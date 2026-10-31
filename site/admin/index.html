@@ -13,9 +13,9 @@
   <link rel="preload" href="../fonts/sora-latin-400-normal.woff2" as="font" type="font/woff2" crossorigin>
   <link rel="preload" href="../fonts/sora-latin-600-normal.woff2" as="font" type="font/woff2" crossorigin>
   <!-- Mesmos tokens e componentes do portal do cliente -->
-  <link rel="stylesheet" href="../css/style.css?v=88233407a6">
-  <link rel="stylesheet" href="css/admin.css?v=88233407a6">
-  <script type="module" src="js/main.js?v=88233407a6"></script>
+  <link rel="stylesheet" href="../css/style.css?v=4e9810fb40">
+  <link rel="stylesheet" href="css/admin.css?v=4e9810fb40">
+  <script type="module" src="js/main.js?v=4e9810fb40"></script>
 </head>
 <body class="admin">
   <!-- Tela de entrada: aparece enquanto ninguém estiver logado -->
@@ -204,6 +204,53 @@
   </div>
 
   <!-- Cadastro e edição de cliente -->
+  <!-- Identidade do cliente para o gerador de artes (js/views/brand.js) -->
+  <dialog class="modal modal--wide" id="brand-modal" aria-labelledby="brand-modal-title">
+    <form class="modal__form" method="dialog" novalidate>
+      <div class="modal__head">
+        <span class="modal__icon modal__icon--brand" data-icon="sparkle"></span>
+        <div>
+          <h2 class="modal__title" id="brand-modal-title">Identidade para artes</h2>
+          <p class="modal__text" data-brand-client>O cliente cria artes no portal com estas cores, logos e unidades.</p>
+        </div>
+        <button class="icon-btn modal__close" type="button" data-action="close-modal" aria-label="Fechar" data-icon="close"></button>
+      </div>
+      <div class="form-grid">
+        <label class="check form-grid__wide">
+          <input type="checkbox" name="enabled" checked>
+          <span>Gerador de artes liberado no portal deste cliente</span>
+        </label>
+        <div class="field form-grid__wide">
+          <span class="field__label">Logos</span>
+          <div class="brand-logos" data-brand-logos></div>
+          <span class="field__hint">PNG sem fundo fica melhor. O símbolo aparece no topo dos avisos e planos; o logo principal, no rodapé das ofertas. O alternativo serve para uma unidade com marca própria.</span>
+        </div>
+        <div class="field form-grid__wide">
+          <span class="field__label">Cores</span>
+          <div class="brand-colors" data-brand-colors></div>
+        </div>
+        <div class="field form-grid__wide">
+          <span class="field__label">Unidades <span class="field__optional">(nome, marca, endereço e WhatsApp)</span></span>
+          <div class="brand-units" data-brand-units></div>
+          <button class="btn btn--ghost btn--sm brand-units__add" type="button" data-action="add-unit" data-icon="users">Adicionar unidade</button>
+        </div>
+        <div class="field form-grid__wide">
+          <span class="field__label">Campanhas liberadas</span>
+          <div class="brand-campaigns" data-brand-campaigns></div>
+        </div>
+        <label class="field form-grid__wide">
+          <span class="field__label">Frase depois da validade <span class="field__optional">(opcional)</span></span>
+          <input class="field__input" name="legal" maxlength="200" autocomplete="off" placeholder="ou enquanto durarem os estoques.">
+        </label>
+      </div>
+      <p class="form-error" role="alert" hidden></p>
+      <div class="modal__actions">
+        <button class="btn btn--ghost" type="button" data-action="close-modal">Cancelar</button>
+        <button class="btn btn--primary" type="submit"><span>Salvar identidade</span></button>
+      </div>
+    </form>
+  </dialog>
+
   <dialog class="modal modal--wide" id="client-modal" aria-labelledby="client-modal-title">
     <form class="modal__form" method="dialog" novalidate>
       <div class="modal__head">

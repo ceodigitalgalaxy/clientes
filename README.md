@@ -84,6 +84,14 @@ Serve a pasta `site/` como o GitHub Pages. Não usa chave nenhuma: entra com usu
 - A página tem CSP (só arquivos do site e o Supabase do painel), `noindex` e não aparece dentro de outros sites (iframe).
 - Sessão: token de acesso de 1 hora, renovado sozinho. "Sair" apaga a sessão do navegador e a encerra no Supabase.
 
+### Gerador de artes do cliente
+
+O cliente cria artes prontas (oferta de produto, plano/pacote de serviço e aviso de feriado ou horário) com a identidade visual da marca dele, em **stories** (1080×1920), **feed** (1080×1080) e **A4 para impressão** (2480×3508). Fica em `clientes.digitalgalaxy.com.br/artes/` e aparece como a aba **Criar artes** no portal, só para clientes com a identidade liberada.
+
+- **Na agência (painel → Clientes → botão ✦ "Identidade para artes"):** logos (símbolo, principal e alternativo, de preferência PNG sem fundo), cores (principal, apoio, preço, alerta e título), unidades (nome, marca, endereço, WhatsApp e qual logo usar), campanhas liberadas (Natal, Black Friday, Verão…) e a frase depois da validade. Desmarcar "Gerador de artes liberado" tira a aba do cliente.
+- **No portal do cliente:** escolhe a unidade (o WhatsApp entra sozinho no card), o modelo, o formato e a campanha, preenche os campos obrigatórios e toca em **Gerar arte** e **Baixar imagem**. A foto pode vir do aparelho, colada da web ("Copiar imagem") ou por link; nas fotos de produto, o fundo liso (branco) sai automaticamente.
+- Os dados ficam na tabela `brand_kits` (só a equipe lê e altera); o cliente lê a própria identidade por `portal_brand_kit()`.
+
 ### Estrutura
 
 ```

@@ -2,8 +2,8 @@
    Valida os dados antes de enviar (domain/rules.js); o banco confere de novo
    com as próprias regras e só aceita membros da equipe (RLS). */
 
-import { validateClient, validateContent, validateContentFilters, parseUsername, passwordProblem, CONTENT_STATUS, isUuid, validateAd, validateAdFilters, AD_LIMITS } from "./domain/rules.js?v=88233407a6";
-import { UPLOAD_LIMITS, fileName, fileProblem, resizeImage } from "../../js/lib/storage.js?v=88233407a6";
+import { validateClient, validateContent, validateContentFilters, parseUsername, passwordProblem, CONTENT_STATUS, isUuid, validateAd, validateAdFilters, AD_LIMITS, validateBrandKit } from "./domain/rules.js?v=4e9810fb40";
+import { UPLOAD_LIMITS, fileName, fileProblem, resizeImage } from "../../js/lib/storage.js?v=4e9810fb40";
 
 export class ApiError extends Error {
   constructor(status, message, fields) { super(message); this.status = status; this.fields = fields || {}; }
@@ -202,6 +202,19 @@ export function createApi({ store, onSessionLost, access = null, storage = null 
       if (client.logo_path) await storage.remove("client-logos", [client.logo_path]).catch(() => {});
       return path;
     }),
+    /* ---------- Gerador de artes: identidade do cliente ---------- */
+    brandKit: guard((clientId) => store.getBrandKit(clientId)),
+    saveBrandKit: guard(async (client, input) => store.saveBrandKit({ client_id: client.id, ...requireValid(validateBrandKit(input)) })),
+    /** Logo da identidade: mantém a transparência, até 1200 px, no bucket público client-logos */
+    uploadBrandLogo: guard(async (client, slot, file) => {
+      const problem = fileProblem(file, { types: UPLOAD_LIMITS.logoTypes, maxBytes: 10 * 1024 * 1024 });
+      if (problem) throw new ApiError(422, problem, { [`logo_${slot}`]: problem });
+      const small = await resizeImage(file, 1200);
+      const path = `${client.id}/marca-${slot}-${fileName(small.type)}`;
+      await storage.upload("client-logos", path, small);
+      return path;
+    }),
+    removeBrandFiles: guard(async (paths) => { if (paths.length) await storage.remove("client-logos", paths).catch(() => {}); }),
     removeClientLogo: guard(async (client) => {
       await store.setClientLogo(client.id, null);
       if (client.logo_path) await storage.remove("client-logos", [client.logo_path]).catch(() => {});

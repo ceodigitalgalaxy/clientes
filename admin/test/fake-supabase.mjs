@@ -29,6 +29,7 @@ export function createFakeSupabase({ store, publishableKey }) {
   const accessTokens = new Map();   // token → userId
   const refreshTokens = new Map();  // token → userId
   const log = [];
+  const brandKits = new Map();      // client_id → identidade para artes (tabela brand_kits)
 
   const token = () => randomBytes(24).toString("base64url");
   function issue(user) {
@@ -59,6 +60,13 @@ export function createFakeSupabase({ store, publishableKey }) {
     if (name === "portal_contents" && keys === "p_from,p_to") return (await store.portalContents(user.id, body.p_from, body.p_to)).map(({ assets, decision, ...row }) => row);
     if (name === "portal_client" && keys === "") return store.portalProfile(user.id);
     if (name === "portal_calendar" && keys === "p_from,p_to") return store.portalContents(user.id, body.p_from, body.p_to);
+    if (name === "portal_brand_kit" && keys === "") {
+      // Como a função: cliente da sessão, ativo, com identidade liberada (senão null)
+      const member = store.findMembers({ userId: user.id })[0];
+      const profile = member ? (await store.portalProfile(user.id))[0] : null;
+      const kit = member && brandKits.get(member.client_id);
+      return profile && kit?.enabled ? { client: profile.name, colors: kit.colors, logos: kit.logos, units: kit.units, campaigns: kit.campaigns, legal: kit.legal } : null;
+    }
     const actor = { id: user.id, role: user.member ? "equipe" : "cliente", username: usernameFromEmail(user.email) };
     if (name === "ad_transition" && ["p_action,p_ad_id", "p_action,p_ad_id,p_message"].includes(keys)) return store.adTransition(actor, body);
     if (name === "portal_ads" && keys === "") return (await store.portalAds(user.id)).map(({ creative_stage, ...row }) => row);
@@ -80,6 +88,15 @@ export function createFakeSupabase({ store, publishableKey }) {
       return { error: json(403, { code: "42501", message: "new row violates row-level security policy" }) };
     }
     const id = eq(params, "id");
+    if (table === "brand_kits") {
+      if (method === "GET") { const kit = brandKits.get(eq(params, "client_id")); return kit ? [kit] : []; }
+      if (method === "POST") {
+        await store.getClient(body.client_id);
+        const kit = { ...body, updated_at: new Date().toISOString() };
+        brandKits.set(body.client_id, kit);
+        return [kit];
+      }
+    }
     if (table === "clients") {
       if (method === "GET" && id) return [await store.getClient(id)];
       if (method === "GET") return (await store.listClients()).map(({ contents_count, portal_users, ...c }) => ({ ...c, contents: [{ count: contents_count }], client_members: portal_users.map((username) => ({ username })) }));
@@ -210,6 +227,7 @@ export function createFakeSupabase({ store, publishableKey }) {
   }
 
   const fake = {
+    brandKits,
     log,
     files,
     failAuthNext: 0,   // pedidos de login que devem dar "muitas tentativas"

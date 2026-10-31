@@ -1,11 +1,11 @@
 /* Seção Clientes: lista, cadastro, edição e exclusão (só sem conteúdos) */
 
-import { $, esc, on } from "../../../js/lib/dom.js?v=88233407a6";
-import { icon } from "../../../js/lib/icons.js?v=88233407a6";
-import { validateClient, slugify } from "../domain/rules.js?v=88233407a6";
-import { closeDialog, wireDialog, showFieldErrors, setBusy } from "../ui/dialogs.js?v=88233407a6";
-import { stateBlock, loadingCards, button } from "../ui/states.js?v=88233407a6";
-import { portalBlock } from "./access.js?v=88233407a6";
+import { $, esc, on } from "../../../js/lib/dom.js?v=4e9810fb40";
+import { icon } from "../../../js/lib/icons.js?v=4e9810fb40";
+import { validateClient, slugify } from "../domain/rules.js?v=4e9810fb40";
+import { closeDialog, wireDialog, showFieldErrors, setBusy } from "../ui/dialogs.js?v=4e9810fb40";
+import { stateBlock, loadingCards, button } from "../ui/states.js?v=4e9810fb40";
+import { portalBlock } from "./access.js?v=4e9810fb40";
 
 const initials = (name) => name.split(/\s+/).filter((w) => /^[\p{L}\p{N}]/u.test(w)).slice(0, 2).map((w) => w[0].toUpperCase()).join("") || "?";
 
@@ -91,6 +91,7 @@ export function setupClients({ api, state, toast, confirm, onClientsChanged, nav
           <span class="client-card__count">${client.contents_count} ${client.contents_count === 1 ? "conteúdo" : "conteúdos"}</span>
           <div class="client-card__actions">
             <button class="icon-btn" type="button" data-client-contents="${esc(client.id)}" aria-label="Ver conteúdos de ${esc(client.name)}" title="Ver conteúdos">${icon("calendar")}</button>
+            <button class="icon-btn" type="button" data-brand-client-id="${esc(client.id)}" aria-label="Identidade para artes de ${esc(client.name)}" title="Identidade para artes">${icon("sparkle")}</button>
             <button class="icon-btn" type="button" data-edit-client="${esc(client.id)}" aria-label="Editar ${esc(client.name)}" title="Editar">${icon("edit")}</button>
             ${client.contents_count === 0 ? `<button class="icon-btn icon-btn--danger" type="button" data-delete-client="${esc(client.id)}" aria-label="Excluir ${esc(client.name)}" title="Excluir">${icon("trash")}</button>` : ""}
           </div>

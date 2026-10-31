@@ -1,0 +1,167 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <!-- Scripts, estilos e fontes só deste site. Dados só do Supabase do portal.
+       Imagens de qualquer endereço https (fotos de produto coladas por link). -->
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data: blob: https:; font-src 'self'; connect-src 'self' https://peieimwpkrattuldmjux.supabase.co; object-src 'none'; base-uri 'self'; form-action 'none'; frame-src 'none'; upgrade-insecure-requests">
+  <meta name="referrer" content="strict-origin-when-cross-origin">
+  <meta name="robots" content="noindex, nofollow">
+  <title>Criar artes · Digital Galaxy</title>
+  <meta name="theme-color" content="#F5F3FA">
+  <link rel="icon" href="../images/logo/favicon.svg" type="image/svg+xml">
+  <link rel="icon" href="../images/logo/icon-96.png" type="image/png" sizes="96x96">
+  <link rel="stylesheet" href="../css/style.css?v=4e9810fb40">
+  <link rel="stylesheet" href="../css/responsive.css?v=4e9810fb40">
+  <link rel="stylesheet" href="../css/artes.css?v=4e9810fb40">
+  <script type="module" src="../js/artes/main.js?v=4e9810fb40"></script>
+</head>
+<body class="portal">
+  <!-- Entrada (mesmo usuário e senha do portal) -->
+  <main class="login" id="login" aria-labelledby="login-title" hidden>
+    <div class="login__card">
+      <span class="login__logo" data-slot="brand-mark" aria-hidden="true"></span>
+      <h1 class="login__title" id="login-title">Criar artes</h1>
+      <p class="login__text">Entre com o mesmo usuário e senha do portal.</p>
+      <form class="login__form" id="login-form" novalidate>
+        <label class="field">
+          <span class="field__label">Usuário</span>
+          <input class="field__input" name="username" autocomplete="username" autocapitalize="none" spellcheck="false" maxlength="32" required>
+        </label>
+        <label class="field">
+          <span class="field__label">Senha</span>
+          <input class="field__input" name="password" type="password" autocomplete="current-password" maxlength="72" required>
+        </label>
+        <p class="form-error" role="alert" hidden></p>
+        <button class="btn btn--primary login__submit" type="submit">Entrar</button>
+      </form>
+    </div>
+  </main>
+
+  <!-- Sem identidade cadastrada para este cliente -->
+  <main class="login" id="no-kit" hidden>
+    <div class="login__card">
+      <span class="login__logo" data-slot="brand-mark" aria-hidden="true"></span>
+      <h1 class="login__title">Gerador de artes</h1>
+      <p class="login__text">O gerador de artes ainda não foi liberado para a sua empresa. Fale com a Digital Galaxy.</p>
+      <p class="art-actions-row"><a class="btn btn--ghost" href="../">Voltar ao portal</a> <button class="btn btn--ghost" type="button" data-action="sign-out">Sair</button></p>
+    </div>
+  </main>
+
+  <div class="app" id="app" hidden>
+    <header class="topbar">
+      <div class="container topbar__inner">
+        <div class="topbar__brands">
+          <a class="brand" href="../" aria-label="Voltar ao portal" title="Voltar ao portal"><span class="brand__logo" data-slot="brand-mark"></span></a>
+          <span class="topbar__divider" aria-hidden="true"></span>
+          <span class="art-client" id="art-client"></span>
+        </div>
+        <div class="topbar__actions">
+          <a class="btn btn--ghost btn--sm" href="../"><span data-icon="calendar"></span>Portal</a>
+          <button class="btn btn--ghost btn--sm" type="button" data-action="sign-out"><span data-icon="logout"></span>Sair</button>
+        </div>
+      </div>
+    </header>
+
+    <main class="container art-page">
+      <section class="welcome" aria-labelledby="art-title">
+        <h1 class="welcome__title" id="art-title">Criar artes</h1>
+        <p class="art-lead">Escolha o modelo, preencha os campos e baixe a imagem pronta, no padrão da sua marca.</p>
+      </section>
+
+      <div class="art-grid">
+        <form class="art-form" id="art-form" novalidate>
+          <section class="art-box" id="box-unit">
+            <h2 class="art-box__title">Sua unidade</h2>
+            <label class="field"><span class="field__label">Unidade</span>
+              <select class="field__input" id="unidade"></select>
+              <span class="field__hint" id="unit-contact"></span>
+            </label>
+          </section>
+
+          <section class="art-box">
+            <h2 class="art-box__title">Modelo, formato e campanha</h2>
+            <div class="seg" role="radiogroup" aria-label="Modelo">
+              <input type="radio" name="modelo" id="m-oferta" value="oferta" checked><label for="m-oferta">Oferta<small>produto</small></label>
+              <input type="radio" name="modelo" id="m-plano" value="plano"><label for="m-plano">Plano<small>serviço</small></label>
+              <input type="radio" name="modelo" id="m-aviso" value="aviso"><label for="m-aviso">Aviso<small>feriado, horário</small></label>
+            </div>
+            <div class="seg" role="radiogroup" aria-label="Formato">
+              <input type="radio" name="formato" id="fm-story" value="story" checked><label for="fm-story">Stories<small>1080×1920</small></label>
+              <input type="radio" name="formato" id="fm-feed" value="feed"><label for="fm-feed">Feed<small>1080×1080</small></label>
+              <input type="radio" name="formato" id="fm-a4" value="a4"><label for="fm-a4">A4<small>impressão</small></label>
+            </div>
+            <label class="field"><span class="field__label">Campanha</span><select class="field__input" id="tema"></select></label>
+            <div class="art-row" id="camp-row">
+              <label class="field"><span class="field__label">Chamada</span><input class="field__input" id="c-chamada" maxlength="26" placeholder="Ex.: Ofertas do mês da"></label>
+              <label class="field" data-req="Escreva o nome da campanha."><span class="field__label">Nome da campanha <span class="req">*</span></span><input class="field__input" id="c-nome" maxlength="18" placeholder="Ex.: Prevenção"></label>
+            </div>
+          </section>
+
+          <!-- OFERTA -->
+          <section class="art-box" id="sec-oferta">
+            <h2 class="art-box__title">Produto</h2>
+            <div class="field" data-req="Envie a foto do produto." data-photo-field="oferta"></div>
+            <label class="field" data-req="Escreva o nome do produto."><span class="field__label">Nome do produto <span class="req">*</span></span>
+              <textarea class="field__input field__input--area" id="o-produto" rows="2" maxlength="90" placeholder="Ex.: Antipulgas Bravecto para Cães de 10 a 20 kg"></textarea></label>
+            <div class="art-row">
+              <label class="field"><span class="field__label">Preço de (R$) <span class="field__optional">(opcional)</span></span><input class="field__input" id="o-de" inputmode="decimal"></label>
+              <label class="field" data-req="Coloque o preço."><span class="field__label">Por apenas (R$) <span class="req">*</span></span><input class="field__input" id="o-por" inputmode="decimal" placeholder="Ex.: 182,90"></label>
+            </div>
+            <div class="art-row">
+              <label class="field"><span class="field__label">Selo</span>
+                <select class="field__input" id="o-selo"><option value="">Sem selo</option><option>Novidade</option><option>Lançamento</option><option>Últimas unidades</option><option>Mais vendido</option></select></label>
+              <label class="field" data-req="Escolha até quando vale."><span class="field__label">Válido até <span class="req">*</span></span><input class="field__input" type="date" id="o-validade"></label>
+            </div>
+            <label class="field"><span class="field__label">Frase extra <span class="field__optional">(opcional)</span></span><input class="field__input" id="o-extra" maxlength="40" placeholder="Ex.: Consulte opção de tele grátis"></label>
+          </section>
+
+          <!-- PLANO -->
+          <section class="art-box" id="sec-plano" hidden>
+            <h2 class="art-box__title">Plano ou pacote</h2>
+            <div class="field" data-req="Envie uma foto." data-photo-field="plano"></div>
+            <div class="art-row">
+              <label class="field"><span class="field__label">Tipo</span><select class="field__input" id="p-tipo"><option>Plano</option><option>Pacote</option><option>Serviço</option><option>Promoção</option></select></label>
+              <label class="field" data-req="Escolha até quando vale."><span class="field__label">Válido até <span class="req">*</span></span><input class="field__input" type="date" id="p-validade"></label>
+            </div>
+            <label class="field" data-req="Escreva o nome do plano."><span class="field__label">Nome do plano <span class="req">*</span></span><input class="field__input" id="p-titulo" maxlength="60" placeholder="Ex.: 10 banhos e 20 creches"></label>
+            <label class="field"><span class="field__label">Detalhe <span class="field__optional">(opcional)</span></span><input class="field__input" id="p-detalhe" maxlength="60" placeholder="Ex.: Porte pequeno e médio (até 20 kg)"></label>
+            <label class="field"><span class="field__label">Brinde <span class="field__optional">(opcional)</span></span><input class="field__input" id="p-brinde" maxlength="50" placeholder="Ex.: 2 dias de creche"></label>
+            <div class="field"><span class="field__label">Destaque do card</span>
+              <div class="art-radios"><label class="check"><input type="radio" name="p-modo" value="preco" checked><span>Preço</span></label><label class="check"><input type="radio" name="p-modo" value="desconto"><span>Desconto em %</span></label></div></div>
+            <label class="field" data-req="Preencha o preço ou o desconto."><span class="field__label" id="p-valor-lbl">Preço (R$) <span class="req">*</span></span><input class="field__input" id="p-valor" inputmode="decimal" placeholder="Ex.: 1.700,00"></label>
+          </section>
+
+          <!-- AVISO -->
+          <section class="art-box" id="sec-aviso" hidden>
+            <h2 class="art-box__title">Aviso</h2>
+            <div class="art-row">
+              <label class="field" data-req="Escreva a chamada."><span class="field__label">Chamada <span class="req">*</span></span><input class="field__input" id="a-selo" maxlength="24" list="a-selo-sug" placeholder="Ex.: Aproveite o"></label>
+              <label class="field" data-req="Escreva o título."><span class="field__label">Título <span class="req">*</span></span><input class="field__input" id="a-titulo" maxlength="22" placeholder="Ex.: Feriadão"></label>
+            </div>
+            <datalist id="a-selo-sug"><option value="Aproveite o"></option><option value="Atenção"></option><option value="Novo horário"></option><option value="Último dia"></option></datalist>
+            <label class="field"><span class="field__label">Texto de apoio <span class="field__optional">(opcional)</span></span><textarea class="field__input field__input--area" id="a-sub" rows="2" maxlength="140"></textarea></label>
+            <label class="field"><span class="field__label">Faixa de destaque <span class="field__optional">(opcional)</span></span><input class="field__input" id="a-destaque" maxlength="70" placeholder="Ex.: Domingo e segunda, 01 e 02/11"></label>
+            <div class="field" data-req="Mostre pelo menos uma unidade."><span class="field__label">Funcionamento das unidades <span class="req">*</span></span><div class="art-units" id="a-units"></div></div>
+            <label class="field"><span class="field__label">Linha final <span class="field__optional">(opcional)</span></span><input class="field__input" id="a-retorno" maxlength="60" placeholder="Ex.: Terça, 03/11: tudo volta ao normal."></label>
+            <label class="field"><span class="field__label">Faixa vermelha</span><input class="field__input" id="a-cta" maxlength="24" placeholder="Ex.: Faça sua reserva:"><span class="field__hint">O WhatsApp da sua unidade entra depois desse texto.</span></label>
+            <div class="field" data-photo-field="aviso"></div>
+          </section>
+
+          <div class="art-actions">
+            <button class="btn btn--primary" type="submit">Gerar arte</button>
+            <button class="btn btn--ghost" type="button" id="baixar" disabled><span data-icon="download"></span>Baixar imagem</button>
+            <p class="art-status" id="status" role="status" aria-live="polite"></p>
+          </div>
+        </form>
+
+        <aside class="art-preview" aria-label="Prévia da arte">
+          <span class="art-tag" id="prev-tag">Exemplo</span>
+          <div class="art-stage"><canvas id="cv" width="1080" height="1920" role="img" aria-label="Prévia da arte"></canvas></div>
+        </aside>
+      </div>
+    </main>
+  </div>
+</body>
+</html>

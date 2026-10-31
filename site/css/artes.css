@@ -1,0 +1,75 @@
+/* ==========================================================================
+   Criar artes (portal do cliente): formulário à esquerda, prévia à direita.
+   Fontes das artes (Montserrat, Anton, Lilita One) servidas pelo próprio site.
+   ========================================================================== */
+
+@font-face { font-family: "Montserrat"; font-style: normal; font-weight: 500 900; font-display: swap; src: url("../fonts/artes/montserrat-latin-variable.woff2") format("woff2"); }
+@font-face { font-family: "Montserrat"; font-style: italic; font-weight: 800; font-display: swap; src: url("../fonts/artes/montserrat-latin-800-italic.woff2") format("woff2"); }
+@font-face { font-family: "Anton"; font-style: normal; font-weight: 400; font-display: swap; src: url("../fonts/artes/anton-latin-400.woff2") format("woff2"); }
+@font-face { font-family: "Lilita One"; font-style: normal; font-weight: 400; font-display: swap; src: url("../fonts/artes/lilita-one-latin-400.woff2") format("woff2"); }
+
+.art-page { padding-bottom: 64px; }
+.art-page .welcome { padding: 40px 0 32px; }
+.art-page .welcome__title { margin-top: 0; font-size: 44px; }
+.art-lead { margin-top: 8px; font-size: 16px; color: var(--text-muted); }
+.art-client { display: inline-flex; align-items: center; gap: 8px; min-width: 0; font-weight: 600; color: var(--text); }
+.art-client img { width: 32px; height: 32px; border-radius: 50%; object-fit: cover; }
+.art-actions-row { display: flex; justify-content: center; gap: 8px; margin-top: 24px; }
+
+.art-grid { display: grid; grid-template-columns: minmax(0, 440px) minmax(0, 1fr); gap: 32px; align-items: start; }
+.art-form { display: grid; gap: 16px; min-width: 0; }
+.art-box { display: grid; gap: 16px; min-width: 0; padding: 24px; border: 1px solid var(--line); border-radius: var(--radius-lg); background: var(--surface); box-shadow: var(--shadow-card); }
+.art-box__title { font-size: 14px; font-weight: 600; color: var(--brand); }
+.art-row { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; }
+.art-form .field__hint { font-size: 12px; color: var(--text-subtle); }
+.art-form .req { color: var(--ajustes); }
+.art-form select.field__input { padding-right: 8px; }
+.art-form .field.is-invalid .field__input,
+.art-form .field.is-invalid .art-drop { border-color: var(--ajustes); }
+.art-error { font-size: 12px; font-weight: 600; color: var(--ajustes-ink); }
+.art-radios { display: flex; flex-wrap: wrap; gap: 8px 24px; }
+
+/* Escolha em botões (modelo e formato) */
+.seg { display: grid; grid-auto-flow: column; grid-auto-columns: 1fr; gap: 4px; padding: 4px; border-radius: var(--radius); background: var(--surface-muted); border: 1px solid var(--line); }
+.seg input { position: absolute; opacity: 0; pointer-events: none; }
+.seg label { display: grid; justify-items: center; align-content: center; gap: 2px; min-height: 56px; padding: 8px 4px; border-radius: 10px; font-size: 14px; font-weight: 600; line-height: 1.2; text-align: center; color: var(--text-muted); cursor: pointer; transition: background-color 200ms var(--ease), color 200ms var(--ease); }
+.seg label small { font-size: 12px; font-weight: 400; color: var(--text-subtle); }
+.seg input:checked + label { color: var(--brand); background: var(--surface); box-shadow: var(--shadow-card); }
+.seg input:focus-visible + label { outline: 2px solid var(--brand); outline-offset: 2px; }
+
+/* Foto: arquivo, colar ou link */
+.art-drop { display: flex; align-items: center; gap: 16px; min-height: 64px; padding: 8px 16px; border: 1px dashed var(--line-strong); border-radius: var(--radius); background: var(--surface-muted); cursor: pointer; }
+.art-drop.is-over { border-color: var(--brand); background: var(--brand-soft); }
+.art-drop img { width: 48px; height: 48px; flex: none; object-fit: contain; border-radius: 8px; background: repeating-conic-gradient(#E9E6F0 0 25%, #FFFFFF 0 50%) 0 0 / 12px 12px; }
+.art-drop span { min-width: 0; font-size: 14px; font-weight: 600; overflow-wrap: anywhere; }
+.art-paste { display: flex; gap: 8px; min-width: 0; }
+.art-paste .field__input { flex: 1; min-width: 0; }
+
+/* Unidades no aviso */
+.art-units { display: grid; gap: 8px; }
+.art-unit { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px 16px; padding: 16px; border: 1px solid var(--line); border-radius: var(--radius); }
+.art-unit__name { grid-column: 1 / -1; font-size: 14px; font-weight: 600; }
+
+/* Botões fixos embaixo do formulário */
+.art-actions { position: sticky; bottom: 0; display: grid; gap: 8px; padding: 16px 0; background: linear-gradient(transparent, var(--bg) 24px); }
+.art-actions .btn { width: 100%; justify-content: center; }
+.art-status { min-height: 20px; font-size: 14px; color: var(--text-muted); }
+.art-status.is-error { color: var(--ajustes-ink); }
+
+/* Prévia */
+.art-preview { position: sticky; top: 88px; display: grid; gap: 8px; min-width: 0; }
+.art-tag { justify-self: start; padding: 4px 12px; border-radius: 999px; font-size: 12px; font-weight: 600; color: var(--brand); background: var(--brand-soft); }
+.art-stage { display: flex; justify-content: center; padding: 16px; border: 1px solid var(--line); border-radius: var(--radius-lg); background: repeating-conic-gradient(var(--surface-muted) 0 25%, var(--surface) 0 50%) 0 0 / 24px 24px; }
+.art-stage canvas { display: block; max-width: 100%; max-height: 78vh; width: auto; height: auto; border-radius: 8px; box-shadow: var(--shadow-pop); }
+
+@media (max-width: 960px) {
+  .art-grid { grid-template-columns: minmax(0, 1fr); }
+  .art-preview { position: static; }
+}
+@media (max-width: 640px) {
+  .art-page .welcome { text-align: left; padding: 24px 0; }
+  .art-page .welcome__title { font-size: 30px; }
+  .art-box { padding: 16px; }
+  .art-row, .art-unit { grid-template-columns: minmax(0, 1fr); }
+  .topbar__actions .btn { padding: 0 12px; }
+}

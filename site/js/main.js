@@ -8,20 +8,20 @@
    para a aba e no botão "Atualizar").
    ========================================================================== */
 
-import { createSupabaseRepository } from "./data/supabase-repository.js?v=88233407a6";
-import { createAuth } from "./lib/auth.js?v=88233407a6";
-import { SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY } from "./config.js?v=88233407a6";
-import { $, esc, on, reduceMotion } from "./lib/dom.js?v=88233407a6";
-import { icon, brandMark } from "./lib/icons.js?v=88233407a6";
-import { monthKey, addMonths, addDays, monthLabel, weekLabel, weekDays, todayISO, fromISO, daysInMonth } from "./lib/dates.js?v=88233407a6";
-import { summarize } from "./domain/status.js?v=88233407a6";
-import { createHighlights, pickHighlights } from "./ui/highlights.js?v=88233407a6";
-import { createAdsView } from "./ui/ads-portal.js?v=88233407a6";
-import { buildCalendarPdf, pdfFileName } from "./ui/calendar-pdf.js?v=88233407a6";
-import { renderCalendar, renderAgenda, renderLegend, setupDayPopover } from "./ui/calendar.js?v=88233407a6";
-import { createDrawer } from "./ui/drawer.js?v=88233407a6";
-import { renderIdeas, setupIdeaModal } from "./ui/ideas.js?v=88233407a6";
-import { toast } from "./ui/toast.js?v=88233407a6";
+import { createSupabaseRepository } from "./data/supabase-repository.js?v=4e9810fb40";
+import { createAuth } from "./lib/auth.js?v=4e9810fb40";
+import { SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY } from "./config.js?v=4e9810fb40";
+import { $, esc, on, reduceMotion } from "./lib/dom.js?v=4e9810fb40";
+import { icon, brandMark } from "./lib/icons.js?v=4e9810fb40";
+import { monthKey, addMonths, addDays, monthLabel, weekLabel, weekDays, todayISO, fromISO, daysInMonth } from "./lib/dates.js?v=4e9810fb40";
+import { summarize } from "./domain/status.js?v=4e9810fb40";
+import { createHighlights, pickHighlights } from "./ui/highlights.js?v=4e9810fb40";
+import { createAdsView } from "./ui/ads-portal.js?v=4e9810fb40";
+import { buildCalendarPdf, pdfFileName } from "./ui/calendar-pdf.js?v=4e9810fb40";
+import { renderCalendar, renderAgenda, renderLegend, setupDayPopover } from "./ui/calendar.js?v=4e9810fb40";
+import { createDrawer } from "./ui/drawer.js?v=4e9810fb40";
+import { renderIdeas, setupIdeaModal } from "./ui/ideas.js?v=4e9810fb40";
+import { toast } from "./ui/toast.js?v=4e9810fb40";
 
 /* O portal não abre dentro de outro site (proteção contra clique disfarçado).
    A página fica invisível até esta checagem (body.portal em style.css). */
@@ -501,6 +501,8 @@ async function enterApp() {
   await navigate({ selected: todayISO(), month: monthKey(new Date()) });
   // Selo da aba "Aprovação de anúncios" (quantos esperam aprovação)
   if (features.ads && !adsView.loaded) adsView.load({ quiet: true }).catch(() => {});
+  // Gerador de artes: a aba só aparece se a agência liberou a identidade do cliente
+  repo.getBrandKit?.().then((kit) => { document.querySelectorAll("[data-artes-tab]").forEach((tab) => { tab.hidden = !kit; }); }).catch(() => {});
 }
 
 /** Mostrar/ocultar a senha (para conferir o que foi digitado) */
