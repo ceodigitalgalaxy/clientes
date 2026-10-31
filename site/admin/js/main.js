@@ -9,22 +9,22 @@
    O banco aplica as mesmas regras (RLS): esconder a tela não é a proteção.
    ========================================================================== */
 
-import { $, on } from "../../js/lib/dom.js?v=a8e5774c6e";
-import { icon, brandMark } from "../../js/lib/icons.js?v=a8e5774c6e";
-import { toast } from "../../js/ui/toast.js?v=a8e5774c6e";
-import { SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY } from "../../js/config.js?v=a8e5774c6e";
-import { createAuth } from "../../js/lib/auth.js?v=a8e5774c6e";
-import { createStorage } from "../../js/lib/storage.js?v=a8e5774c6e";
-import { createSupabaseStore } from "./data/store.js?v=a8e5774c6e";
-import { createApi } from "./api.js?v=a8e5774c6e";
-import { validateContentFilters } from "./domain/rules.js?v=a8e5774c6e";
-import { createConfirm, showFieldErrors, setBusy } from "./ui/dialogs.js?v=a8e5774c6e";
-import { setupClients } from "./views/clients.js?v=a8e5774c6e";
-import { setupContents } from "./views/contents.js?v=a8e5774c6e";
-import { setupAccess } from "./views/access.js?v=a8e5774c6e";
-import { setupImport } from "./views/import.js?v=a8e5774c6e";
-import { setupAds } from "./views/ads.js?v=a8e5774c6e";
-import { setupBrand } from "./views/brand.js?v=a8e5774c6e";
+import { $, on } from "../../js/lib/dom.js?v=93ceea0706";
+import { icon, brandMark } from "../../js/lib/icons.js?v=93ceea0706";
+import { toast } from "../../js/ui/toast.js?v=93ceea0706";
+import { SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY } from "../../js/config.js?v=93ceea0706";
+import { createAuth } from "../../js/lib/auth.js?v=93ceea0706";
+import { createStorage } from "../../js/lib/storage.js?v=93ceea0706";
+import { createSupabaseStore } from "./data/store.js?v=93ceea0706";
+import { createApi } from "./api.js?v=93ceea0706";
+import { validateContentFilters } from "./domain/rules.js?v=93ceea0706";
+import { createConfirm, showFieldErrors, setBusy } from "./ui/dialogs.js?v=93ceea0706";
+import { setupClients } from "./views/clients.js?v=93ceea0706";
+import { setupContents } from "./views/contents.js?v=93ceea0706";
+import { setupAccess } from "./views/access.js?v=93ceea0706";
+import { setupImport } from "./views/import.js?v=93ceea0706";
+import { setupAds } from "./views/ads.js?v=93ceea0706";
+import { setupBrand } from "./views/brand.js?v=93ceea0706";
 
 /* O painel não abre dentro de outro site (proteção contra clique disfarçado).
    A página fica invisível até esta checagem (veja .admin em admin.css). */

@@ -200,6 +200,28 @@ await step("Criar artes: link do produto preenche nome, descrição, preços e f
   await shot(cliente, "artes-06-link-produto");
 });
 
+await step("Criar artes: estilo do layout e composição 'produto em destaque'", async () => {
+  assert.deepEqual(await cliente.$$eval("#estilo option", (o) => o.map((x) => x.value)), ["ondas", "diagonal", "geometrico", "limpo"]);
+  await cliente.selectOption("#estilo", "diagonal");
+  await cliente.selectOption("#o-comp", "destaque");
+  await cliente.click("#art-form [type=submit]");
+  await cliente.waitForFunction(() => !document.querySelector("#baixar").disabled);
+  await shot(cliente, "artes-06b-diagonal-destaque");
+  assert.equal(await cliente.evaluate(() => localStorage.getItem("dg-artes-estilo")), "diagonal");
+});
+
+await step("Botão de favoritos: o produto chega pelo endereço e preenche a oferta", async () => {
+  assert.match(await cliente.getAttribute("#bookmarklet", "href"), /^javascript:/);
+  const data = { nome: "Ração Gatos Castrados 10 kg", descricao: "Com <b>ômega 3</b>", preco: "289.9", imagem: "https://loja.exemplo.com/racao.png", site: "petz.com.br" };
+  await cliente.click('label[for="m-aviso"]');
+  await cliente.evaluate((hash) => { location.hash = hash; }, `produto=${encodeURIComponent(JSON.stringify(data))}`);
+  await cliente.waitForFunction(() => document.querySelector("#o-produto").value === "Ração Gatos Castrados 10 kg");
+  assert.equal(await cliente.inputValue("#o-por"), "289,90");
+  assert.equal(await cliente.isChecked("#m-oferta"), true);
+  assert.equal(await cliente.evaluate(() => location.hash), "");
+  await cliente.waitForFunction(() => /petz\.com\.br/.test(document.querySelector("#status").textContent));
+});
+
 await step("Criar artes: evento, antes e depois e frase (modelos liberados pela agência)", async () => {
   assert.deepEqual(await cliente.$$eval('#model-seg input', (n) => n.map((x) => x.value)), ["oferta", "plano", "evento", "antesdepois", "frase", "aviso"]);
   await cliente.click('label[for="m-evento"]');

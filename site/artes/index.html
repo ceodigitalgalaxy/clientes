@@ -12,10 +12,10 @@
   <meta name="theme-color" content="#F5F3FA">
   <link rel="icon" href="../images/logo/favicon.svg" type="image/svg+xml">
   <link rel="icon" href="../images/logo/icon-96.png" type="image/png" sizes="96x96">
-  <link rel="stylesheet" href="../css/style.css?v=a8e5774c6e">
-  <link rel="stylesheet" href="../css/responsive.css?v=a8e5774c6e">
-  <link rel="stylesheet" href="../css/artes.css?v=a8e5774c6e">
-  <script type="module" src="../js/artes/main.js?v=a8e5774c6e"></script>
+  <link rel="stylesheet" href="../css/style.css?v=93ceea0706">
+  <link rel="stylesheet" href="../css/responsive.css?v=93ceea0706">
+  <link rel="stylesheet" href="../css/artes.css?v=93ceea0706">
+  <script type="module" src="../js/artes/main.js?v=93ceea0706"></script>
 </head>
 <body class="portal">
   <!-- Entrada (mesmo usuário e senha do portal) -->
@@ -88,7 +88,10 @@
               <input type="radio" name="formato" id="fm-feed" value="feed"><label for="fm-feed">Feed<small>1080×1080</small></label>
               <input type="radio" name="formato" id="fm-a4" value="a4"><label for="fm-a4">A4<small>impressão</small></label>
             </div>
-            <label class="field"><span class="field__label">Campanha</span><select class="field__input" id="tema"></select></label>
+            <div class="art-row">
+              <label class="field"><span class="field__label">Campanha</span><select class="field__input" id="tema"></select></label>
+              <label class="field"><span class="field__label">Estilo</span><select class="field__input" id="estilo"></select></label>
+            </div>
             <div class="art-row" id="camp-row">
               <label class="field"><span class="field__label">Chamada</span><input class="field__input" id="c-chamada" maxlength="26" placeholder="Ex.: Ofertas do mês da"></label>
               <label class="field" data-req="Escreva o nome da campanha."><span class="field__label">Nome da campanha <span class="req">*</span></span><input class="field__input" id="c-nome" maxlength="18" placeholder="Ex.: Prevenção"></label>
@@ -98,10 +101,13 @@
           <!-- OFERTA -->
           <section class="art-box" id="sec-oferta">
             <h2 class="art-box__title">Produto</h2>
+            <label class="field"><span class="field__label">Composição</span>
+              <select class="field__input" id="o-comp"><option value="lado">Produto ao lado do preço</option><option value="destaque">Produto em destaque, preço no canto</option></select></label>
             <div class="field art-fetch">
               <span class="field__label">Link do produto <span class="field__optional">(opcional: preenche tudo sozinho)</span></span>
               <div class="art-paste"><input class="field__input" type="url" id="o-link" autocomplete="off" placeholder="Cole o link da página do produto"><button class="btn btn--ghost btn--sm" type="button" id="o-buscar">Buscar dados</button></div>
-              <span class="field__hint">Funciona com a maioria das lojas online. Confira os dados antes de gerar.</span>
+              <span class="field__hint">Funciona nas lojas que permitem leitura. Confira os dados antes de gerar.</span>
+              <p class="art-bookmark">Loja que bloqueia a leitura (Petz, Mercado Livre...)? Arraste o botão <a class="art-bookmarklet" id="bookmarklet" href="#">Enviar para o gerador</a> para a barra de favoritos do navegador. Depois, na página do produto, clique nele: o gerador abre já preenchido.</p>
             </div>
             <div class="field" data-req="Envie a foto do produto." data-photo-field="oferta"></div>
             <label class="field" data-req="Escreva o nome do produto."><span class="field__label">Nome do produto <span class="req">*</span></span>

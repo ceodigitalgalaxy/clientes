@@ -6,17 +6,18 @@
    A arte é desenhada no navegador (engine.js) e baixada em PNG.
    ========================================================================== */
 
-import { SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY } from "../config.js?v=a8e5774c6e";
-import { createAuth } from "../lib/auth.js?v=a8e5774c6e";
-import { createSupabaseRepository } from "../data/supabase-repository.js?v=a8e5774c6e";
-import { icon, brandMark } from "../lib/icons.js?v=a8e5774c6e";
-import { $, esc } from "../lib/dom.js?v=a8e5774c6e";
-import { createEngine, FORMATS, CAMPAIGNS, STATUS, MODELS, isMoney, formatPhone } from "./engine.js?v=a8e5774c6e";
-import { imageFromBlob, imageFromUrl, removeBackground, thumbnail } from "./photos.js?v=a8e5774c6e";
+import { SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY } from "../config.js?v=93ceea0706";
+import { createAuth } from "../lib/auth.js?v=93ceea0706";
+import { createSupabaseRepository } from "../data/supabase-repository.js?v=93ceea0706";
+import { icon, brandMark } from "../lib/icons.js?v=93ceea0706";
+import { $, esc } from "../lib/dom.js?v=93ceea0706";
+import { createEngine, FORMATS, CAMPAIGNS, STATUS, MODELS, STYLES, isMoney, formatPhone } from "./engine.js?v=93ceea0706";
+import { imageFromBlob, imageFromUrl, removeBackground, thumbnail } from "./photos.js?v=93ceea0706";
 
 const auth = createAuth({ url: SUPABASE_URL, apiKey: SUPABASE_PUBLISHABLE_KEY, kind: "cliente" });
 const repo = createSupabaseRepository({ url: SUPABASE_URL, apiKey: SUPABASE_PUBLISHABLE_KEY, auth });
 const UNIT_KEY = "dg-artes-unidade";
+const STYLE_KEY = "dg-artes-estilo";
 
 const el = { login: $("#login"), noKit: $("#no-kit"), app: $("#app"), form: $("#art-form"), canvas: $("#cv"), download: $("#baixar"), status: $("#status"), tag: $("#prev-tag") };
 let engine = null, kit = null, current = null;
@@ -44,6 +45,50 @@ function loadLogo(url) {
 }
 const fontsReady = () => Promise.all(["500", "600", "700", "800", "900"].map((w) => document.fonts.load(`${w} 40px Montserrat`))
   .concat([document.fonts.load("italic 800 40px Montserrat"), document.fonts.load("40px Anton"), document.fonts.load('40px "Lilita One"')])).catch(() => {});
+
+/* ---------- produto vindo de uma loja ---------- */
+/** Preço em reais (aceita 189.9, 189,90, 1.299,90) */
+function toBRL(value) {
+  let s = String(value || "").trim().replace(/[^\d.,]/g, "");
+  if (!s) return "";
+  if (s.includes(",") && s.includes(".")) s = s.lastIndexOf(",") > s.lastIndexOf(".") ? s.replace(/\./g, "").replace(",", ".") : s.replace(/,/g, "");
+  else if (s.includes(",")) s = s.replace(",", ".");
+  const n = Number(s);
+  return Number.isFinite(n) && n > 0 ? n.toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : "";
+}
+/**
+ * Botão de favoritos "Enviar para o gerador": roda na página da loja que a pessoa está vendo
+ * (lê o que já está na tela dela: dados de produto da página ou as etiquetas de compartilhamento)
+ * e abre o gerador com esses dados no endereço (#produto=...). Nada é enviado para servidor.
+ */
+function bookmarklet(origin) {
+  const code = `(()=>{try{const q=s=>document.querySelector(s);const m=n=>(q('meta[property="'+n+'"]')||q('meta[name="'+n+'"]')||{}).content||'';let p={};const w=o=>{if(!o||typeof o!=='object')return;if(Array.isArray(o)){o.forEach(w);return}const t=[].concat(o['@type']||[]).map(String);if(!p.name&&t.some(x=>/Product/i.test(x)))p=o;Object.values(o).forEach(v=>{if(v&&typeof v==='object')w(v)})};document.querySelectorAll('script[type="application/ld+json"]').forEach(s=>{try{w(JSON.parse(s.textContent))}catch(e){}});const of=[].concat(p.offers||[]).flatMap(o=>[o].concat((o&&o.offers)||[]));const pr=of.map(o=>o&&(o.price||o.lowPrice)).find(Boolean)||m('product:price:amount');const ip=[].concat(p.image||[])[0];let im=(ip&&(ip.url||ip))||m('og:image');try{im=new URL(im,location.href).href}catch(e){im=''}const d={nome:p.name||m('og:title')||document.title,descricao:String(p.description||m('og:description')||'').replace(/<[^>]+>/g,' ').slice(0,300),preco:String(pr||''),imagem:im,site:location.hostname};window.open('${origin}/artes/#produto='+encodeURIComponent(JSON.stringify(d)),'_blank')}catch(e){alert('Não foi possível ler esta página.')}})()`;
+  return `javascript:${code}`;
+}
+/** Dados do produto que chegaram pelo endereço (#produto=...), conferidos e limpos */
+function productFromHash() {
+  const m = location.hash.match(/^#produto=(.+)$/);
+  if (!m) return null;
+  history.replaceState(null, "", location.pathname + location.search);
+  let data;
+  try { data = JSON.parse(decodeURIComponent(m[1])); } catch { return null; }
+  const str = (v, max) => (typeof v === "string" ? v.replace(/\s+/g, " ").trim().slice(0, max) : "");
+  const imagem = str(data?.imagem, 2000);
+  return { nome: str(data?.nome, 90), descricao: str(data?.descricao, 140), preco: toBRL(str(data?.preco, 20)), precoAntigo: "", imagem: /^https:\/\//i.test(imagem) ? imagem : "", site: str(data?.site, 60) };
+}
+/** Preenche a Oferta com os dados de um produto (do link ou do botão de favoritos) */
+async function fillProduct(p) {
+  const offer = el.form.querySelector('input[name="modelo"][value="oferta"]');
+  if (!offer) { say("O modelo Oferta não está liberado para a sua empresa.", true); return; }
+  if (!offer.checked) { offer.checked = true; switchModel(); }
+  if (p.nome) $("#o-produto").value = p.nome.slice(0, 90);
+  if (p.descricao) $("#o-desc").value = p.descricao.slice(0, 140);
+  if (p.preco) $("#o-por").value = p.preco;
+  if (p.precoAntigo) $("#o-de").value = p.precoAntigo;
+  if (p.imagem) await pickers.oferta.fromUrl(p.imagem);
+  stale(); preview();
+  say(`Dados de ${p.site || "a loja"} preenchidos. Confira o preço antes de gerar.`);
+}
 
 /* ---------- formulário ---------- */
 /** Imagem de um link: pelo servidor (ler-produto), senão direto/repassada */
@@ -122,6 +167,11 @@ function buildModels() {
   $("#model-seg").innerHTML = models.map((m, i) => `<input type="radio" name="modelo" id="m-${m}" value="${m}"${i === 0 ? " checked" : ""}><label for="m-${m}">${esc(MODELS[m].label)}<small>${esc(MODELS[m].hint)}</small></label>`).join("");
   $("#model-seg").hidden = models.length === 1;
 }
+function buildStyles() {
+  $("#estilo").innerHTML = Object.entries(STYLES).map(([k, v]) => `<option value="${k}">${esc(v)}</option>`).join("");
+  const saved = store.get(STYLE_KEY);
+  if (STYLES[saved]) $("#estilo").value = saved;
+}
 function buildCampaigns() {
   const list = kit.campaigns.filter((c) => CAMPAIGNS[c]);
   if (!list.includes("padrao")) list.unshift("padrao");
@@ -141,14 +191,14 @@ function example() {
 }
 
 function read() {
-  const d = { unidade: $("#unidade").value, modelo: radio("modelo"), formato: radio("formato"), tema: $("#tema").value, chamada: val("c-chamada"), nome: val("c-nome") };
+  const d = { unidade: $("#unidade").value, modelo: radio("modelo"), formato: radio("formato"), tema: $("#tema").value, estilo: $("#estilo").value, chamada: val("c-chamada"), nome: val("c-nome") };
   if (d.modelo === "oferta") Object.assign(d, { produto: val("o-produto"), de: val("o-de"), por: val("o-por"), selo: $("#o-selo").value, validade: $("#o-validade").value, extra: val("o-extra"), photo: photos.oferta.ready });
   if (d.modelo === "plano") Object.assign(d, { tipo: $("#p-tipo").value, validade: $("#p-validade").value, titulo: val("p-titulo"), detalhe: val("p-detalhe"), brinde: val("p-brinde"), modo: radio("p-modo"), valor: val("p-valor"), photo: photos.plano.ready });
   if (d.modelo === "aviso") Object.assign(d, {
     selo: val("a-selo"), titulo: val("a-titulo"), sub: val("a-sub"), destaque: val("a-destaque"), retorno: val("a-retorno"), cta: val("a-cta"), photo: photos.aviso.ready,
     units: engine.units.map((u) => ({ nome: u.nome, status: el.form.querySelector(`[data-unit-status="${CSS.escape(u.id)}"]`).value, horario: el.form.querySelector(`[data-unit-hours="${CSS.escape(u.id)}"]`).value.trim() }))
   });
-  if (d.modelo === "oferta") Object.assign(d, { descricao: val("o-desc"), shadow: photos.oferta.shadow });
+  if (d.modelo === "oferta") Object.assign(d, { descricao: val("o-desc"), shadow: photos.oferta.shadow, composicao: $("#o-comp").value });
   if (d.modelo === "aviso") d.shadow = photos.aviso.shadow;
   if (d.modelo === "evento") Object.assign(d, { chamada: val("e-chamada"), titulo: val("e-titulo"), data: val("e-data"), horario: val("e-horario"), local: val("e-local"), descricao: val("e-desc"), cta: val("e-cta"), photo: photos.evento.ready });
   if (d.modelo === "antesdepois") Object.assign(d, { chamada: val("d-chamada"), titulo: val("d-titulo"), descricao: val("d-desc"), cta: val("d-cta"), photo: photos.antes.ready, photo2: photos.depois.ready });
@@ -218,19 +268,16 @@ function wire() {
     if (!/^https?:\/\//i.test(link)) { say("Cole o link da página do produto (começa com http).", true); return; }
     const button = $("#o-buscar"); button.disabled = true; say("Lendo a página do produto…");
     try {
-      const p = await repo.readProduct(link);
-      if (p.nome) $("#o-produto").value = p.nome.slice(0, 90);
-      if (p.descricao) $("#o-desc").value = p.descricao.slice(0, 140);
-      if (p.preco) $("#o-por").value = p.preco;
-      if (p.precoAntigo) $("#o-de").value = p.precoAntigo;
-      if (p.imagem) await pickers.oferta.fromUrl(p.imagem);
-      stale(); preview();
-      say(`Dados de ${p.site || "a loja"} preenchidos. Confira o preço antes de gerar.`);
+      await fillProduct(await repo.readProduct(link));
     } catch (error) {
       say(error.message || "Não deu para ler esse link. Preencha à mão.", true);
     } finally { button.disabled = false; }
   };
   $("#o-buscar").addEventListener("click", fetchProduct);
+  const mark = $("#bookmarklet");
+  mark.href = bookmarklet(location.origin);
+  mark.addEventListener("click", (event) => { event.preventDefault(); say("Arraste esse botão para a barra de favoritos. Ele funciona na página do produto, na loja."); });
+  window.addEventListener("hashchange", () => { const p = productFromHash(); if (p && engine) fillProduct(p); });
   $("#o-link").addEventListener("keydown", (event) => { if (event.key === "Enter") { event.preventDefault(); fetchProduct(); } });
   ["c-nome", "c-chamada"].forEach((id) => $(`#${id}`).addEventListener("input", () => { $("#c-nome").dataset.touched = "1"; }));
   el.form.querySelectorAll('input[name="p-modo"]').forEach((r) => r.addEventListener("change", () => {
@@ -244,6 +291,7 @@ function wire() {
     if (t.name === "modelo") switchModel();
     if (t.id === "tema") campaignDefaults(false);
     if (t.id === "unidade") { store.set(UNIT_KEY, t.value); showContact(); }
+    if (t.id === "estilo") store.set(STYLE_KEY, t.value);
     if (t.name === "formato" && current) { current = read(); engine.render(el.canvas, current, 1); return; }
     stale(); preview();
   });
@@ -317,13 +365,15 @@ async function enter() {
   engine = createEngine({ kit, logos });
   if (!engine.units.length) engine.units.push({ id: "unica", nome: kit.client, marca: kit.client, whatsapp: "", logo: "principal" });
   $("#art-client").innerHTML = `${kit.logos.emblema ? `<img src="${esc(kit.logos.emblema)}" alt="">` : ""}<span>${esc(kit.client)}</span>`;
-  buildUnits(); buildModels(); buildCampaigns(); example();
+  buildUnits(); buildModels(); buildStyles(); buildCampaigns(); example();
   if (!wire.done) { wire(); wire.done = true; }
   switchModel();
   el.app.hidden = false;
   document.title = `Criar artes · ${kit.client}`;
   say("A prévia mostra um exemplo. Preencha os campos e toque em Gerar arte.");
+  const incoming = productFromHash();
   preview();
+  if (incoming) fillProduct(incoming);
 }
 
 el.login.querySelector("form").addEventListener("submit", async (event) => {

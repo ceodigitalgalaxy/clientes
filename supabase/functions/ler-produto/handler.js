@@ -141,7 +141,11 @@ export function createHandler(keys, fetchImpl = globalThis.fetch.bind(globalThis
         if (!url) throw new HttpError(422, "O link leva para um endereço não permitido.");
         continue;
       }
-      if (!response.ok) throw new HttpError(502, `O site do produto recusou a leitura (código ${response.status}). Cole a imagem e os dados à mão.`);
+      if (!response.ok) {
+        // Loja que bloqueia leitura automática: respeitamos o bloqueio e indicamos o botão do navegador
+        if ([401, 403, 429, 451, 503].includes(response.status)) throw new HttpError(422, "Essa loja não permite leitura automática. Abra o produto no navegador e use o botão \"Enviar para o gerador\" dos favoritos, ou cole a imagem e os dados.");
+        throw new HttpError(502, `O site do produto não respondeu como esperado (código ${response.status}). Cole a imagem e os dados à mão.`);
+      }
       return { response, url };
     }
     throw new HttpError(502, "O link redireciona demais.");

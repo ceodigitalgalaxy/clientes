@@ -1,8 +1,8 @@
 /* Janelas do painel: abrir/fechar com a mesma animação do portal,
    confirmação antes de excluir e erros de formulário campo a campo. */
 
-import { reduceMotion, esc } from "../../../js/lib/dom.js?v=a8e5774c6e";
-import { icon } from "../../../js/lib/icons.js?v=a8e5774c6e";
+import { reduceMotion, esc } from "../../../js/lib/dom.js?v=93ceea0706";
+import { icon } from "../../../js/lib/icons.js?v=93ceea0706";
 
 export function closeDialog(dialog) {
   if (!dialog.open) return;

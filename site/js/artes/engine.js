@@ -35,6 +35,9 @@ export const MODELS = {
   aviso: { label: "Aviso", hint: "feriado, horário" }
 };
 
+/** Estilos de layout: mudam o cabeçalho e o rodapé de todos os modelos */
+export const STYLES = { ondas: "Ondas", diagonal: "Diagonal", geometrico: "Geométrico", limpo: "Limpo" };
+
 export const STATUS = { normal: "Funciona normalmente", reduzido: "Horário reduzido", especial: "Horário especial", fechado: "Fechada", oculto: "Não mostrar no card" };
 
 /* ---------- cores ---------- */
@@ -180,21 +183,51 @@ export function createEngine({ kit, logos }) {
     return w;
   }
 
+  let estilo = "ondas";   // estilo do layout (cabeçalho e rodapé), definido a cada desenho
+
+  /**
+   * Fundo + enfeites do estilo escolhido.
+   * wave = altura da faixa do rodapé (0: sem faixa); noArcs = sem enfeite no topo (o modelo usa o canto).
+   * Em todos os estilos o rodapé é da cor de apoio (deco1), para o texto em waveInk ficar legível.
+   */
   function background(ctx, F, T, wave, noArcs) {
     const { W, H } = F, g = ctx.createLinearGradient(0, 0, 0, H);
     g.addColorStop(0, T.bg1); g.addColorStop(1, T.bg2); ctx.fillStyle = g; ctx.fillRect(0, 0, W, H);
-    if (!noArcs) {
-      ctx.save(); ctx.lineCap = "round";
+    const poly = (color, pts) => { ctx.fillStyle = color; ctx.beginPath(); pts.forEach(([x, y], i) => (i ? ctx.lineTo(x, y) : ctx.moveTo(x, y))); ctx.closePath(); ctx.fill(); };
+    ctx.save();
+    if (estilo === "limpo") {
+      ctx.strokeStyle = T.deco1; ctx.lineWidth = Math.max(4, W * 0.006); rr(ctx, W * 0.025, W * 0.025, W - W * 0.05, H - W * 0.05, W * 0.03); ctx.stroke();
+    } else if (!noArcs && estilo === "diagonal") {
+      poly(T.deco1, [[W * 0.64, 0], [W, 0], [W, W * 0.3]]);
+      poly(T.deco2, [[W * 0.5, 0], [W * 0.56, 0], [W, W * 0.44], [W, W * 0.38]]);
+    } else if (!noArcs && estilo === "geometrico") {
+      ctx.fillStyle = T.deco1; ctx.beginPath(); ctx.arc(W * 0.97, -W * 0.03, W * 0.17, 0, Math.PI * 2); ctx.fill();
+      ctx.strokeStyle = T.deco2; ctx.lineWidth = W * 0.012; ctx.beginPath(); ctx.arc(W * 0.97, -W * 0.03, W * 0.23, 0, Math.PI * 2); ctx.stroke();
+      ctx.fillStyle = T.deco1; ctx.globalAlpha = 0.55;
+      for (let i = 0; i < 5; i++) for (let j = 0; j < 4; j++) { ctx.beginPath(); ctx.arc(W * 0.045 + i * W * 0.032, W * 0.045 + j * W * 0.032, W * 0.0065, 0, Math.PI * 2); ctx.fill(); }
+      ctx.globalAlpha = 1;
+    } else if (!noArcs) {
+      ctx.lineCap = "round";
       ctx.strokeStyle = T.deco1; ctx.lineWidth = W * 0.055; ctx.beginPath(); ctx.arc(-W * 0.03, -W * 0.03, W * 0.2, 0, Math.PI / 2); ctx.stroke();
-      ctx.strokeStyle = T.deco2; ctx.lineWidth = W * 0.018; ctx.beginPath(); ctx.arc(-W * 0.03, -W * 0.03, W * 0.265, 0.05, Math.PI / 2 - 0.05); ctx.stroke(); ctx.restore();
+      ctx.strokeStyle = T.deco2; ctx.lineWidth = W * 0.018; ctx.beginPath(); ctx.arc(-W * 0.03, -W * 0.03, W * 0.265, 0.05, Math.PI / 2 - 0.05); ctx.stroke();
     }
+    ctx.restore();
     if (T.snow) {
       ctx.fillStyle = "rgba(255,255,255,.18)";
       let s = 7; const rnd = () => (s = (s * 9301 + 49297) % 233280) / 233280;
       for (let i = 0; i < 60; i++) { ctx.beginPath(); ctx.arc(rnd() * W, rnd() * H * 0.8, 2 + rnd() * 6, 0, Math.PI * 2); ctx.fill(); }
     }
-    if (wave) {
-      const hw = wave;
+    if (!wave) return;
+    const hw = wave;
+    if (estilo === "diagonal") {
+      poly(T.deco2, [[0, H - hw * 0.62], [W, H - hw * 1.17], [W, H - hw * 1.07], [0, H - hw * 0.52]]);
+      poly(T.deco1, [[0, H - hw * 0.45], [W, H - hw * 1.0], [W, H], [0, H]]);
+    } else if (estilo === "geometrico") {
+      ctx.fillStyle = T.deco2; ctx.beginPath(); ctx.arc(W * 0.96, H - hw * 0.2, hw * 0.95, 0, Math.PI * 2); ctx.fill();
+      ctx.fillStyle = T.deco1; ctx.fillRect(0, H - hw * 0.58, W, hw * 0.58);
+    } else if (estilo === "limpo") {
+      ctx.fillStyle = T.deco1; ctx.fillRect(0, H - hw * 0.55, W, hw * 0.55);
+    } else {
       ctx.fillStyle = T.deco2; ctx.beginPath(); ctx.moveTo(0, H); ctx.lineTo(0, H - hw * 0.55); ctx.bezierCurveTo(W * 0.3, H - hw * 0.2, W * 0.62, H - hw * 1.35, W, H - hw * 1.12); ctx.lineTo(W, H); ctx.closePath(); ctx.fill();
       ctx.fillStyle = T.deco1; ctx.beginPath(); ctx.moveTo(0, H); ctx.lineTo(0, H - hw * 0.3); ctx.bezierCurveTo(W * 0.32, H - hw * 0.02, W * 0.6, H - hw * 1.1, W, H - hw * 0.85); ctx.lineTo(W, H); ctx.closePath(); ctx.fill();
     }
@@ -233,10 +266,10 @@ export function createEngine({ kit, logos }) {
   }
 
   /** "DE" riscado + caixa branca "POR APENAS" com o preço numa linha de base só */
-  function priceBlock(ctx, { x, y, w, d, T, s, draw }) {
+  function priceBlock(ctx, { x, y, w, d, T, s, draw, inside = false }) {
     const de = formatMoney(d.de), por = formatMoney(d.por);
     let cy = y;
-    if (de) {
+    if (de && !inside) {
       const t = `DE: R$ ${de}`;
       ctx.font = f(700, 32 * s);
       const tw = ctx.measureText(t).width;
@@ -251,14 +284,23 @@ export function createEngine({ kit, logos }) {
     ctx.font = ANTON(big); const nw = ctx.measureText(por).width;
     ctx.font = ANTON(rsz); const rw = ctx.measureText("R$").width + 10 * s;
     ctx.font = f(900, lab); ls(ctx, 1.5); const lw = ctx.measureText("POR APENAS:").width; ls(ctx, 0);
-    const bw = Math.min(w, Math.max(lw, rw + nw) + padX * 2), bh = padY + lab + 10 * s + big * 1.02 + padY * 0.7;
+    const deIn = de && inside ? `DE R$ ${de}` : "";
+    ctx.font = f(700, 24 * s); const dw = deIn ? ctx.measureText(deIn).width : 0;
+    const deH = deIn ? 24 * s * 1.4 : 0;
+    const bw = Math.min(w, Math.max(lw, rw + nw, dw) + padX * 2), bh = padY + deH + lab + 10 * s + big * 1.02 + padY * 0.7;
     if (draw) {
       ctx.save(); ctx.shadowColor = "rgba(0,0,0,.22)"; ctx.shadowBlur = 22; ctx.shadowOffsetY = 8; ctx.fillStyle = "#FFFFFF"; rr(ctx, x, cy, bw, bh, 18 * s); ctx.fill(); ctx.restore();
-      ctx.textBaseline = "top"; ctx.fillStyle = T.price; ctx.font = f(900, lab); ls(ctx, 1.5); ctx.fillText("POR APENAS:", x + padX, cy + padY); ls(ctx, 0);
-      const base = cy + padY + lab + 10 * s + big * 0.98;
+      ctx.textBaseline = "top";
+      if (deIn) {
+        ctx.font = f(700, 24 * s); ctx.fillStyle = "#7A7F86"; ctx.fillText(deIn, x + padX, cy + padY);
+        const pre = ctx.measureText("DE ").width; ctx.strokeStyle = T.alert; ctx.lineWidth = 3 * s;
+        ctx.beginPath(); ctx.moveTo(x + padX + pre - 2, cy + padY + 13 * s); ctx.lineTo(x + padX + dw + 2, cy + padY + 13 * s); ctx.stroke();
+      }
+      ctx.fillStyle = T.price; ctx.font = f(900, lab); ls(ctx, 1.5); ctx.fillText("POR APENAS:", x + padX, cy + padY + deH); ls(ctx, 0);
+      const base = cy + padY + deH + lab + 10 * s + big * 0.98;
       ctx.textBaseline = "alphabetic"; ctx.font = ANTON(rsz); ctx.fillText("R$", x + padX, base); ctx.font = ANTON(big); ctx.fillText(por, x + padX + rw, base);
     }
-    if (Math.max(lw, rw + nw) + padX * 2 > w) cy += 1e6;   // preço largo demais: conta como "não coube"
+    if (Math.max(lw, rw + nw, dw) + padX * 2 > w) cy += 1e6;   // preço largo demais: conta como "não coube"
     cy += bh;
     if (d.extra) { cy += 14 * s; cy = textBlock(ctx, d.extra, { font: f(700, 26 * s), x, y: cy, w, lh: 26 * s * 1.3, max: 2, color: "#FFFFFF", draw }); }
     return cy;
@@ -269,10 +311,12 @@ export function createEngine({ kit, logos }) {
     const { W, H } = F, story = d.formato === "story", feed = d.formato === "feed";
     const pad = feed ? 60 : (72 * W) / 1080, hw = feed ? 150 : story ? 230 : 210, logoH = feed ? 170 : story ? 220 : 230;
     if (draw) background(ctx, F, T, hw);
-    let y = campaign(ctx, { x: pad, y: feed ? 40 : story ? 220 : 90, w: W - pad * 2, chamada: d.chamada, nome: d.nome, T, max: (feed ? 140 : story ? 210 : 190) * Math.min(s, 1), draw });
+    const side = estilo === "limpo" ? 0 : W * 0.1;   // título longe dos enfeites dos cantos
+    let y = campaign(ctx, { x: pad + side, y: feed ? 40 : story ? 220 : 90, w: W - pad * 2 - side * 2, chamada: d.chamada, nome: d.nome, T, max: (feed ? 140 : story ? 210 : 190) * Math.min(s, 1), draw });
     y += feed ? 18 : 40;
     const bottom = H - hw * 0.62 - 24;
     const rx = W * 0.48, lx = pad, lw = rx - pad - 36, rw = W - rx - pad, bottomL = H - hw * 0.62 - logoH - 8;
+    if (d.composicao === "destaque") return ofertaDestaque(ctx, F, T, d, U, s, draw, { y, pad, hw, logoH, bottom, bottomL, story, feed });
     let need = 0;
     if (d.selo) need += 54 * s + 16 * s;
     need += lines(ctx, d.produto, f(800, 34 * s), rw, 4).length * 34 * s * 1.18 + 18 * s;
@@ -288,12 +332,41 @@ export function createEngine({ kit, logos }) {
     ry = textBlock(ctx, d.produto, { font: f(800, 34 * s), x: rx, y: ry, w: rw, lh: 34 * s * 1.18, max: 4, color: "#FFFFFF", draw }) + 18 * s;
     if (d.descricao) ry = textBlock(ctx, d.descricao, { font: f(500, 24 * s), x: rx, y: ry - 4 * s, w: rw, lh: 24 * s * 1.35, max: 3, color: T.sub, draw }) + 14 * s;
     priceBlock(ctx, { x: rx, y: ry, w: rw, d, T, s, draw });
-    if (draw) {
+    if (draw) ofertaFooter(ctx, F, T, d, U, { pad, hw, logoH });
+    return 0;
+  }
+  function ofertaFooter(ctx, F, T, d, U, { pad, hw, logoH }) {
+    const { W, H } = F;
+    {
       const lwid = logo(ctx, U?.logo || "principal", pad, H - hw * 0.62 - logoH, logoH);
       const legal = d.validade ? `Oferta válida até ${formatDate(d.validade)} ${kit.legal || "ou enquanto durarem os estoques."}` : (kit.legal || "Oferta por tempo limitado.");
       ctx.textAlign = "right"; ctx.textBaseline = "alphabetic"; ctx.fillStyle = T.waveInk; ctx.font = f(800, Math.round((W / 1080) * 24));
       ctx.fillText(legal, W - pad * 0.7, H - Math.max(22, hw * 0.16), W - lwid - pad * 2); ctx.textAlign = "left";
     }
+  }
+
+  /* ----- OFERTA, composição "Produto em destaque": nome em cima, produto grande, preço em selo inclinado ----- */
+  function ofertaDestaque(ctx, F, T, d, U, s, draw, { y, pad, hw, logoH, bottom, bottomL, story, feed }) {
+    const { W } = F, cw = W - pad * 2, pw = W * 0.44;
+    const selH = d.selo ? 54 * s + 14 * s : 0;
+    const nameH = lines(ctx, d.produto, f(800, 40 * s), cw * 0.9, 2).length * 40 * s * 1.15 + 12 * s;
+    const descH = d.descricao ? lines(ctx, d.descricao, f(500, 26 * s), cw * 0.85, 2).length * 26 * s * 1.35 + 8 * s : 0;
+    const ph = priceBlock(ctx, { x: 0, y: 0, w: pw, d, T, s, draw: false, inside: true });
+    const top = y + selH + nameH + descH + 12 * s;
+    if (bottomL - top < (story ? 640 : feed ? 300 : 520) || ph > bottom - top) return bottom + 1;
+    if (!draw) return 0;
+    if (d.selo) { ctx.font = f(900, 26 * s); ls(ctx, 2); const w = ctx.measureText(d.selo.toUpperCase()).width + 56 * s; ls(ctx, 0); tagPill(ctx, (W - w) / 2, y, d.selo, T, s); }
+    let ty = textBlock(ctx, d.produto, { font: f(800, 40 * s), x: pad + cw * 0.05, y: y + selH, w: cw * 0.9, lh: 40 * s * 1.15, max: 2, color: "#FFFFFF", align: "center", draw: true }) + 12 * s;
+    if (d.descricao) textBlock(ctx, d.descricao, { font: f(500, 26 * s), x: pad + cw * 0.075, y: ty - 4 * s, w: cw * 0.85, lh: 26 * s * 1.35, max: 2, color: T.sub, align: "center", draw: true });
+    const boxW = W * 0.66, boxX = pad + (story ? (cw - boxW) / 2 - W * 0.06 : W * 0.02);
+    if (d.photo) cutout(ctx, d.photo, boxX, top, boxW, bottomL - top, { shadow: d.shadow !== false });
+    else placeholder(ctx, boxX, top, boxW, bottomL - top, "Foto do produto");
+    // selo de preço inclinado no canto de baixo, à direita
+    const px = W - pad - pw, py = bottom - ph;
+    ctx.save(); ctx.translate(px + pw / 2, py + ph / 2); ctx.rotate(-0.06); ctx.translate(-(px + pw / 2), -(py + ph / 2));
+    priceBlock(ctx, { x: px, y: py, w: pw, d, T, s, draw: true, inside: true });
+    ctx.restore();
+    ofertaFooter(ctx, F, T, d, U, { pad, hw, logoH });
     return 0;
   }
 
@@ -458,7 +531,7 @@ export function createEngine({ kit, logos }) {
         const g = ctx.createLinearGradient(0, photoH * 0.55, 0, photoH); g.addColorStop(0, "rgba(0,0,0,0)"); g.addColorStop(1, T.bg1);
         ctx.fillStyle = g; ctx.fillRect(0, photoH * 0.55, W, photoH * 0.45 + 2);
       }
-      logo(ctx, "emblema", d.photo ? pad : W - pad - W * 0.13, (F.H > F.W * 1.5 ? 200 : pad * 0.7), W * 0.13);
+      logo(ctx, "emblema", d.photo || ["diagonal", "geometrico"].includes(estilo) ? pad : W - pad - W * 0.13, (F.H > F.W * 1.5 ? 200 : pad * 0.7), W * 0.13);
     }
     let y = d.photo ? photoH - 30 * s : (F.H > F.W * 1.5 ? 420 : H * 0.2) + (d.shift || 0);
     if (d.chamada) { if (draw) tagPill(ctx, pad, y, d.chamada, T, s); y += 54 * s + 22 * s; }
@@ -491,7 +564,8 @@ export function createEngine({ kit, logos }) {
     const { W, H } = F, pad = W * 0.06, cw = W - pad * 2, B = bandSize(F), tall = F.H > F.W * 1.2;
     if (draw) background(ctx, F, T, 0);
     let y = tall ? (F.H > F.W * 1.5 ? 210 : 90) : 64;
-    y = campaign(ctx, { x: pad, y, w: cw, chamada: d.chamada, nome: d.titulo, T, max: (tall ? 150 : 110) * Math.min(s, 1), draw });
+    const side = estilo === "limpo" ? 0 : W * 0.1;
+    y = campaign(ctx, { x: pad + side, y, w: cw - side * 2, chamada: d.chamada, nome: d.titulo, T, max: (tall ? 150 : 110) * Math.min(s, 1), draw });
     y += 16 * s;
     const descH = d.descricao ? lines(ctx, d.descricao, f(600, 30 * s), cw, 2).length * 30 * s * 1.35 + 20 * s : 0;
     const avail = B.y - 28 * s - y - descH, gap = 24 * s;
@@ -557,6 +631,7 @@ export function createEngine({ kit, logos }) {
     /** Desenha a arte `d` no canvas; scale 2 = A4 em alta para impressão */
     render(canvas, d, scale = 1) {
       const F = FORMATS[d.formato], T = themeFor(d.tema, kit.colors), U = units.find((u) => u.id === d.unidade) || units[0];
+      estilo = STYLES[d.estilo] ? d.estilo : "ondas";
       canvas.width = F.W * scale; canvas.height = F.H * scale;
       const ctx = canvas.getContext("2d"); ctx.setTransform(scale, 0, 0, scale, 0, 0);
       const body = { oferta, plano, aviso, evento, antesdepois, frase }[d.modelo], s0 = S0[d.modelo][d.formato];

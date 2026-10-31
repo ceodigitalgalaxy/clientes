@@ -40,9 +40,9 @@ export async function imageFromUrl(raw) {
  * 1. Cor do fundo = mediana das bordas; tolerância maior se a borda variar (sombra, degradê).
  * 2. Preenche a partir das bordas tudo o que tem a cor do fundo (e, em fundo claro,
  *    as sombras cinzentas da foto da loja, que viram mancha no card).
- * 3. Vãos internos (ex.: entre a alça e a embalagem) com a mesma cor exata do fundo também saem.
- * 4. Tira a franja: 2 passadas apagando a borda clara que sobra em volta do produto.
- * 5. Suaviza a borda (antisserrilhado) sem o halo da cor do fundo e recorta nas bordas do produto.
+ * 3. Tira a franja: apaga a borda clara que sobra em volta do produto.
+ *    Partes brancas DENTRO do produto (letras, rótulos) nunca são apagadas.
+ * 4. Suaviza a borda (antisserrilhado) sem o halo da cor do fundo e recorta nas bordas do produto.
  * Devolve um canvas (ou a própria imagem, se ela já não tiver fundo ou o fundo não for liso).
  */
 export function removeBackground(im) {
@@ -75,26 +75,17 @@ export function removeBackground(im) {
   for (const b of border) if (!mask[b] && isBg(b)) { mask[b] = BG; queue[tail++] = b; }
   while (head < tail) { const q = queue[head++]; for (const n of neighbors(q)) if (n >= 0 && !mask[n] && isBg(n)) { mask[n] = BG; queue[tail++] = n; } }
   if (tail < N * 0.03) return im;   // quase nada para tirar: o fundo não é liso
-  // Vãos internos: regiões fechadas com a cor do fundo quase exata e tamanho visível
-  const seen = new Uint8Array(N), strict = Math.min(16, tol * 0.4), minArea = Math.max(60, N * 0.0012);
-  for (let q = 0; q < N; q++) {
-    if (mask[q] || seen[q] || dist(q) >= strict) continue;
-    const region = [q]; seen[q] = 1;
-    for (let r = 0; r < region.length; r++) for (const n of neighbors(region[r])) if (n >= 0 && !mask[n] && !seen[n] && dist(n) < strict) { seen[n] = 1; region.push(n); }
-    if (region.length >= minArea) region.forEach((r) => { mask[r] = BG; });
-  }
   // Franja: borda clara/da cor do fundo que sobra colada ao recorte
-  for (let pass = 0; pass < 2; pass++) {
-    const eat = [];
-    for (let q = 0; q < N; q++) if (!mask[q] && dist(q) < tol * 1.6 && neighbors(q).some((n) => n >= 0 && mask[n])) eat.push(q);
-    eat.forEach((q) => { mask[q] = BG; });
-  }
+  // (uma passada só e bem perto da cor do fundo, para não comer o branco do próprio produto)
+  const eat = [];
+  for (let q = 0; q < N; q++) if (!mask[q] && dist(q) < tol * 1.25 && neighbors(q).some((n) => n >= 0 && mask[n])) eat.push(q);
+  eat.forEach((q) => { mask[q] = BG; });
   const clamp = (v) => Math.min(255, Math.max(0, v));
   for (let q = 0; q < N; q++) {
     const i = q * 4;
     if (mask[q]) { p[i + 3] = 0; continue; }
     if (neighbors(q).some((n) => n >= 0 && mask[n])) {   // borda suave, sem o halo da cor do fundo
-      const a = Math.max(0.35, Math.min(1, (dist(q) - tol * 0.6) / (tol * 1.4)));
+      const a = Math.max(0.5, Math.min(1, (dist(q) - tol * 0.5) / (tol * 1.2)));
       p[i] = clamp((p[i] - br * (1 - a)) / a); p[i + 1] = clamp((p[i + 1] - bg * (1 - a)) / a); p[i + 2] = clamp((p[i + 2] - bb * (1 - a)) / a); p[i + 3] = Math.round(p[i + 3] * a);
     }
   }
