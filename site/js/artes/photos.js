@@ -99,6 +99,79 @@ export function removeBackground(im) {
   return out;
 }
 
+/* ---------- Recorte com IA (U²-Net pequeno, roda no navegador) ----------
+   Os arquivos ficam no próprio site (site/vendor/recorte, ~16 MB) e só são baixados na
+   primeira vez que alguém tira o fundo; depois o navegador guarda. Nada sai do aparelho. */
+const VENDOR = new URL("../../vendor/recorte/", import.meta.url).href;
+let session = null;
+function loadRuntime() {
+  if (globalThis.ort) return Promise.resolve(globalThis.ort);
+  return new Promise((resolve, reject) => {
+    const tag = document.createElement("script");
+    tag.src = `${VENDOR}ort.wasm.min.js`;
+    tag.onload = () => (globalThis.ort ? resolve(globalThis.ort) : reject(new Error("recorte indisponível")));
+    tag.onerror = () => reject(new Error("recorte indisponível"));
+    document.head.append(tag);
+  });
+}
+async function getSession() {
+  if (!session) {
+    session = (async () => {
+      const ort = await loadRuntime();
+      ort.env.wasm.numThreads = 1;
+      ort.env.wasm.wasmPaths = VENDOR;
+      return ort.InferenceSession.create(`${VENDOR}u2netp.onnx`, { executionProviders: ["wasm"] });
+    })();
+    session.catch(() => { session = null; });
+  }
+  return session;
+}
+
+/**
+ * Tira o fundo com IA: o modelo encontra o objeto principal (produto, pet, pessoa) mesmo
+ * quando ele tem partes da mesma cor do fundo. Devolve um canvas recortado nas bordas do objeto.
+ * Se o modelo não carregar (sem internet na primeira vez, navegador antigo), usa o recorte simples.
+ */
+export async function removeBackgroundSmart(im) {
+  try {
+    const sess = await getSession();
+    const ort = globalThis.ort;
+    const S = 320, W = DW(im), H = DH(im);
+    const c = document.createElement("canvas"); c.width = S; c.height = S;
+    const x = c.getContext("2d", { willReadFrequently: true }); x.drawImage(im, 0, 0, S, S);
+    const px = x.getImageData(0, 0, S, S).data, input = new Float32Array(3 * S * S);
+    const mean = [0.485, 0.456, 0.406], std = [0.229, 0.224, 0.225];
+    for (let i = 0; i < S * S; i++) for (let k = 0; k < 3; k++) input[k * S * S + i] = (px[i * 4 + k] / 255 - mean[k]) / std[k];
+    const out = await sess.run({ [sess.inputNames[0]]: new ort.Tensor("float32", input, [1, 3, S, S]) });
+    const m = out[sess.outputNames[0]].data;
+    let lo = Infinity, hi = -Infinity;
+    for (const v of m) { if (v < lo) lo = v; if (v > hi) hi = v; }
+    if (!(hi > lo)) return removeBackground(im);
+    // máscara 320×320 → tamanho da foto (suavizada), aplicada como transparência
+    const mc = document.createElement("canvas"); mc.width = S; mc.height = S;
+    const mx = mc.getContext("2d"), md = mx.createImageData(S, S);
+    for (let i = 0; i < S * S; i++) { const a = (m[i] - lo) / (hi - lo); md.data[i * 4 + 3] = Math.round(255 * Math.min(1, Math.max(0, (a - 0.12) / 0.76))); }
+    mx.putImageData(md, 0, 0);
+    const k = Math.min(1, 1600 / Math.max(W, H)), w = Math.round(W * k), h = Math.round(H * k);
+    const o = document.createElement("canvas"); o.width = w; o.height = h;
+    const ox = o.getContext("2d", { willReadFrequently: true });
+    ox.imageSmoothingEnabled = true; ox.imageSmoothingQuality = "high";
+    ox.drawImage(mc, 0, 0, w, h);
+    ox.globalCompositeOperation = "source-in"; ox.drawImage(im, 0, 0, w, h);
+    // recorta nas bordas do objeto
+    const data = ox.getImageData(0, 0, w, h).data;
+    let x0 = w, y0 = h, x1 = 0, y1 = 0;
+    for (let y = 0; y < h; y++) for (let xx = 0; xx < w; xx++) if (data[(y * w + xx) * 4 + 3] > 16) { if (xx < x0) x0 = xx; if (xx > x1) x1 = xx; if (y < y0) y0 = y; if (y > y1) y1 = y; }
+    if (x1 <= x0 || y1 <= y0) return removeBackground(im);
+    const t = document.createElement("canvas"); t.width = x1 - x0 + 1; t.height = y1 - y0 + 1;
+    t.getContext("2d").drawImage(o, x0, y0, t.width, t.height, 0, 0, t.width, t.height);
+    t.dataset.cutout = "ia";
+    return t;
+  } catch {
+    return removeBackground(im);
+  }
+}
+
 /** Miniatura (data URL) para mostrar no formulário */
 export function thumbnail(im) {
   try {

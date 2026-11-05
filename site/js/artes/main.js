@@ -6,13 +6,13 @@
    A arte é desenhada no navegador (engine.js) e baixada em PNG.
    ========================================================================== */
 
-import { SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY } from "../config.js?v=93ceea0706";
-import { createAuth } from "../lib/auth.js?v=93ceea0706";
-import { createSupabaseRepository } from "../data/supabase-repository.js?v=93ceea0706";
-import { icon, brandMark } from "../lib/icons.js?v=93ceea0706";
-import { $, esc } from "../lib/dom.js?v=93ceea0706";
-import { createEngine, FORMATS, CAMPAIGNS, STATUS, MODELS, STYLES, isMoney, formatPhone } from "./engine.js?v=93ceea0706";
-import { imageFromBlob, imageFromUrl, removeBackground, thumbnail } from "./photos.js?v=93ceea0706";
+import { SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY } from "../config.js?v=0b22c73e42";
+import { createAuth } from "../lib/auth.js?v=0b22c73e42";
+import { createSupabaseRepository } from "../data/supabase-repository.js?v=0b22c73e42";
+import { icon, brandMark } from "../lib/icons.js?v=0b22c73e42";
+import { $, esc } from "../lib/dom.js?v=0b22c73e42";
+import { createEngine, FORMATS, CAMPAIGNS, STATUS, MODELS, STYLES, isMoney, formatPhone } from "./engine.js?v=0b22c73e42";
+import { imageFromBlob, imageFromUrl, removeBackgroundSmart, thumbnail } from "./photos.js?v=0b22c73e42";
 
 const auth = createAuth({ url: SUPABASE_URL, apiKey: SUPABASE_PUBLISHABLE_KEY, kind: "cliente" });
 const repo = createSupabaseRepository({ url: SUPABASE_URL, apiKey: SUPABASE_PUBLISHABLE_KEY, auth });
@@ -106,18 +106,26 @@ function photoField(model, { label, required, nobg }) {
     ${nobg ? '<span class="art-checks"><label class="check"><input type="checkbox" data-nobg checked><span>Remover o fundo automaticamente</span></label><label class="check"><input type="checkbox" data-shadow checked><span>Sombra no recorte</span></label></span>' : ""}`;
   const file = box.querySelector("input[type=file]"), link = box.querySelector(".art-paste input"), drop = box.querySelector(".art-drop"), nobgBox = box.querySelector("[data-nobg]"), shadowBox = box.querySelector("[data-shadow]");
   const thumb = drop.querySelector("img"), text = drop.querySelector("span");
-  const apply = () => {
+  let job = 0;
+  const apply = async () => {
     const raw = photos[model].raw;
     if (!raw) return;
-    photos[model].ready = nobgBox?.checked ? removeBackground(raw) : raw;
+    const mine = ++job;
+    if (nobgBox?.checked) {
+      say("Tirando o fundo da foto… (na primeira vez pode levar alguns segundos)");
+      const cut = await removeBackgroundSmart(raw);
+      if (mine !== job) return;   // outra foto foi escolhida enquanto isso
+      photos[model].ready = cut;
+      say("Fundo removido. Confira a prévia.");
+    } else photos[model].ready = raw;
     thumb.src = thumbnail(photos[model].ready); thumb.hidden = false;
     clearError(box); stale(); preview();
   };
-  const set = (im, name) => { photos[model].raw = im; text.textContent = name; apply(); };
-  const fromBlob = async (blob, name) => { try { set(await imageFromBlob(blob), name); } catch (error) { say(error.message, true); } };
+  const set = (im, name) => { photos[model].raw = im; text.textContent = name; return apply(); };
+  const fromBlob = async (blob, name) => { try { await set(await imageFromBlob(blob), name); } catch (error) { say(error.message, true); } };
   const fromUrl = async (url) => {
     say("Buscando a imagem…");
-    try { set(await loadWebImage(url), "Imagem da web"); link.value = ""; say("Imagem carregada."); } catch (error) { say(error.message, true); }
+    try { await set(await loadWebImage(url), "Imagem da web"); link.value = ""; } catch (error) { say(error.message, true); }
   };
   file.addEventListener("change", () => { if (file.files[0]) fromBlob(file.files[0], file.files[0].name); });
   link.addEventListener("paste", (event) => {

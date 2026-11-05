@@ -1,0 +1,6 @@
+Recorte de fundo com IA do gerador de artes (roda no navegador, nada sai do aparelho).
+
+- ort.wasm.min.js, ort-wasm-simd-threaded.mjs, ort-wasm-simd-threaded.wasm:
+  ONNX Runtime Web 1.20.1 (Microsoft), licença MIT. https://github.com/microsoft/onnxruntime
+- u2netp.onnx: modelo U²-Net (versão pequena) de Xuebin Qin et al., licença Apache 2.0.
+  https://github.com/xuebinqin/U-2-Net (arquivo ONNX distribuído pelo projeto rembg).

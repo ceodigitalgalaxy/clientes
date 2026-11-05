@@ -316,7 +316,9 @@ export function createEngine({ kit, logos }) {
     y += feed ? 18 : 40;
     const bottom = H - hw * 0.62 - 24;
     const rx = W * 0.48, lx = pad, lw = rx - pad - 36, rw = W - rx - pad, bottomL = H - hw * 0.62 - logoH - 8;
-    if (d.composicao === "destaque") return ofertaDestaque(ctx, F, T, d, U, s, draw, { y, pad, hw, logoH, bottom, bottomL, story, feed });
+    // Produto deitado (mais largo que alto) em stories/A4: a coluna estreita deixa ele pequeno; usa o destaque
+    const wide = d.photo && DW(d.photo) / DH(d.photo) > 1.0 && !feed;
+    if (d.composicao === "destaque" || wide) return ofertaDestaque(ctx, F, T, d, U, s, draw, { y, pad, hw, logoH, bottom, bottomL, story, feed });
     let need = 0;
     if (d.selo) need += 54 * s + 16 * s;
     need += lines(ctx, d.produto, f(800, 34 * s), rw, 4).length * 34 * s * 1.18 + 18 * s;

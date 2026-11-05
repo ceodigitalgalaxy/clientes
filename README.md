@@ -94,7 +94,8 @@ O cliente cria artes prontas (oferta de produto, plano/pacote de serviço e avis
 - **Link do produto:** na Oferta, colar o link da página do produto e tocar em **Buscar dados** preenche nome, descrição, preço (e o "de", se a loja mostrar) e a foto, já sem fundo. A leitura é feita no servidor pela função `ler-produto` (Supabase Edge Function), só para quem está logado.
 - **Lojas que bloqueiam leitura automática (Petz, Mercado Livre, Petlove...):** o bloqueio é respeitado. Use o botão **Enviar para o gerador**: arraste-o (na página Criar artes) para a barra de favoritos; na página do produto, na loja, clique nele e o gerador abre já preenchido. Ele lê só a página que a pessoa está vendo, no navegador dela.
 - **Estilos e composições:** estilo do layout (Ondas, Diagonal, Geométrico ou Limpo) muda cabeçalho e rodapé de todos os modelos; a Oferta tem as composições "Produto ao lado do preço" e "Produto em destaque, preço no canto".
-- **Recorte:** tira fundo branco/liso, as sombras cinzentas da foto da loja e a franja clara da borda, sem apagar o que está dentro do produto (letras e rótulos brancos ficam); a opção **Sombra no recorte** põe uma sombra de chão e uma sombra suave no produto.
+- **Recorte com IA:** a foto do produto passa por um modelo de recorte que roda no próprio navegador (nada sai do aparelho; ~16 MB baixados só na primeira vez, de `site/vendor/recorte/`). Ele separa o produto mesmo quando a embalagem é clara como o fundo. Se não carregar, usa o recorte simples abaixo.
+- **Recorte simples (reserva):** tira fundo branco/liso, as sombras cinzentas da foto da loja e a franja clara da borda, sem apagar o que está dentro do produto (letras e rótulos brancos ficam); a opção **Sombra no recorte** põe uma sombra de chão e uma sombra suave no produto.
 - Os dados ficam na tabela `brand_kits` (só a equipe lê e altera); o cliente lê a própria identidade por `portal_brand_kit()`.
 
 ### Estrutura
