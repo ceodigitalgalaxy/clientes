@@ -5,8 +5,8 @@
    do banco que descobrem o cliente pela sessão (nenhuma recebe id de
    cliente; trocar ids ou parâmetros na requisição não dá acesso a outro):
      portal_client()                 → o cliente do login atual (com a foto)
-     portal_calendar(p_from, p_to)   → conteúdos liberados, arte final e decisão
-     portal_decide(...)              → aprovar ou pedir ajuste (só a versão atual)
+     portal_agenda(p_from, p_to)     → conteúdos liberados, explicados em campos
+                                       guiados, e a arte final (sem a referência)
      portal_brand_kit()              → identidade do cliente para o gerador de artes
    A arte final em arquivo chega por links assinados do armazenamento
    (o banco só assina para o cliente os arquivos liberados dele).
@@ -21,9 +21,9 @@
      listComments, countComments, listIdeas → vazios por enquanto
    ========================================================================== */
 
-import { activityFromContent } from "../domain/content-mapping.js?v=0b22c73e42";
-import { daysInMonth } from "../lib/dates.js?v=0b22c73e42";
-import { createStorage } from "../lib/storage.js?v=0b22c73e42";
+import { activityFromContent } from "../domain/content-mapping.js?v=73c6ab8727";
+import { daysInMonth } from "../lib/dates.js?v=73c6ab8727";
+import { createStorage } from "../lib/storage.js?v=73c6ab8727";
 
 /** Respostas de portal_decide → mensagens para o cliente */
 const DECISION_ERRORS = {
@@ -54,7 +54,7 @@ const initials = (name) => name.split(/\s+/).filter((w) => /^[\p{L}\p{N}]/u.test
  * @param {string} options.apiKey   chave PUBLICÁVEL
  * @param {ReturnType<import("../lib/auth.js").createAuth>} options.auth  login do cliente
  */
-export function createSupabaseRepository({ url, apiKey, auth, fetchImpl = globalThis.fetch.bind(globalThis), storage = null }) {
+export function createSupabaseRepository({ url, apiKey, auth, fetchImpl = globalThis.fetch.bind(globalThis), storage = null, features = {} }) {
   const base = `${url.replace(/\/+$/, "")}/rest/v1/rpc`;
   const files = storage || createStorage({ url, apiKey, getToken: () => auth.accessToken(), refresh: () => auth.refresh(), fetchImpl });
   const signed = new Map();      // caminho → { url, expires } (reaproveita links ainda válidos)
@@ -132,7 +132,8 @@ export function createSupabaseRepository({ url, apiKey, auth, fetchImpl = global
 
   return {
     isDemo: false,
-    features: { approvals: true, ads: true, comments: false, ideas: false, plans: false },
+    // A aprovação é combinada no grupo: o portal mostra só o calendário (sem anúncios)
+    features: { approvals: false, ads: false, comments: false, ideas: false, plans: false, ...features },
 
     async getClient() {
       const rows = await rpc("portal_client");
@@ -146,7 +147,7 @@ export function createSupabaseRepository({ url, apiKey, auth, fetchImpl = global
 
     /** Conteúdos liberados entre duas datas (AAAA-MM-DD, até 62 dias) */
     async listActivitiesBetween(from, to) {
-      const rows = await rpc("portal_calendar", { p_from: from, p_to: to });
+      const rows = await rpc("portal_agenda", { p_from: from, p_to: to });
       const activities = (Array.isArray(rows) ? rows : []).map(activityFromContent);
       const paths = activities.flatMap((a) => a.final.filter((f) => f.storagePath).map((f) => f.storagePath));
       const linkFor = await signPaths(paths);

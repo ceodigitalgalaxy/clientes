@@ -59,6 +59,13 @@ const browser = await chromium.launch();
 const consoleErrors = [];
 async function newContext(options = {}) {
   const context = await browser.newContext({ viewport: { width: 1360, height: 900 }, ...options });
+  // A aprovação pelo portal está desligada (config.js: aprovação combinada no grupo);
+  // este teste liga de novo só aqui, para o fluxo guardado continuar funcionando
+  await context.route(/\/js\/config\.js/, async (route) => {
+    const response = await route.fetch();
+    const body = (await response.text()).replace("{ approvals: false, ads: false }", "{ approvals: true, ads: true }");
+    return route.fulfill({ response, body });
+  });
   await context.route(`${SUPABASE_URL}/**`, async (route) => {
     const req = route.request();
     const answer = await fake.handle({ method: req.method(), url: req.url(), headers: await req.allHeaders(), body: req.postData(), bodyBuffer: req.postDataBuffer() });
@@ -188,11 +195,11 @@ await step("Enviar para aprovação", async () => {
 });
 
 let versionSent = 0;
-await step("Portal: carrossel com a arte final e a referência", async () => {
+await step("Portal: carrossel com a arte final, sem a referência", async () => {
   versionSent = (await store.getContent(lancamento.id)).version;
   await portalOpen("Carrossel de lançamento", "Aguardando");
   await portal.waitForSelector("#drawer .carousel");
-  assert.match(await portal.textContent("#drawer .detail--final .detail__title"), /Conteúdo para você aprovar/);
+  assert.match(await portal.textContent("#drawer .detail--final .detail__title"), /Arte/);
   assert.equal(await portal.locator("#drawer .carousel__slide").count(), 3);
   assert.equal((await portal.textContent("#drawer .carousel__count")).trim(), "1 de 3");
   await portal.waitForFunction(() => document.querySelector("#drawer .carousel__slide img")?.naturalWidth > 0);
@@ -200,7 +207,8 @@ await step("Portal: carrossel com a arte final e a referência", async () => {
   await portal.click('#drawer [data-carousel-step="1"]');
   await portal.waitForFunction(() => document.querySelector("#drawer .carousel__count b").textContent === "2");
   assert.equal(await portal.locator("#drawer .carousel__slide:nth-child(2) iframe").count(), 1);
-  assert.match(await portal.textContent("#drawer"), /Referência/);
+  assert.doesNotMatch(await portal.textContent("#drawer"), /Referência/, "a referência é só da equipe");
+  assert.ok(!(await portal.content()).includes(lancamento.media_url), "o link da referência nem chega ao navegador");
   await shot(portal, "r03-portal-carrossel");
 });
 
@@ -211,7 +219,6 @@ await step("Cliente pede ajuste com mensagem", async () => {
   await portal.fill('#drawer [name="message"]', "Trocar a foto da capa por uma mais clara");
   await portal.click('#drawer [data-form="change"] [type=submit]');
   await portal.waitForSelector("#drawer .decision--ajustes");
-  assert.match(await portal.textContent("#drawer .decision--ajustes"), /Trocar a foto da capa/);
   assert.match(await portal.textContent("#drawer .drawer__badges"), /Ajustes solicitados/);
   assert.equal(await portal.locator('#drawer [data-do="confirm"]').count(), 0, "sem aprovar enquanto a equipe ajusta");
   await shot(portal, "r04-portal-ajuste");
@@ -254,7 +261,6 @@ await step("Cliente aprova a versão atual", async () => {
   await portal.click('#drawer [data-do="confirm"]');
   await portal.click('#drawer [data-do="approve"]');
   await portal.waitForSelector("#drawer .decision--aprovado");
-  assert.match(await portal.textContent("#drawer .decision--aprovado"), /Você aprovou em/);
   assert.equal((await store.getContent(lancamento.id)).status, "aprovado");
   await closePortal();
 });
@@ -426,10 +432,10 @@ await step("Status em massa: marcar vários, confirmar e o cliente passa a ver",
   assert.equal(Number(await admin.textContent("#bulk-bar [data-bulk-count]")), await admin.locator("[data-pick]").count());
   await admin.click("[data-bulk-all]");
   await admin.waitForSelector("#bulk-bar", { state: "hidden" });
-  // O cliente já vê, com a capa do YouTube no carrossel
+  // O cliente já vê, sem a referência (o vídeo do YouTube) como capa
   await portalRefocus();
   await portal.waitForFunction(() => [...document.querySelectorAll(".slide__title")].some((n) => n.textContent === "Massa A (YouTube)"));
-  assert.match(await portal.getAttribute('.slide:has-text("Massa A (YouTube)") .slide__media img', "src"), /i\.ytimg\.com/);
+  assert.equal(await portal.locator('.slide:has-text("Massa A (YouTube)") .slide__media img').count(), 0);
 });
 
 await step("Sem erros de JavaScript no console", async () => assert.deepEqual(consoleErrors, [], JSON.stringify(consoleErrors)));

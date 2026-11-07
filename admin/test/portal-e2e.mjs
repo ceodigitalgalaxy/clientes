@@ -175,7 +175,7 @@ await step("Equipe entra no painel da agência", async () => {
 });
 
 await step("Imagem cadastrada no painel aparece na data certa do calendário", async () => {
-  await adminCreate({ client: "Padaria Central Ltda", title: "Pão de fermentação natural", scheduled_date: D(10), scheduled_time: "10:30", network: "instagram", format: "post", media_url: "https://cdn.exemplo.com/arte.png", caption: "Chegou o pão que você pediu!", client_notes: "Confira a cor da embalagem.", internal_notes: "SEGREDO: margem baixa", status: "aguardando_aprovacao" });
+  await adminCreate({ client: "Padaria Central Ltda", title: "Pão de fermentação natural", scheduled_date: D(10), scheduled_time: "10:30", network: "instagram", format: "post", media_url: "https://cdn.exemplo.com/arte.png", idea: "Mostrar a primeira fornada do dia", content_plan: "1. Forno abrindo\n2. Pães na vitrine", art_text: "Saiu agora!", objective: "Movimento de manhã", caption: "Chegou o pão que você pediu!", client_notes: "Confira a cor da embalagem.", internal_notes: "SEGREDO: margem baixa", status: "aguardando_aprovacao" });
   // Do mesmo cliente, mas ainda em produção: não aparece
   await adminCreate({ client: "Padaria Central Ltda", title: "Rascunho escondido", scheduled_date: D(11), network: "instagram", format: "post", status: "planejado" });
   // De outro cliente: não aparece
@@ -195,21 +195,22 @@ await step("Conteúdos de outros clientes, em produção e observações interna
   assert.ok(!html.includes("Estúdio Luz"));
 });
 
-await step("Detalhes: título, imagem proporcional, legenda, rede, data, status e observação", async () => {
+await step("Detalhes: a ideia, como vai ser, texto na arte, objetivo, legenda e observação (sem referência e sem aprovar)", async () => {
   await portal.click(`.cal__cell[data-day="${D(10)}"] .chip`);
-  await portal.waitForSelector("#drawer[open] .media--image img");
+  await portal.waitForSelector("#drawer[open] #drawer-title");
   assert.equal(await portal.textContent("#drawer-title"), "Pão de fermentação natural");
-  await portal.waitForFunction(() => document.querySelector("#drawer .media--image img")?.naturalWidth > 0);
-  const img = await portal.$eval("#drawer .media--image img", (i) => ({ nw: i.naturalWidth, nh: i.naturalHeight, w: i.getBoundingClientRect().width, h: i.getBoundingClientRect().height, fit: getComputedStyle(i).objectFit }));
-  assert.deepEqual([img.nw, img.nh], [800, 1000]);
-  assert.ok(Math.abs(img.w / img.h - 0.8) < 0.01, `proporção ${img.w}x${img.h}`);
   const text = await portal.textContent("#drawer");
-  for (const part of ["Chegou o pão que você pediu!", "Instagram", "Aguardando aprovação", "Confira a cor da embalagem.", "10h30"]) assert.ok(text.includes(part), part);
+  assert.match(text, /A ideia.*Mostrar a primeira fornada.*Como vai ser.*Forno abrindo.*Pães na vitrine.*Texto na arte.*Saiu agora!.*Objetivo.*Movimento de manhã.*Legenda.*Chegou o pão que você pediu!/s);
+  for (const part of ["Instagram", "Aguardando aprovação", "Confira a cor da embalagem.", "10h30", "responda no nosso grupo"]) assert.ok(text.includes(part), part);
   assert.ok(text.includes(`${Number(D(10).slice(8))} de`), "data");
   assert.ok(!text.includes("SEGREDO"));
+  assert.doesNotMatch(text, /Referência/);
+  assert.equal(await portal.locator("#drawer .media, #drawer img, #drawer iframe").count(), 0, "a referência não aparece");
+  assert.ok(!(await portal.content()).includes("cdn.exemplo.com/arte.png"), "o link da referência nem chega ao navegador");
+  assert.equal(await portal.locator('#drawer [data-do="confirm"], #drawer [data-do="request"], #drawer [data-do="approve"]').count(), 0, "aprovação é no grupo: sem botões");
   assert.equal(await portal.locator('#drawer [data-form="comment"]').count(), 0, "comentários (ainda não gravam no banco) ficam escondidos");
-  assert.equal(await portal.locator('#drawer .drawer__body [data-do="confirm"]').count(), 1, "aguardando aprovação: o cliente pode aprovar");
-  await shot(portal, "p01-detalhes-imagem");
+  assert.ok(await portal.isHidden('[data-portal-tab="anuncios"]'), "sem a aba de anúncios");
+  await shot(portal, "p01-detalhes");
 });
 
 await step("Painel aberto se atualiza quando a agência edita (legenda)", async () => {
@@ -220,77 +221,22 @@ await step("Painel aberto se atualiza quando a agência edita (legenda)", async 
   await portal.waitForSelector("#drawer:not([open])", { state: "attached" });
 });
 
-await step("Vídeo do YouTube cadastrado no painel: player oficial incorporado", async () => {
+await step("Referências em vídeo, Instagram e links nunca chegam ao cliente (nem como capa)", async () => {
   await adminCreate({ client: "Padaria Central Ltda", title: "Reels dos bastidores", scheduled_date: D(12), network: "instagram", format: "reels", media_url: "https://www.youtube.com/watch?v=dQw4w9WgXcQ", status: "aprovado" });
-  await portalRefocus();
-  await portal.waitForSelector(`.cal__cell[data-day="${D(12)}"] .chip`);
-  await portal.click(`.cal__cell[data-day="${D(12)}"] .chip`);
-  await portal.waitForSelector("#drawer[open] .media--embed iframe");
-  assert.equal(await portal.getAttribute("#drawer iframe", "src"), "https://www.youtube-nocookie.com/embed/dQw4w9WgXcQ?rel=0");
-  assert.match(await portal.getAttribute("#drawer iframe", "sandbox"), /allow-scripts/);
-  assert.equal(await portal.getAttribute("#drawer .media__open", "href"), "https://www.youtube.com/watch?v=dQw4w9WgXcQ");
-  assert.match(await portal.textContent("#drawer .drawer__badges"), /Aprovado/);
-  const frame = portal.frameLocator("#drawer iframe");
-  assert.equal(await frame.locator("p").textContent(), "Player do YouTube", "o player carregou dentro do portal (CSP permite)");
-  await shot(portal, "p02-detalhes-youtube");
-  await portal.click('#drawer [data-do="close"]');
-  await portal.waitForSelector("#drawer:not([open])", { state: "attached" });
-});
-
-await step("Arquivo de vídeo: reprodução no player do navegador", async () => {
   await store.createContent(validateContent({ client_id: padaria.id, title: "Vídeo do forno", scheduled_date: D(13), network: "tiktok", format: "reels", media_url: "https://cdn.exemplo.com/video.webm", status: "aguardando_aprovacao" }).value);
-  await portalRefocus();
-  await portal.waitForSelector(`.cal__cell[data-day="${D(13)}"] .chip`);
-  await portal.click(`.cal__cell[data-day="${D(13)}"] .chip`);
-  await portal.waitForSelector("#drawer[open] .media--video video");
-  await portal.waitForFunction(() => document.querySelector("#drawer video")?.readyState >= 1);
-  const video = await portal.$eval("#drawer video", (v) => ({ autoplay: v.autoplay, controls: v.controls, w: v.videoWidth, h: v.videoHeight }));
-  assert.deepEqual(video, { autoplay: false, controls: true, w: 320, h: 180 });
-  await portal.click('#drawer [data-do="close"]');
-  await portal.waitForSelector("#drawer:not([open])", { state: "attached" });
-});
-
-await step("Reel do Instagram aparece pelo player oficial do Instagram", async () => {
   await store.createContent(validateContent({ client_id: padaria.id, title: "Reel do Instagram", scheduled_date: D(16), network: "instagram", format: "reels", media_url: "https://www.instagram.com/padariacentral/reel/Cabc123/", media_kind: "video", status: "aguardando_aprovacao" }).value);
-  await portalRefocus();
-  await portal.waitForSelector(`.cal__cell[data-day="${D(16)}"] .chip`);
-  await portal.click(`.cal__cell[data-day="${D(16)}"] .chip:has-text("Reel do Instagram")`);
-  await portal.waitForSelector("#drawer[open] .media--instagram iframe");
-  assert.equal(await portal.getAttribute("#drawer .media--instagram iframe", "src"), "https://www.instagram.com/p/Cabc123/embed/");
-  assert.equal(await portal.getAttribute("#drawer .media--instagram a.media__open", "href"), "https://www.instagram.com/padariacentral/reel/Cabc123/");
-  await portal.click('#drawer [data-do="close"]');
-  await portal.waitForSelector("#drawer:not([open])", { state: "attached" });
-  // No carrossel de destaques, o post oficial vira a capa (carregado só quando o destaque aparece)
-  const i = await portal.$$eval(".slide", (slides) => slides.findIndex((n) => n.textContent.includes("Reel do Instagram")));
-  assert.ok(i >= 0, "reel nos destaques");
-  await portal.click(`.spot__dot[data-dot="${i}"]`);
-  await portal.waitForSelector(".slide.is-active .slide__embed--instagram iframe");
-  assert.equal(await portal.getAttribute(".slide.is-active .slide__embed--instagram iframe", "src"), "https://www.instagram.com/p/Cabc123/embed/");
-  await portal.click(".slide.is-active .slide__hit");
-  await portal.waitForSelector("#drawer[open]");
-  assert.equal(await portal.textContent("#drawer-title"), "Reel do Instagram", "clicar na capa abre os detalhes");
-  await portal.click('#drawer [data-do="close"]');
-  await portal.waitForSelector("#drawer:not([open])", { state: "attached" });
-});
-
-await step("Link que não pode ser incorporado e imagem quebrada: aviso amigável com o link original", async () => {
   await store.createContent(validateContent({ client_id: padaria.id, title: "Vídeo do Facebook", scheduled_date: D(14), network: "facebook", format: "reels", media_url: "https://www.facebook.com/watch/?v=123", media_kind: "video", status: "aguardando_aprovacao" }).value);
   await store.createContent(validateContent({ client_id: padaria.id, title: "Arte com link quebrado", scheduled_date: D(15), network: "facebook", format: "post", media_url: "https://cdn.exemplo.com/sumiu.jpg", status: "aguardando_aprovacao" }).value);
   await portalRefocus();
-  await portal.waitForSelector(`.cal__cell[data-day="${D(15)}"] .chip`);
-  await portal.click(`.cal__cell[data-day="${D(14)}"] .chip`);
-  await portal.waitForSelector("#drawer[open] .media-fallback");
-  assert.match(await portal.textContent("#drawer .media-fallback"), /Facebook não permite/);
-  assert.equal(await portal.getAttribute("#drawer .media-fallback a", "href"), "https://www.facebook.com/watch/?v=123");
-  assert.equal(await portal.getAttribute("#drawer .media-fallback a", "rel"), "noopener noreferrer");
-  assert.equal(await portal.locator("#drawer iframe").count(), 0, "não presume que o link é incorporável");
-  await portal.click('#drawer [data-do="close"]');
-  await portal.waitForSelector("#drawer:not([open])", { state: "attached" });
-  await portal.click(`.cal__cell[data-day="${D(15)}"] .chip`);
-  await portal.waitForSelector("#drawer[open] .media-fallback");
-  assert.match(await portal.textContent("#drawer .media-fallback"), /A imagem não carregou/);
-  assert.equal(await portal.getAttribute("#drawer .media-fallback a", "href"), "https://cdn.exemplo.com/sumiu.jpg");
-  await shot(portal, "p03-link-quebrado");
+  await portal.waitForSelector(`.cal__cell[data-day="${D(16)}"] .chip`);
+  const html = await portal.content();
+  for (const ref of ["dQw4w9WgXcQ", "video.webm", "Cabc123", "facebook.com/watch", "sumiu.jpg"]) assert.ok(!html.includes(ref), `referência ${ref} não chega ao cliente`);
+  assert.equal(await portal.locator(".slide__embed, .slide__media img").count(), 0, "destaques sem capa da referência");
+  await portal.click(`.cal__cell[data-day="${D(12)}"] .chip`);
+  await portal.waitForSelector("#drawer[open]");
+  assert.match(await portal.textContent("#drawer .drawer__badges"), /Aprovado/);
+  assert.match(await portal.textContent("#drawer"), /Nossa equipe ainda está detalhando este conteúdo/);
+  assert.equal(await portal.locator("#drawer iframe, #drawer video").count(), 0);
   await portal.click('#drawer [data-do="close"]');
   await portal.waitForSelector("#drawer:not([open])", { state: "attached" });
 });
@@ -390,7 +336,7 @@ await step("Clicar numa data: dia livre mostra aviso; dia com conteúdo abre os 
   await portal.click('#drawer [data-do="close"]');
   await portal.waitForSelector("#drawer:not([open])", { state: "attached" });
   await portal.click(`.cal__cell[data-day="${D(12)}"] .cal__date`);
-  await portal.waitForSelector("#drawer[open] .media--embed");
+  await portal.waitForSelector("#drawer[open] #drawer-title");
   assert.equal(await portal.textContent("#drawer-title"), "Reels dos bastidores (versão final)");
   await portal.click('#drawer [data-do="close"]');
   await portal.waitForSelector("#drawer:not([open])", { state: "attached" });
@@ -406,7 +352,7 @@ await step("Data com vários conteúdos: lista do dia e volta", async () => {
   await portal.click('#drawer [data-day-item]:has-text("Stories do almoço")');
   await portal.waitForSelector("#drawer [data-do='back']");
   assert.match(await portal.textContent("#drawer .drawer__badges"), /Publicado/);
-  assert.match(await portal.textContent("#drawer .art-empty"), /em produção/, "sem mídia: aviso de arte em produção");
+  assert.match(await portal.textContent("#drawer .guide-empty"), /ainda está detalhando/, "sem explicação: aviso da equipe");
   await portal.click("#drawer [data-do='back']");
   await portal.waitForSelector("#drawer .day-list");
   await portal.click('#drawer [data-do="close"]');
@@ -486,9 +432,9 @@ await step("Celular: agenda do dia e detalhes em folha, sem rolagem lateral", as
   assert.equal(await page.locator("#day-popover.is-visible").count(), 0, "no toque, o resumo flutuante (de mouse) não aparece");
   await shot(page, "p05-celular-agenda");
   await page.tap('.agenda__item:has-text("Reels dos bastidores")');
-  await page.waitForSelector("#drawer[open] .media--embed iframe");
-  const frame = await page.$eval("#drawer .media__frame", (f) => { const r = f.getBoundingClientRect(); return { w: r.width, h: r.height, vw: window.innerWidth }; });
-  assert.ok(frame.w <= frame.vw - 32 && Math.abs(frame.w / frame.h - 16 / 9) < 0.02, `player ${frame.w}x${frame.h}`);
+  await page.waitForSelector("#drawer[open] #drawer-title");
+  assert.equal(await page.locator("#drawer .drawer__quick").count(), 0, "sem barra de aprovar no celular");
+  assert.ok(await overflow() <= 0, "detalhes cabem na tela");
   await shot(page, "p06-celular-detalhes");
   await page.tap('#drawer [data-do="close"]');
   await page.waitForSelector("#drawer:not([open])", { state: "attached" });
@@ -519,7 +465,7 @@ await step("Destaques: carrossel com o que aprovar primeiro, passa sozinho e abr
   assert.equal(await page.textContent(".spot__title"), "Você tem 2 conteúdos para aprovar");
   const titles = await page.$$eval(".slide__title", (n) => n.map((x) => x.textContent));
   assert.deepEqual(titles, ["Primeiro para aprovar", "Segundo para aprovar", "Já foi ao ar"], "o que aprovar vem primeiro; o que está em produção não aparece");
-  assert.match(await page.textContent(".slide.is-active .slide__cta"), /Ver e aprovar/);
+  assert.match(await page.textContent(".slide.is-active .slide__cta"), /Ver o conteúdo/);
   assert.match(await page.textContent(".mini-stats"), /2\s*para aprovar/);
   // Dia do calendário colorido pelo status (aguardando vence os demais)
   const dayOf = (delta) => page.getAttribute(`.cal__cell[data-day="${iso(delta)}"]`, "class");

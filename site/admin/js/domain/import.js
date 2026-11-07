@@ -11,7 +11,7 @@
    Sem dependências: roda no navegador e nos testes (Node).
    ========================================================================== */
 
-import { validateContent, NETWORKS, CONTENT_STATUS } from "./rules.js?v=0b22c73e42";
+import { validateContent, NETWORKS, CONTENT_STATUS } from "./rules.js?v=73c6ab8727";
 
 export const MAX_IMPORT_ROWS = 500;
 
@@ -25,15 +25,19 @@ const COLUMNS = {
   scheduled_time: ["horario", "hora", "horario de publicacao", "horario da postagem"],
   network: ["rede", "rede social", "redes", "plataforma", "canal"],
   format: ["formato", "tipo", "tipo de conteudo"],
-  media_url: ["link da referencia", "referencia", "link", "url", "link de referencia", "url da referencia", "referencia url", "midia", "link da midia"],
+  media_url: ["link da referencia", "link da referencia so a equipe ve", "referencia", "link", "url", "link de referencia", "url da referencia", "referencia url", "midia", "link da midia"],
   caption: ["legenda", "texto", "copy", "texto da legenda"],
+  idea: ["ideia", "a ideia", "ideia do conteudo", "conceito"],
+  content_plan: ["como vai ser", "roteiro", "estrutura", "descricao", "descricao do conteudo", "cenas", "slides"],
+  art_text: ["texto na arte", "texto da arte", "texto no video", "texto na tela", "chamada"],
+  objective: ["objetivo", "objetivo do conteudo"],
   client_notes: ["observacao para o cliente", "observacoes para o cliente", "obs para o cliente", "obs cliente", "observacao cliente", "nota para o cliente"],
   internal_notes: ["observacoes internas", "observacao interna", "obs interna", "obs internas", "notas internas", "observacoes", "observacao", "obs"],
   status: ["status", "etapa", "situacao", "andamento"]
 };
 export const COLUMN_LABELS = {
   title: "Título", scheduled_date: "Data", scheduled_time: "Horário", network: "Rede social", format: "Formato",
-  media_url: "Link da referência", caption: "Legenda", client_notes: "Observação para o cliente", internal_notes: "Observações internas", status: "Status"
+  media_url: "Link da referência", idea: "Ideia", content_plan: "Como vai ser", art_text: "Texto na arte", objective: "Objetivo", caption: "Legenda", client_notes: "Observação para o cliente", internal_notes: "Observações internas", status: "Status"
 };
 
 const NETWORK_ALIASES = {
@@ -195,6 +199,10 @@ export function mapRows(rows, { clientId, date1904 = false, existing = [], today
       network: network || "",
       format: format || "",
       media_url: text("media_url"),
+      idea: text("idea"),
+      content_plan: text("content_plan"),
+      art_text: text("art_text"),
+      objective: text("objective"),
       caption: text("caption"),
       client_notes: text("client_notes"),
       internal_notes: text("internal_notes"),

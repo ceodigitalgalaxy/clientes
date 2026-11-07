@@ -7,7 +7,7 @@ import { StoreError } from "../../site/admin/js/data/store.js";
 import { createAdsMemory } from "./memory-ads.mjs";
 import { CLIENT_VISIBLE_STATUS } from "../../site/admin/js/domain/rules.js";
 
-const VISIBLE_FIELDS = ["title", "scheduled_date", "scheduled_time", "network", "format", "media_url", "media_kind", "caption", "client_notes"];
+const VISIBLE_FIELDS = ["title", "scheduled_date", "scheduled_time", "network", "format", "caption", "client_notes", "idea", "content_plan", "art_text", "objective"];
 
 export function createMemoryStore() {
   const clients = new Map();
@@ -187,6 +187,11 @@ export function createMemoryStore() {
           assets: assetsOf(rest.id).map((a) => ({ kind: a.kind, storage_path: a.storage_path, url: a.url })),
           decision: decisionFor({ id: rest.id, version: rest.version })
         }));
+    },
+    /** portal_agenda(): sem referência e sem decisão, com os campos guiados */
+    async portalAgenda(userId, from, to) {
+      const rows = await this.portalContents(userId, from, to);
+      return rows.map(({ media_url, media_kind, decision, ...rest }) => ({ idea: null, content_plan: null, art_text: null, objective: null, ...rest }));
     },
     async listClientCalendar(clientId, { from, to } = {}) {
       return (await this.listContents({ client_id: clientId, from, to }))

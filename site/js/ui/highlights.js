@@ -12,18 +12,18 @@
    Embaixo, os números do mês, pequenos.
    ========================================================================== */
 
-import { esc, reduceMotion } from "../lib/dom.js?v=0b22c73e42";
-import { icon } from "../lib/icons.js?v=0b22c73e42";
-import { addDays, longDayLabel, dayLabel, timeLabel, monthName } from "../lib/dates.js?v=0b22c73e42";
-import { ACTIVITY_TYPES, PLATFORMS } from "../domain/model.js?v=0b22c73e42";
-import { mediaCover, coverHtml, embedCover } from "./media.js?v=0b22c73e42";
+import { esc, reduceMotion } from "../lib/dom.js?v=73c6ab8727";
+import { icon } from "../lib/icons.js?v=73c6ab8727";
+import { addDays, longDayLabel, dayLabel, timeLabel, monthName } from "../lib/dates.js?v=73c6ab8727";
+import { ACTIVITY_TYPES, PLATFORMS } from "../domain/model.js?v=73c6ab8727";
+import { mediaCover, coverHtml, embedCover } from "./media.js?v=73c6ab8727";
 
 const AUTOPLAY_MS = 6000;
 const MAX_PUBLISHED = 4;
 const MAX_SLIDES = 12;
 
 const GROUPS = {
-  aguardando: { tag: "Para você aprovar", tagIcon: "clock", cta: "Ver e aprovar" },
+  aguardando: { tag: "Para você aprovar", tagIcon: "clock", cta: "Ver o conteúdo" },
   ajustes:    { tag: "Estamos ajustando", tagIcon: "edit", cta: "Ver detalhes" },
   aprovado:   { tag: "Aprovado", tagIcon: "check", cta: "Ver conteúdo" },
   publicado:  { tag: "Já publicado", tagIcon: "send", cta: "Ver conteúdo" }
@@ -70,15 +70,16 @@ function slide(activity, index, total, today) {
   const type = ACTIVITY_TYPES[activity.type] || ACTIVITY_TYPES.outro;
   const art = cover(activity);
   // Sem capa em imagem (ex.: Instagram): o post oficial vira a capa, carregado só quando o destaque aparece
-  const live = !art && activity.media[0] ? embedCover(activity.media[0].src, activity.media[0].kind) : null;
-  const hasVideo = art?.play || (!art && (activity.final.some((f) => f.kind === "video") || activity.media[0]?.kind === "video"));
+  const link = activity.final.find((f) => f.src && !f.storagePath);
+  const live = !art && link ? embedCover(link.src, link.kind) : null;
+  const hasVideo = art?.play || (!art && activity.final.some((f) => f.kind === "video"));
   const network = activity.platforms.map((p) => PLATFORMS[p] || p).join(", ");
   let tag = group.tag;
   if (activity.status === "aprovado") tag = activity.date === today ? "Aprovado · vai ao ar hoje" : `Aprovado · vai ao ar ${dayLabel(activity.date)}`;
   if (activity.status === "publicado") tag = `Publicado ${activity.date === today ? "hoje" : `em ${dayLabel(activity.date)}`}`;
   const text = activity.status === "ajustes" && activity.decision?.message
     ? `Você pediu: “${activity.decision.message}”`
-    : activity.caption;
+    : activity.idea || activity.caption;
   const pending = activity.status === "aguardando";
   return `
     <li class="slide slide--${esc(activity.status)}" role="group" aria-roledescription="destaque" aria-label="${index + 1} de ${total}: ${esc(activity.title)}" data-slide="${index}">

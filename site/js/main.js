@@ -8,20 +8,20 @@
    para a aba e no botão "Atualizar").
    ========================================================================== */
 
-import { createSupabaseRepository } from "./data/supabase-repository.js?v=0b22c73e42";
-import { createAuth } from "./lib/auth.js?v=0b22c73e42";
-import { SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY } from "./config.js?v=0b22c73e42";
-import { $, esc, on, reduceMotion } from "./lib/dom.js?v=0b22c73e42";
-import { icon, brandMark } from "./lib/icons.js?v=0b22c73e42";
-import { monthKey, addMonths, addDays, monthLabel, weekLabel, weekDays, todayISO, fromISO, daysInMonth } from "./lib/dates.js?v=0b22c73e42";
-import { summarize } from "./domain/status.js?v=0b22c73e42";
-import { createHighlights, pickHighlights } from "./ui/highlights.js?v=0b22c73e42";
-import { createAdsView } from "./ui/ads-portal.js?v=0b22c73e42";
-import { buildCalendarPdf, pdfFileName } from "./ui/calendar-pdf.js?v=0b22c73e42";
-import { renderCalendar, renderAgenda, renderLegend, setupDayPopover } from "./ui/calendar.js?v=0b22c73e42";
-import { createDrawer } from "./ui/drawer.js?v=0b22c73e42";
-import { renderIdeas, setupIdeaModal } from "./ui/ideas.js?v=0b22c73e42";
-import { toast } from "./ui/toast.js?v=0b22c73e42";
+import { createSupabaseRepository } from "./data/supabase-repository.js?v=73c6ab8727";
+import { createAuth } from "./lib/auth.js?v=73c6ab8727";
+import { SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY, PORTAL_FEATURES } from "./config.js?v=73c6ab8727";
+import { $, esc, on, reduceMotion } from "./lib/dom.js?v=73c6ab8727";
+import { icon, brandMark } from "./lib/icons.js?v=73c6ab8727";
+import { monthKey, addMonths, addDays, monthLabel, weekLabel, weekDays, todayISO, fromISO, daysInMonth } from "./lib/dates.js?v=73c6ab8727";
+import { summarize } from "./domain/status.js?v=73c6ab8727";
+import { createHighlights, pickHighlights } from "./ui/highlights.js?v=73c6ab8727";
+import { createAdsView } from "./ui/ads-portal.js?v=73c6ab8727";
+import { buildCalendarPdf, pdfFileName } from "./ui/calendar-pdf.js?v=73c6ab8727";
+import { renderCalendar, renderAgenda, renderLegend, setupDayPopover } from "./ui/calendar.js?v=73c6ab8727";
+import { createDrawer } from "./ui/drawer.js?v=73c6ab8727";
+import { renderIdeas, setupIdeaModal } from "./ui/ideas.js?v=73c6ab8727";
+import { toast } from "./ui/toast.js?v=73c6ab8727";
 
 /* O portal não abre dentro de outro site (proteção contra clique disfarçado).
    A página fica invisível até esta checagem (body.portal em style.css). */
@@ -31,7 +31,7 @@ document.body.classList.add("is-ready");
 const REFRESH_MS = 30_000;
 
 const auth = createAuth({ url: SUPABASE_URL, apiKey: SUPABASE_PUBLISHABLE_KEY, kind: "cliente" });
-const repo = createSupabaseRepository({ url: SUPABASE_URL, apiKey: SUPABASE_PUBLISHABLE_KEY, auth });
+const repo = createSupabaseRepository({ url: SUPABASE_URL, apiKey: SUPABASE_PUBLISHABLE_KEY, auth, features: PORTAL_FEATURES });
 // O que o banco já guarda (aprovar, observar, ideias e foco do mês chegam nas próximas etapas)
 const features = { approvals: false, comments: false, ideas: false, plans: false, ...(repo.features || {}) };
 

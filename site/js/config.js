@@ -5,4 +5,9 @@
    NUNCA coloque aqui a chave secreta (sb_secret_...). */
 
 export const SUPABASE_URL = "https://peieimwpkrattuldmjux.supabase.co";
+/* O que o portal do cliente mostra. A aprovação é combinada no grupo do
+   cliente: o portal fica só com o calendário (sem botões de aprovar e sem a
+   aba de anúncios). As funções do banco para aprovar ficam desligadas. */
+export const PORTAL_FEATURES = { approvals: false, ads: false };
+
 export const SUPABASE_PUBLISHABLE_KEY = "sb_publishable_ahRYPZLLinQh81B-GQRX3Q_xfZxa1r2";

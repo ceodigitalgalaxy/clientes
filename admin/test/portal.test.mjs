@@ -92,12 +92,13 @@ ok("semana de domingo a sábado", () => {
 
 /* ---------- Do banco para o calendário ---------- */
 ok("status vem da agência e observação liberada", () => {
-  const a = activityFromContent({ id: "1", title: "T", scheduled_date: "2026-11-05", scheduled_time: "10:30:00", network: "instagram", format: "reels", media_url: "https://youtu.be/dQw4w9WgXcQ", media_kind: "video", caption: "L", client_notes: "Nota", status: "publicado", version: 3, updated_at: "2026-10-21T10:00:00Z" });
+  const a = activityFromContent({ id: "1", title: "T", scheduled_date: "2026-11-05", scheduled_time: "10:30:00", network: "instagram", format: "reels", media_url: "https://youtu.be/dQw4w9WgXcQ", media_kind: "video", idea: "Ideia", content_plan: "Cena 1\nCena 2", art_text: "Saiu agora!", objective: "Movimento", caption: "L", client_notes: "Nota", status: "publicado", version: 3, updated_at: "2026-10-21T10:00:00Z" });
   assert.equal(a.time, "10:30");
   assert.equal(a.status, "publicado");
   assert.equal(statusOf(a, []), "publicado");
   assert.equal(a.notes, "Nota");
-  assert.deepEqual(a.media, [{ kind: "video", src: "https://youtu.be/dQw4w9WgXcQ", alt: "T" }]);
+  assert.deepEqual(a.media, [], "a referência nunca vai para a tela do cliente");
+  assert.deepEqual([a.idea, a.contentPlan, a.artText, a.objective], ["Ideia", "Cena 1\nCena 2", "Saiu agora!", "Movimento"]);
   assert.ok(!("internal_notes" in a));
 });
 ok("sem status da agência, o status vem do histórico de aprovações (próxima etapa)", () => {
@@ -131,7 +132,7 @@ await assert.rejects(repo.getClient(), (e) => e.reason === "no_access");
 responses = [{ status: 200, body: [{ id: "a", title: "T", scheduled_date: "2026-02-03", scheduled_time: null, network: "instagram", format: "post", media_url: null, media_kind: null, caption: null, client_notes: null, status: "aprovado", version: 1, updated_at: "x" }] }];
 const items = await repo.listActivities("2026-02");
 ok("conteúdos do mês", () => {
-  assert.equal(calls.at(-1).url, "https://exemplo.supabase.co/rest/v1/rpc/portal_calendar");
+  assert.equal(calls.at(-1).url, "https://exemplo.supabase.co/rest/v1/rpc/portal_agenda");
   assert.deepEqual(calls.at(-1).body, { p_from: "2026-02-01", p_to: "2026-02-28" }, "só o período; o cliente vem do login");
   assert.equal(items[0].status, "aprovado");
 });
@@ -144,7 +145,7 @@ responses = [{ status: 500, body: {} }];
 await assert.rejects(repo.listActivities("2026-02"), (e) => e.status === 502);
 const offline = createSupabaseRepository({ url: "https://exemplo.supabase.co", apiKey: "k", auth: fakeAuth, fetchImpl: async () => { throw new TypeError("rede"); } });
 await assert.rejects(offline.listActivities("2026-02"), (e) => e.reason === "offline");
-ok("aprovação ligada; o que ainda não existe no banco fica desligado", () => assert.deepEqual(repo.features, { approvals: true, ads: true, comments: false, ideas: false, plans: false }));
+ok("portal só com o calendário: sem aprovação e sem anúncios", () => assert.deepEqual(repo.features, { approvals: false, ads: false, comments: false, ideas: false, plans: false }));
 
 responses = [{ status: 200, body: [{ new_status: "aprovado", new_version: 3 }] }];
 const decided = await repo.addApproval({ activityId: "a", version: 3, decision: "aprovado" });

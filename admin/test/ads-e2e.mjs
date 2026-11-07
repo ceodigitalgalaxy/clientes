@@ -51,6 +51,13 @@ const browser = await chromium.launch();
 const consoleErrors = [];
 async function newContext(options = {}) {
   const context = await browser.newContext({ viewport: { width: 1360, height: 900 }, ...options });
+  // A aprovação pelo portal está desligada (config.js: aprovação combinada no grupo);
+  // este teste liga de novo só aqui, para o fluxo guardado continuar funcionando
+  await context.route(/\/js\/config\.js/, async (route) => {
+    const response = await route.fetch();
+    const body = (await response.text()).replace("{ approvals: false, ads: false }", "{ approvals: true, ads: true }");
+    return route.fulfill({ response, body });
+  });
   await context.route(`${SUPABASE_URL}/**`, async (route) => {
     const req = route.request();
     const answer = await fake.handle({ method: req.method(), url: req.url(), headers: await req.allHeaders(), body: req.postData(), bodyBuffer: req.postDataBuffer() });

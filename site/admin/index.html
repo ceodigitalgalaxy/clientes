@@ -13,9 +13,9 @@
   <link rel="preload" href="../fonts/sora-latin-400-normal.woff2" as="font" type="font/woff2" crossorigin>
   <link rel="preload" href="../fonts/sora-latin-600-normal.woff2" as="font" type="font/woff2" crossorigin>
   <!-- Mesmos tokens e componentes do portal do cliente -->
-  <link rel="stylesheet" href="../css/style.css?v=0b22c73e42">
-  <link rel="stylesheet" href="css/admin.css?v=0b22c73e42">
-  <script type="module" src="js/main.js?v=0b22c73e42"></script>
+  <link rel="stylesheet" href="../css/style.css?v=73c6ab8727">
+  <link rel="stylesheet" href="css/admin.css?v=73c6ab8727">
+  <script type="module" src="js/main.js?v=73c6ab8727"></script>
 </head>
 <body class="admin">
   <!-- Tela de entrada: aparece enquanto ninguém estiver logado -->
@@ -407,8 +407,25 @@
           <span class="field__label">Formato</span>
           <select class="field__input" name="format" required></select>
         </label>
+        <p class="form-section form-grid__wide">Como vai ser o conteúdo <span class="field__optional">· o cliente lê estes campos no portal</span></p>
         <label class="field form-grid__wide">
-          <span class="field__label">URL da imagem ou vídeo de referência <span class="field__optional">(opcional)</span></span>
+          <span class="field__label">A ideia <span class="field__optional">(opcional)</span></span>
+          <textarea class="field__input field__input--area" name="idea" rows="2" maxlength="2000" placeholder="Ex.: Mostrar a primeira fornada do dia saindo do forno."></textarea>
+        </label>
+        <label class="field form-grid__wide">
+          <span class="field__label">Como vai ser <span class="field__optional">(opcional)</span></span>
+          <textarea class="field__input field__input--area" name="content_plan" rows="5" maxlength="4000" placeholder="Cenas do vídeo, slides do carrossel ou o que aparece na imagem. Ex.:&#10;1. Close do forno abrindo&#10;2. Pães indo para a vitrine&#10;Duração: 15 s · música animada"></textarea>
+        </label>
+        <label class="field form-grid__wide">
+          <span class="field__label">Texto na arte <span class="field__optional">(opcional)</span></span>
+          <textarea class="field__input field__input--area" name="art_text" rows="2" maxlength="1000" placeholder="O que vai escrito na imagem ou na tela. Ex.: Saiu agora! Pão quentinho até as 9h"></textarea>
+        </label>
+        <label class="field form-grid__wide">
+          <span class="field__label">Objetivo <span class="field__optional">(opcional)</span></span>
+          <input class="field__input" name="objective" maxlength="500" autocomplete="off" placeholder="Ex.: Trazer movimento de manhã cedo">
+        </label>
+        <label class="field form-grid__wide">
+          <span class="field__label">Referência <span class="field__optional">(opcional · só a equipe vê)</span></span>
           <input class="field__input" name="media_url" type="url" inputmode="url" placeholder="https://" autocomplete="off" spellcheck="false" aria-describedby="media-hint">
           <span class="field__hint" id="media-hint">Imagem: link direto do arquivo. Vídeo: YouTube, Vimeo, TikTok, Google Drive, post ou reel público do Instagram, ou arquivo .mp4/.webm. Outros links aparecem só como link.</span>
         </label>

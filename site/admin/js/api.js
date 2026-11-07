@@ -2,8 +2,8 @@
    Valida os dados antes de enviar (domain/rules.js); o banco confere de novo
    com as próprias regras e só aceita membros da equipe (RLS). */
 
-import { validateClient, validateContent, validateContentFilters, parseUsername, passwordProblem, CONTENT_STATUS, isUuid, validateAd, validateAdFilters, AD_LIMITS, validateBrandKit } from "./domain/rules.js?v=0b22c73e42";
-import { UPLOAD_LIMITS, fileName, fileProblem, resizeImage } from "../../js/lib/storage.js?v=0b22c73e42";
+import { validateClient, validateContent, validateContentFilters, parseUsername, passwordProblem, CONTENT_STATUS, isUuid, validateAd, validateAdFilters, AD_LIMITS, validateBrandKit } from "./domain/rules.js?v=73c6ab8727";
+import { UPLOAD_LIMITS, fileName, fileProblem, resizeImage } from "../../js/lib/storage.js?v=73c6ab8727";
 
 export class ApiError extends Error {
   constructor(status, message, fields) { super(message); this.status = status; this.fields = fields || {}; }

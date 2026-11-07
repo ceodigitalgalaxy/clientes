@@ -385,3 +385,6 @@ select.field__input { padding-right: 40px; appearance: none; background-image: u
 @media (max-width: 720px) {
   .brand-logos, .brand-unit { grid-template-columns: minmax(0, 1fr); }
 }
+
+/* Formulário de conteúdo: bloco "Como vai ser o conteúdo" (o cliente lê) */
+.form-section { margin-top: 8px; padding-top: 16px; border-top: 1px solid var(--line); font-size: 15px; font-weight: 700; color: var(--text); }

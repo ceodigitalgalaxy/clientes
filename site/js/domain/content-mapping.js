@@ -29,18 +29,24 @@ export function activityFromContent(row) {
     type: row.format,
     platforms: [row.network],
     title: row.title,
-    objective: "",
-    description: "",
+    // Como o conteúdo vai ser (campos guiados que a equipe preenche no painel)
+    idea: row.idea || "",
+    contentPlan: row.content_plan || "",
+    artText: row.art_text || "",
+    objective: row.objective || "",
+    description: row.idea || "",
     caption: row.caption || "",
-    media: row.media_url ? [{ kind: row.media_kind === "video" ? "video" : "image", src: row.media_url, alt: row.title }] : [],
+    // A referência (inspiração) é só da equipe: nunca chega ao cliente
+    media: [],
     // Observação que a agência liberou para o cliente (as internas nunca chegam aqui)
     notes: row.client_notes || "",
     // Arte final (arquivos ganham o link assinado no repositório; links vêm prontos)
     final: (Array.isArray(row.assets) ? row.assets : []).map((a) => ({ kind: a.kind === "video" ? "video" : "image", storagePath: a.storage_path || null, src: a.url || null })),
     // Última decisão do cliente sobre a versão atual (aprovado / ajustes + mensagem)
-    decision: row.decision ? { decision: row.decision.decision, message: row.decision.message || "", version: row.decision.version, createdAt: row.decision.created_at } : null,
+    decision: row?.decision ? { decision: row.decision.decision, message: row.decision.message || "", version: row.decision.version, createdAt: row.decision.created_at } : null,
     // Status definido pela agência no painel (ou pela decisão do cliente)
     status: STATUS_FROM_DB[row.status] || "aguardando",
+    // Botões de aprovar só aparecem se o portal tiver a aprovação ligada (config.js)
     requiresApproval: true,
     version: row.version,
     updatedAt: row.updated_at

@@ -37,7 +37,7 @@ export const AD_ERRORS = {
   sem_permissao: "Seu usuário não tem permissão para fazer isso.",
   mensagem_longa: "A mensagem passou do limite de 1000 caracteres."
 };
-const CONTENT_FIELDS = "id,client_id,title,scheduled_date,scheduled_time,network,format,media_url,media_kind,caption,internal_notes,client_notes,status,version,created_at,updated_at";
+const CONTENT_FIELDS = "id,client_id,title,scheduled_date,scheduled_time,network,format,media_url,media_kind,idea,content_plan,art_text,objective,caption,internal_notes,client_notes,status,version,created_at,updated_at";
 
 /** Traduz erros do PostgREST/PostgreSQL para mensagens do painel */
 function translate(status, body, withSession) {

@@ -8,18 +8,19 @@
    que ainda não existem no banco ficam escondidas.
    ========================================================================== */
 
-import { esc, on, reduceMotion } from "../lib/dom.js?v=0b22c73e42";
-import { icon } from "../lib/icons.js?v=0b22c73e42";
-import { longDayLabel, timeLabel, stampLabel } from "../lib/dates.js?v=0b22c73e42";
-import { ACTIVITY_TYPES, PLATFORMS, STATUS } from "../domain/model.js?v=0b22c73e42";
-import { statusOf, latestDecision } from "../domain/status.js?v=0b22c73e42";
-import { typeBadge, statusBadge } from "./badges.js?v=0b22c73e42";
-import { renderPreview, renderFinal, wireCarousel } from "./preview.js?v=0b22c73e42";
-import { wireMediaFallbacks } from "./media.js?v=0b22c73e42";
-import { toast } from "./toast.js?v=0b22c73e42";
+import { esc, on, reduceMotion } from "../lib/dom.js?v=73c6ab8727";
+import { icon } from "../lib/icons.js?v=73c6ab8727";
+import { longDayLabel, timeLabel, stampLabel } from "../lib/dates.js?v=73c6ab8727";
+import { ACTIVITY_TYPES, PLATFORMS, STATUS } from "../domain/model.js?v=73c6ab8727";
+import { statusOf, latestDecision } from "../domain/status.js?v=73c6ab8727";
+import { typeBadge, statusBadge } from "./badges.js?v=73c6ab8727";
+import { renderPreview, renderFinal, wireCarousel } from "./preview.js?v=73c6ab8727";
+import { wireMediaFallbacks } from "./media.js?v=73c6ab8727";
+import { toast } from "./toast.js?v=73c6ab8727";
 
 const LIVE_STATUS_TEXT = {
-  aguardando: ["Este conteúdo espera a sua aprovação", "Confira a prévia e a legenda. Para aprovar ou pedir ajustes, fale com a nossa equipe pelo canal de sempre."],
+  aguardando: ["Este conteúdo espera a sua aprovação", "Leia a ideia e como ele vai ser. Para aprovar ou pedir ajustes, responda no nosso grupo."],
+  ajustes: ["Ajustes em andamento", "Nossa equipe está ajustando este conteúdo com o que você pediu."],
   aprovado: ["Conteúdo aprovado", "Ele segue para publicação na data programada."],
   publicado: ["Conteúdo publicado", "Este conteúdo já foi ao ar."]
 };
@@ -58,8 +59,9 @@ export function createDrawer({ dialog, repo, getContext, onChange }) {
   const approvalBlock = () => {
     // Dados reais: o status vem da agência; aprovar por aqui ainda não existe
     if (!features.approvals) {
-      const [title, text] = LIVE_STATUS_TEXT[statusOf(activity, [])] || LIVE_STATUS_TEXT.aguardando;
-      return `<div class="decision decision--info">${icon("clock")}<div><p class="decision__title">${esc(title)}</p><p class="decision__text">${esc(text)}</p></div></div>`;
+      const current = statusOf(activity, []);
+      const [title, text] = LIVE_STATUS_TEXT[current] || LIVE_STATUS_TEXT.aguardando;
+      return `<div class="decision decision--info">${icon({ ajustes: "edit", aprovado: "check", publicado: "send" }[current] || "clock")}<div><p class="decision__title">${esc(title)}</p><p class="decision__text">${esc(text)}</p></div></div>`;
     }
     if (!activity.requiresApproval) {
       return `<div class="decision decision--info">${icon("calendar")}<p>Esta atividade não precisa de aprovação. Se quiser comentar algo, deixe uma observação abaixo.</p></div>`;
@@ -221,6 +223,9 @@ export function createDrawer({ dialog, repo, getContext, onChange }) {
       <button class="btn btn--primary" type="button" data-do="confirm">${icon("check")}Aprovar</button>
     </footer>` : "";
 
+  /** Há alguma explicação do conteúdo para mostrar? */
+  const explained = () => Boolean(activity.idea || activity.contentPlan || activity.artText || activity.objective || activity.caption || activity.final?.length);
+
   const render = (keepScroll = false) => {
     if (view === "day") return renderDay();
     const body = dialog.querySelector(".drawer__body");
@@ -238,13 +243,13 @@ export function createDrawer({ dialog, repo, getContext, onChange }) {
         <div class="drawer__body">
           <h2 class="drawer__title" id="drawer-title">${esc(activity.title)}</h2>
           ${meta()}
-          ${activity.final?.length
-            ? `<section class="detail detail--final"><div class="detail__head"><h3 class="detail__title">${activity.status === "aguardando" ? "Conteúdo para você aprovar" : "Conteúdo final"}</h3>${activity.final.length > 1 ? `<span class="detail__hint">${activity.final.length} itens</span>` : ""}</div><div class="preview preview--final">${renderFinal(activity)}</div></section>
-               ${activity.media?.length ? section("Referência", `<div class="preview preview--ref">${renderPreview(activity)}</div>`) : ""}`
-            : `<div class="preview">${renderPreview(activity, client.name)}</div>`}
-          ${section("Objetivo", activity.objective ? `<p class="detail__text">${esc(activity.objective)}</p>` : "")}
-          ${section("A ideia", activity.description ? `<p class="detail__text">${esc(activity.description)}</p>` : "")}
-          ${section("Legenda", activity.caption ? `<p class="detail__text detail__caption">${esc(activity.caption)}</p>` : (features.approvals ? "" : `<p class="detail__text detail__muted">A legenda ainda está sendo preparada.</p>`), copy)}
+          ${explained() ? "" : `<p class="detail__text detail__muted guide-empty">${icon("edit")}Nossa equipe ainda está detalhando este conteúdo.</p>`}
+          ${section(`${icon("lightbulb")}A ideia`, activity.idea ? `<p class="detail__text detail__pre">${esc(activity.idea)}</p>` : "")}
+          ${section(`${icon("play")}Como vai ser`, activity.contentPlan ? `<p class="detail__text detail__pre">${esc(activity.contentPlan)}</p>` : "")}
+          ${section(`${icon("type")}Texto na arte`, activity.artText ? `<blockquote class="art-text">${esc(activity.artText)}</blockquote>` : "")}
+          ${section(`${icon("target")}Objetivo`, activity.objective ? `<p class="detail__text">${esc(activity.objective)}</p>` : "")}
+          ${activity.final?.length ? `<section class="detail detail--final"><div class="detail__head"><h3 class="detail__title">${icon("image")}${activity.status === "publicado" ? "Como ficou" : "Arte"}</h3>${activity.final.length > 1 ? `<span class="detail__hint">${activity.final.length} itens</span>` : ""}</div><div class="preview preview--final">${renderFinal(activity)}</div></section>` : ""}
+          ${section(`${icon("edit")}Legenda`, activity.caption ? `<p class="detail__text detail__caption">${esc(activity.caption)}</p>` : (features.approvals ? "" : `<p class="detail__text detail__muted">A legenda ainda está sendo preparada.</p>`), copy)}
           ${sharedNotes()}
           <section class="detail detail--decision" aria-live="polite">${approvalBlock()}</section>
           ${features.comments ? commentsBlock() : ""}
@@ -377,7 +382,8 @@ export function createDrawer({ dialog, repo, getContext, onChange }) {
         toast("O conteúdo que você estava vendo mudou de data ou foi removido.", "info");
         return;
       }
-      if (signature(next) === signature(activity) && next.caption === activity.caption && next.notes === activity.notes && next.title === activity.title && JSON.stringify(next.media) === JSON.stringify(activity.media)) return;
+      if (signature(next) === signature(activity) && next.caption === activity.caption && next.notes === activity.notes && next.title === activity.title &&
+        ["idea", "contentPlan", "artText", "objective"].every((k) => next[k] === activity[k])) return;
       activity = next;
       render(true);
     },

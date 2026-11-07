@@ -1,15 +1,15 @@
 /* Seção Conteúdos: filtros, lista, detalhes, cadastro, edição e exclusão */
 
-import { $, esc, on } from "../../../js/lib/dom.js?v=0b22c73e42";
-import { icon } from "../../../js/lib/icons.js?v=0b22c73e42";
-import { longDayLabel, timeLabel, todayISO } from "../../../js/lib/dates.js?v=0b22c73e42";
-import { typeBadge } from "../../../js/ui/badges.js?v=0b22c73e42";
-import { renderMedia, wireMediaFallbacks } from "../../../js/ui/media.js?v=0b22c73e42";
-import { CONTENT_STATUS, CLIENT_VISIBLE_STATUS, NETWORKS, FORMATS, LIMITS, validateContent, validateContentFilters } from "../domain/rules.js?v=0b22c73e42";
-import { closeDialog, wireDialog, showFieldErrors, setBusy } from "../ui/dialogs.js?v=0b22c73e42";
-import { stateBlock, loadingRows, button } from "../ui/states.js?v=0b22c73e42";
-import { reviewSections, mountReview } from "./content-review.js?v=0b22c73e42";
-import { describeMedia, mediaCover, coverHtml } from "../../../js/ui/media.js?v=0b22c73e42";
+import { $, esc, on } from "../../../js/lib/dom.js?v=73c6ab8727";
+import { icon } from "../../../js/lib/icons.js?v=73c6ab8727";
+import { longDayLabel, timeLabel, todayISO } from "../../../js/lib/dates.js?v=73c6ab8727";
+import { typeBadge } from "../../../js/ui/badges.js?v=73c6ab8727";
+import { renderMedia, wireMediaFallbacks } from "../../../js/ui/media.js?v=73c6ab8727";
+import { CONTENT_STATUS, CLIENT_VISIBLE_STATUS, NETWORKS, FORMATS, LIMITS, validateContent, validateContentFilters } from "../domain/rules.js?v=73c6ab8727";
+import { closeDialog, wireDialog, showFieldErrors, setBusy } from "../ui/dialogs.js?v=73c6ab8727";
+import { stateBlock, loadingRows, button } from "../ui/states.js?v=73c6ab8727";
+import { reviewSections, mountReview } from "./content-review.js?v=73c6ab8727";
+import { describeMedia, mediaCover, coverHtml } from "../../../js/ui/media.js?v=73c6ab8727";
 
 const shortDate = (iso) => iso.split("-").reverse().join("/");
 const statusChip = (status) => `<span class="content-status cs--${esc(status)}">${esc(CONTENT_STATUS[status]?.label || status)}</span>`;
@@ -174,9 +174,12 @@ export function setupContents({ api, state, toast, confirm, navigate }) {
     openId = content.id;
     requestAnimationFrame(() => { body.scrollTop = scroll; });
     $("#drawer-badges").innerHTML = `${typeBadge(content.format, true)}${statusChip(content.status)}`;
-    // A mesma prévia que o cliente vê no calendário
+    // Referência: só a equipe vê (o portal do cliente não recebe este link)
+    const guided = [["A ideia", content.idea], ["Como vai ser", content.content_plan], ["Texto na arte", content.art_text], ["Objetivo", content.objective]]
+      .filter(([, text]) => text).map(([label, text]) => `<div class="detail"><h3 class="detail__title">${label}</h3><p class="caption-text">${esc(text)}</p></div>`).join("")
+      || '<div class="detail"><h3 class="detail__title">Como vai ser o conteúdo</h3><p class="caption-text"><span class="field__optional">Ainda sem explicação para o cliente. Use “Editar” para preencher a ideia e como vai ser.</span></p></div>';
     const media = content.media_url
-      ? `<div class="detail"><h3 class="detail__title">Referência</h3><div class="media-ref">${renderMedia({ url: content.media_url, kind: content.media_kind || "image", title: content.title })}</div></div>`
+      ? `<div class="detail"><h3 class="detail__title">Referência <span class="field__optional">· só a equipe vê</span></h3><div class="media-ref">${renderMedia({ url: content.media_url, kind: content.media_kind || "image", title: content.title })}</div></div>`
       : "";
     $("#drawer-body").innerHTML = `
       <h2 class="drawer__title" id="drawer-title">${esc(content.title)}</h2>
@@ -186,6 +189,7 @@ export function setupContents({ api, state, toast, confirm, navigate }) {
         <div class="facts__row"><dt>${icon("send")}Rede</dt><dd>${esc(NETWORKS[content.network] || content.network)}</dd></div>
         <div class="facts__row"><dt>${icon("image")}Formato</dt><dd>${esc(FORMATS[content.format]?.label || content.format)}</dd></div>
       </dl>
+      ${guided}
       ${media}
       <div class="detail"><h3 class="detail__title">Legenda</h3><p class="caption-text">${content.caption ? esc(content.caption) : '<span class="field__optional">Sem legenda ainda.</span>'}</p></div>
       ${content.client_notes ? `<div class="detail"><h3 class="detail__title">Observação para o cliente</h3><p class="caption-text">${esc(content.client_notes)}</p></div>` : ""}
@@ -234,7 +238,7 @@ export function setupContents({ api, state, toast, confirm, navigate }) {
     submit.querySelector("span").textContent = content ? "Salvar alterações" : "Cadastrar conteúdo";
     form.elements.client_id.innerHTML = `<option value="">Escolha o cliente</option>${options(active.map((c) => [c.id, c.name]))}`;
     if (content) {
-      ["client_id", "title", "scheduled_date", "network", "format", "media_url", "caption", "client_notes", "internal_notes", "status"].forEach((name) => { form.elements[name].value = content[name] || ""; });
+      ["client_id", "title", "scheduled_date", "network", "format", "media_url", "idea", "content_plan", "art_text", "objective", "caption", "client_notes", "internal_notes", "status"].forEach((name) => { form.elements[name].value = content[name] || ""; });
       form.elements.scheduled_time.value = content.scheduled_time ? content.scheduled_time.slice(0, 5) : "";
       form.elements.media_kind.value = content.media_kind || "";
     } else {

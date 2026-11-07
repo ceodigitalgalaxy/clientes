@@ -44,7 +44,7 @@ export const MEDIA_KINDS = { image: "Imagem", video: "Vídeo" };
 
 export const LIMITS = {
   clientName: 120, slug: 60, segment: 120, contactName: 120, clientNotes: 2000,
-  title: 160, mediaUrl: 2000, caption: 2200, internalNotes: 4000, sharedNotes: 2000
+  title: 160, mediaUrl: 2000, caption: 2200, internalNotes: 4000, sharedNotes: 2000, idea: 2000, contentPlan: 4000, artText: 1000, objective: 500
 };
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
@@ -125,6 +125,10 @@ export function validateContent(input = {}) {
     format: clean(input.format),
     media_url: clean(input.media_url),
     media_kind: clean(input.media_kind),
+    idea: clean(input.idea),
+    content_plan: clean(input.content_plan),
+    art_text: clean(input.art_text),
+    objective: clean(input.objective),
     caption: clean(input.caption),
     internal_notes: clean(input.internal_notes),
     client_notes: clean(input.client_notes),
@@ -148,6 +152,9 @@ export function validateContent(input = {}) {
     else if (value.media_url.length > LIMITS.mediaUrl) errors.media_url = "Link muito longo.";
     if (!MEDIA_KINDS[value.media_kind]) errors.media_kind = "Escolha se é imagem ou vídeo.";
   }
+  [["idea", LIMITS.idea], ["content_plan", LIMITS.contentPlan], ["art_text", LIMITS.artText], ["objective", LIMITS.objective]].forEach(([field, max]) => {
+    if (value[field] && value[field].length > max) errors[field] = `Use até ${max.toLocaleString("pt-BR")} caracteres.`;
+  });
   if (value.caption && value.caption.length > LIMITS.caption) errors.caption = `A legenda pode ter até ${LIMITS.caption} caracteres.`;
   if (value.internal_notes && value.internal_notes.length > LIMITS.internalNotes) errors.internal_notes = `Use até ${LIMITS.internalNotes} caracteres.`;
   if (value.client_notes && value.client_notes.length > LIMITS.sharedNotes) errors.client_notes = `Use até ${LIMITS.sharedNotes} caracteres.`;
@@ -167,11 +174,11 @@ export function validateContentFilters(input = {}) {
 }
 
 /* Regras de usuário e senha: as mesmas do portal do cliente (site/js/domain/accounts.js) */
-export { USERNAME_LIMITS, PASSWORD_LIMITS, normalizeUsername, parseUsername, loginEmail, usernameFromEmail, accountKind, passwordProblem } from "../../../js/domain/accounts.js?v=0b22c73e42";
+export { USERNAME_LIMITS, PASSWORD_LIMITS, normalizeUsername, parseUsername, loginEmail, usernameFromEmail, accountKind, passwordProblem } from "../../../js/domain/accounts.js?v=73c6ab8727";
 
 /* ---------- Anúncios ---------- */
-export { AD_STAGES, AD_STATUS, AD_CLIENT_STATUS, AD_PLATFORMS, AD_OBJECTIVES, AD_FORMATS, AD_CTAS, AD_LIMITS, AD_EVENTS, platformLabel, adCanSend, adSendBlock } from "../../../js/domain/ads.js?v=0b22c73e42";
-import { AD_STAGES as STAGES_OF_ADS, AD_STATUS as STATUS_OF_ADS, AD_PLATFORMS as PLATFORMS_OF_ADS, AD_OBJECTIVES as OBJECTIVES_OF_ADS, AD_FORMATS as FORMATS_OF_ADS, AD_LIMITS as L } from "../../../js/domain/ads.js?v=0b22c73e42";
+export { AD_STAGES, AD_STATUS, AD_CLIENT_STATUS, AD_PLATFORMS, AD_OBJECTIVES, AD_FORMATS, AD_CTAS, AD_LIMITS, AD_EVENTS, platformLabel, adCanSend, adSendBlock } from "../../../js/domain/ads.js?v=73c6ab8727";
+import { AD_STAGES as STAGES_OF_ADS, AD_STATUS as STATUS_OF_ADS, AD_PLATFORMS as PLATFORMS_OF_ADS, AD_OBJECTIVES as OBJECTIVES_OF_ADS, AD_FORMATS as FORMATS_OF_ADS, AD_LIMITS as L } from "../../../js/domain/ads.js?v=73c6ab8727";
 
 const isHttpUrl = (value) => { try { return ["http:", "https:"].includes(new URL(value).protocol); } catch { return false; } };
 

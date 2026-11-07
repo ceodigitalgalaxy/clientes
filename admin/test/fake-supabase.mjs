@@ -60,6 +60,7 @@ export function createFakeSupabase({ store, publishableKey }) {
     if (name === "portal_contents" && keys === "p_from,p_to") return (await store.portalContents(user.id, body.p_from, body.p_to)).map(({ assets, decision, ...row }) => row);
     if (name === "portal_client" && keys === "") return store.portalProfile(user.id);
     if (name === "portal_calendar" && keys === "p_from,p_to") return store.portalContents(user.id, body.p_from, body.p_to);
+    if (name === "portal_agenda" && keys === "p_from,p_to") return store.portalAgenda(user.id, body.p_from, body.p_to);
     if (name === "portal_brand_kit" && keys === "") {
       // Como a função: cliente da sessão, ativo, com identidade liberada (senão null)
       const member = store.findMembers({ userId: user.id })[0];
