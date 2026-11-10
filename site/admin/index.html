@@ -13,9 +13,9 @@
   <link rel="preload" href="../fonts/sora-latin-400-normal.woff2" as="font" type="font/woff2" crossorigin>
   <link rel="preload" href="../fonts/sora-latin-600-normal.woff2" as="font" type="font/woff2" crossorigin>
   <!-- Mesmos tokens e componentes do portal do cliente -->
-  <link rel="stylesheet" href="../css/style.css?v=73c6ab8727">
-  <link rel="stylesheet" href="css/admin.css?v=73c6ab8727">
-  <script type="module" src="js/main.js?v=73c6ab8727"></script>
+  <link rel="stylesheet" href="../css/style.css?v=887272bbb7">
+  <link rel="stylesheet" href="css/admin.css?v=887272bbb7">
+  <script type="module" src="js/main.js?v=887272bbb7"></script>
 </head>
 <body class="admin">
   <!-- Tela de entrada: aparece enquanto ninguém estiver logado -->
@@ -57,6 +57,7 @@
       </div>
       <nav class="admin-nav" aria-label="Seções do painel">
         <a class="admin-nav__link" href="#/conteudos" data-route="conteudos" data-icon="calendar">Conteúdos</a>
+        <a class="admin-nav__link" href="#/aprovacoes" data-route="aprovacoes" data-icon="check">Aprovações<span class="nav-badge" data-approvals-attention hidden></span></a>
         <a class="admin-nav__link" href="#/clientes" data-route="clientes" data-icon="users">Clientes</a>
         <a class="admin-nav__link" href="#/anuncios" data-route="anuncios" data-icon="megaphone">Anúncios<span class="nav-badge" data-ads-attention hidden></span></a>
         <a class="admin-nav__link" href="#/importar" data-route="importar" data-icon="layers">Importar</a>
@@ -152,6 +153,31 @@
         <button class="btn btn--primary btn--sm" type="button" data-ads-bulk-apply>Aplicar</button>
         <button class="btn btn--ghost btn--sm" type="button" data-ads-bulk-clear>Cancelar</button>
       </div>
+    </section>
+
+    <!-- Central de aprovação de conteúdos (js/views/approvals.js) -->
+    <section class="view" id="view-aprovacoes" data-view="aprovacoes" aria-labelledby="aprovacoes-title" hidden>
+      <div class="view__head">
+        <div>
+          <h1 class="view__title" id="aprovacoes-title">Aprovações de Conteúdo</h1>
+          <p class="view__text">Monte o lote do mês, gere o link e envie pelo WhatsApp. O cliente aprova sem login e as respostas aparecem aqui.</p>
+        </div>
+        <div class="view__buttons">
+          <button class="btn btn--ghost notif-btn" type="button" data-action="toggle-notifications" aria-expanded="false" aria-controls="approval-notifications" data-icon="bell">Avisos<span class="nav-badge" data-notif-count hidden></span></button>
+          <button class="btn btn--primary" type="button" data-action="new-batch" data-icon="sparkle">Novo lote</button>
+        </div>
+      </div>
+      <div class="notif-panel" id="approval-notifications" hidden></div>
+      <div class="appr-overview" data-appr-overview></div>
+      <form class="filters appr-filters" id="batch-filters" novalidate>
+        <label class="field"><span class="field__label">Cliente</span><select class="field__input" name="client_id"><option value="">Todos os clientes</option></select></label>
+        <label class="field"><span class="field__label">Mês</span><input class="field__input" name="month" type="month"></label>
+        <label class="field"><span class="field__label">Status</span><select class="field__input" name="status"><option value="">Todos</option></select></label>
+        <label class="field"><span class="field__label">Enviado a partir de</span><input class="field__input" name="sent_from" type="date"></label>
+        <button class="link-btn filters__clear" type="reset" data-icon="refresh">Limpar filtros</button>
+      </form>
+      <p class="list-count" id="batches-count" aria-live="polite"></p>
+      <div class="batch-list" id="batches-list" aria-busy="true"></div>
     </section>
 
     <!-- Clientes -->
@@ -407,13 +433,17 @@
           <span class="field__label">Formato</span>
           <select class="field__input" name="format" required></select>
         </label>
-        <p class="form-section form-grid__wide">Como vai ser o conteúdo <span class="field__optional">· o cliente lê estes campos no portal</span></p>
         <label class="field form-grid__wide">
-          <span class="field__label">A ideia <span class="field__optional">(opcional)</span></span>
+          <span class="field__label">Pilar editorial <span class="field__optional">(opcional)</span></span>
+          <input class="field__input" name="pillar" maxlength="80" autocomplete="off" placeholder="Ex.: Bastidores, Produto, Dicas, Prova social">
+        </label>
+        <p class="form-section form-grid__wide">Como vai ser o conteúdo <span class="field__optional">· o cliente lê estes campos no portal e no link de aprovação</span></p>
+        <label class="field form-grid__wide">
+          <span class="field__label">Descrição da ideia <span class="field__optional">(opcional)</span></span>
           <textarea class="field__input field__input--area" name="idea" rows="2" maxlength="2000" placeholder="Ex.: Mostrar a primeira fornada do dia saindo do forno."></textarea>
         </label>
         <label class="field form-grid__wide">
-          <span class="field__label">Como vai ser <span class="field__optional">(opcional)</span></span>
+          <span class="field__label">Roteiro / como vai ser <span class="field__optional">(opcional)</span></span>
           <textarea class="field__input field__input--area" name="content_plan" rows="5" maxlength="4000" placeholder="Cenas do vídeo, slides do carrossel ou o que aparece na imagem. Ex.:&#10;1. Close do forno abrindo&#10;2. Pães indo para a vitrine&#10;Duração: 15 s · música animada"></textarea>
         </label>
         <label class="field form-grid__wide">
@@ -421,7 +451,7 @@
           <textarea class="field__input field__input--area" name="art_text" rows="2" maxlength="1000" placeholder="O que vai escrito na imagem ou na tela. Ex.: Saiu agora! Pão quentinho até as 9h"></textarea>
         </label>
         <label class="field form-grid__wide">
-          <span class="field__label">Objetivo <span class="field__optional">(opcional)</span></span>
+          <span class="field__label">Objetivo estratégico <span class="field__optional">(opcional)</span></span>
           <input class="field__input" name="objective" maxlength="500" autocomplete="off" placeholder="Ex.: Trazer movimento de manhã cedo">
         </label>
         <label class="field form-grid__wide">
@@ -440,6 +470,10 @@
           <span class="field__hint" id="caption-count">0 de 2.200 caracteres</span>
         </label>
         <label class="field form-grid__wide">
+          <span class="field__label">Chamada para ação (CTA) <span class="field__optional">(opcional)</span></span>
+          <input class="field__input" name="cta" maxlength="200" autocomplete="off" placeholder="Ex.: Peça pelo WhatsApp">
+        </label>
+        <label class="field form-grid__wide">
           <span class="field__label">Observação para o cliente <span class="field__optional">(opcional)</span></span>
           <textarea class="field__input field__input--area" name="client_notes" rows="3" maxlength="2000" aria-describedby="client-notes-hint"></textarea>
           <span class="field__hint" id="client-notes-hint">Aparece para o cliente nos detalhes do conteúdo.</span>
@@ -450,8 +484,13 @@
           <span class="field__hint" id="internal-notes-hint">Só a equipe vê. Nunca aparece para o cliente.</span>
         </label>
         <label class="field">
-          <span class="field__label">Status</span>
-          <select class="field__input" name="status" required></select>
+          <span class="field__label">Aprovação</span>
+          <select class="field__input" name="approval_status" required aria-describedby="approval-status-hint"></select>
+          <span class="field__hint" id="approval-status-hint">O cliente aprova pelo link, na seção Aprovações.</span>
+        </label>
+        <label class="field">
+          <span class="field__label">Produção <span class="field__optional">(opcional)</span></span>
+          <select class="field__input" name="production_status"></select>
         </label>
       </div>
       <p class="form-error" role="alert" hidden></p>
@@ -572,6 +611,109 @@
   </dialog>
 
   <!-- Confirmação de exclusão -->
+  <!-- Lote de aprovação: criar / editar -->
+  <dialog class="modal" id="batch-modal" aria-labelledby="batch-modal-title">
+    <form class="modal__form" method="dialog" novalidate>
+      <div class="modal__head">
+        <span class="modal__icon modal__icon--brand" data-icon="check"></span>
+        <div>
+          <h2 class="modal__title" id="batch-modal-title">Novo lote de aprovação</h2>
+          <p class="modal__text">Um planejamento do mês ou uma etapa de arte final de um cliente.</p>
+        </div>
+        <button class="icon-btn modal__close" type="button" data-action="close-modal" aria-label="Fechar" data-icon="close"></button>
+      </div>
+      <div class="form-grid">
+        <label class="field form-grid__wide"><span class="field__label">Cliente</span><select class="field__input" name="client_id" required></select></label>
+        <label class="field form-grid__wide"><span class="field__label">Título do lote</span><input class="field__input" name="title" maxlength="120" autocomplete="off" required placeholder="Ex.: Planejamento de novembro"></label>
+        <label class="field"><span class="field__label">Mês de referência</span><input class="field__input" name="month" type="month" required></label>
+        <fieldset class="field radio-row form-grid__wide">
+          <legend class="field__label">O cliente vai aprovar</legend>
+          <label class="check check--card"><input type="radio" name="approval_mode" value="planejamento" checked><span><b>Planejamento</b> · tema, ideia, formato, data e abordagem (arte ainda não pronta)</span></label>
+          <label class="check check--card"><input type="radio" name="approval_mode" value="final"><span><b>Conteúdo final</b> · arte, vídeo, carrossel, legenda e data</span></label>
+        </fieldset>
+        <label class="field form-grid__wide"><span class="field__label">Mensagem de abertura <span class="field__optional">(opcional)</span></span><textarea class="field__input field__input--area" name="intro_message" rows="3" maxlength="1000" placeholder="Ex.: Preparamos 6 conteúdos para você revisar. Confira as ideias e aprove as que estiverem de acordo."></textarea></label>
+      </div>
+      <p class="form-error" role="alert" hidden></p>
+      <div class="modal__actions">
+        <button class="btn btn--ghost" type="button" data-action="close-modal">Cancelar</button>
+        <button class="btn btn--primary" type="submit"><span>Criar lote</span></button>
+      </div>
+    </form>
+  </dialog>
+
+  <!-- Gerenciar o lote -->
+  <dialog class="drawer drawer--wide" id="batch-drawer" aria-labelledby="batch-drawer-title">
+    <div class="drawer__panel">
+      <header class="drawer__header">
+        <div class="drawer__badges" data-batch-badges></div>
+        <button class="icon-btn" type="button" data-action="close-drawer" aria-label="Fechar" data-icon="close"></button>
+      </header>
+      <div class="drawer__body" data-batch-body></div>
+    </div>
+  </dialog>
+
+  <!-- Escolher conteúdos para o lote -->
+  <dialog class="modal modal--wide" id="pick-modal" aria-labelledby="pick-modal-title">
+    <form class="modal__form" method="dialog" novalidate>
+      <div class="modal__head">
+        <span class="modal__icon modal__icon--brand" data-icon="layers"></span>
+        <div>
+          <h2 class="modal__title" id="pick-modal-title">Conteúdos do lote</h2>
+          <p class="modal__text">Marque os conteúdos do cliente que entram neste lote. Retirar um conteúdo preserva o histórico dele.</p>
+        </div>
+        <button class="icon-btn modal__close" type="button" data-action="close-modal" aria-label="Fechar" data-icon="close"></button>
+      </div>
+      <div class="pick-tools">
+        <label class="field"><span class="field__label">Mostrar</span><select class="field__input" data-pick-scope><option value="month">Só do mês do lote</option><option value="all">Todos do cliente</option></select></label>
+        <button class="btn btn--ghost btn--sm" type="button" data-action="pick-new-content" data-icon="sparkle">Novo conteúdo</button>
+      </div>
+      <div class="pick-list" data-pick-list></div>
+      <p class="form-error" role="alert" hidden></p>
+      <div class="modal__actions">
+        <button class="btn btn--ghost" type="button" data-action="close-modal">Cancelar</button>
+        <button class="btn btn--primary" type="submit"><span>Salvar conteúdos do lote</span></button>
+      </div>
+    </form>
+  </dialog>
+
+  <!-- Gerar link para aprovação -->
+  <dialog class="modal modal--wide" id="publish-modal" aria-labelledby="publish-modal-title">
+    <form class="modal__form" method="dialog" novalidate>
+      <div class="modal__head">
+        <span class="modal__icon modal__icon--brand" data-icon="link"></span>
+        <div>
+          <h2 class="modal__title" id="publish-modal-title">Gerar link para aprovação</h2>
+          <p class="modal__text">Os conteúdos escolhidos ficam congelados nesta versão. Quem tiver o link pode ver e aprovar enquanto ele estiver ativo.</p>
+        </div>
+        <button class="icon-btn modal__close" type="button" data-action="close-modal" aria-label="Fechar" data-icon="close"></button>
+      </div>
+      <div class="form-grid">
+        <fieldset class="field form-grid__wide publish-items" data-publish-items>
+          <legend class="field__label">Conteúdos que o cliente vai revisar</legend>
+          <div data-publish-list></div>
+        </fieldset>
+        <label class="field form-grid__wide"><span class="field__label">Título do lote</span><input class="field__input" name="title" maxlength="120" required></label>
+        <label class="field form-grid__wide"><span class="field__label">Mensagem de abertura <span class="field__optional">(opcional)</span></span><textarea class="field__input field__input--area" name="intro" rows="3" maxlength="1000"></textarea></label>
+        <fieldset class="field radio-row form-grid__wide">
+          <legend class="field__label">O cliente vai aprovar</legend>
+          <label class="check check--card"><input type="radio" name="mode" value="planejamento"><span><b>Planejamento</b> · a ideia (arte ainda não pronta)</span></label>
+          <label class="check check--card"><input type="radio" name="mode" value="final"><span><b>Conteúdo final</b> · como vai ao ar</span></label>
+        </fieldset>
+        <label class="field"><span class="field__label">Expira em <span class="field__optional">(opcional)</span></span><input class="field__input" name="expires_on" type="date"></label>
+        <fieldset class="field">
+          <legend class="field__label">O cliente pode</legend>
+          <label class="check"><input type="checkbox" name="allow_individual" checked><span>Aprovar um por um</span></label>
+          <label class="check"><input type="checkbox" name="allow_bulk" checked><span>Aprovar todos os pendentes de uma vez</span></label>
+        </fieldset>
+      </div>
+      <p class="form-error" role="alert" hidden></p>
+      <div class="modal__actions">
+        <button class="btn btn--ghost" type="button" data-action="close-modal">Cancelar</button>
+        <button class="btn btn--primary" type="submit"><span>Gerar link</span></button>
+      </div>
+    </form>
+  </dialog>
+
   <dialog class="modal" id="confirm-modal" role="alertdialog" aria-labelledby="confirm-title" aria-describedby="confirm-text">
     <div class="modal__form">
       <div class="modal__head">

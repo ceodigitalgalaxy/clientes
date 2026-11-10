@@ -5,9 +5,28 @@
 import { randomUUID } from "node:crypto";
 import { StoreError } from "../../site/admin/js/data/store.js";
 import { createAdsMemory } from "./memory-ads.mjs";
+import { createApprovalsMemory } from "./memory-approvals.mjs";
+import { pairFromStatus, statusFromPair } from "../../site/js/domain/approvals.js";
 import { CLIENT_VISIBLE_STATUS } from "../../site/admin/js/domain/rules.js";
 
-const VISIBLE_FIELDS = ["title", "scheduled_date", "scheduled_time", "network", "format", "caption", "client_notes", "idea", "content_plan", "art_text", "objective"];
+const VISIBLE_FIELDS = ["title", "scheduled_date", "scheduled_time", "network", "format", "caption", "client_notes", "idea", "content_plan", "art_text", "objective", "pillar", "cta"];
+
+/** Gatilho contents_a_status: status antigo calculado dos dois novos (e vice-versa) */
+function syncStatus(next, old = null) {
+  const pairGiven = "approval_status" in next || "production_status" in next;
+  if (!old) {
+    const a = next.approval_status ?? "rascunho"; const p = next.production_status ?? null;
+    const pair = a === "rascunho" && !p && next.status && next.status !== "planejado" ? pairFromStatus(next.status) : { approval_status: a, production_status: p };
+    return { ...next, ...pair, status: statusFromPair(pair.approval_status, pair.production_status) };
+  }
+  let pair = { approval_status: old.approval_status, production_status: old.production_status };
+  if (pairGiven && ((next.approval_status ?? old.approval_status) !== old.approval_status || (next.production_status ?? null) !== (old.production_status ?? null))) {
+    pair = { approval_status: next.approval_status ?? old.approval_status, production_status: "production_status" in next ? next.production_status ?? null : old.production_status };
+  } else if (next.status && next.status !== old.status) {
+    pair = pairFromStatus(next.status, old.approval_status, old.production_status);
+  }
+  return { ...next, ...pair, status: statusFromPair(pair.approval_status, pair.production_status) };
+}
 
 export function createMemoryStore() {
   const clients = new Map();
@@ -81,8 +100,21 @@ export function createMemoryStore() {
     async setContentStatus(id, status) {
       await this.tick();
       const c = contents.get(id); if (!c) throw new StoreError(404, "Registro não encontrado.", "PGRST116");
-      c.status = status; c.updated_at = now();
+      Object.assign(c, syncStatus({ status }, c), { updated_at: now() });
       return { ...c };
+    },
+    async setContentProduction(id, production) {
+      await this.tick();
+      const c = contents.get(id); if (!c) throw new StoreError(404, "Registro não encontrado.", "PGRST116");
+      Object.assign(c, syncStatus({ production_status: production }, c), { updated_at: now() });
+      return { ...c };
+    },
+    async setAssetRole(id, role) {
+      await this.tick();
+      const a = assets.get(id); if (!a) throw new StoreError(404, "Registro não encontrado.", "PGRST116");
+      if (!["midia", "capa", "thumbnail"].includes(role)) throw new StoreError(400, "inválido", "23514");
+      a.role = role; bump(a.content_id);
+      return { ...a };
     },
     async setClientLogo(id, logoPath) {
       await this.tick();
@@ -95,7 +127,8 @@ export function createMemoryStore() {
       await this.tick();
       if (!contents.has(value.content_id)) throw new StoreError(409, "Conteúdo não encontrado.", "23503");
       if (Boolean(value.storage_path) === Boolean(value.url) || (value.storage_path && !ASSET_PATH.test(value.storage_path))) throw new StoreError(400, "inválido", "23514");
-      const a = { id: randomUUID(), kind: value.kind, storage_path: value.storage_path || null, url: value.url || null, position: value.position ?? 0, content_id: value.content_id, created_at: now() };
+      if (!["image", "video", "pdf"].includes(value.kind) || !["midia", "capa", "thumbnail", undefined].includes(value.role)) throw new StoreError(400, "inválido", "23514");
+      const a = { id: randomUUID(), kind: value.kind, role: value.role || "midia", name: value.name ?? null, storage_path: value.storage_path || null, url: value.url || null, position: value.position ?? 0, content_id: value.content_id, created_at: now() };
       assets.set(a.id, a);
       bump(a.content_id);
       return { ...a };
@@ -129,7 +162,7 @@ export function createMemoryStore() {
       if (c.status !== "aguardando_aprovacao") throw new StoreError(400, "nao_aguarda_aprovacao", "P0001");
       if (c.version !== p_version) throw new StoreError(400, "versao_desatualizada", "P0001");
       approvals.push({ id: randomUUID(), content_id: c.id, version: c.version, decision: p_decision, message, user_id: userId, created_at: now() });
-      c.status = p_decision === "aprovado" ? "aprovado" : "ajustes";
+      Object.assign(c, syncStatus({ status: p_decision === "aprovado" ? "aprovado" : "ajustes" }, c));
       return [{ new_status: c.status, new_version: c.version }];
     },
     /** O cliente pode ler este arquivo da arte final? (private.client_can_read_media) */
@@ -143,7 +176,7 @@ export function createMemoryStore() {
     async createContent(value) {
       await this.tick();
       if (!clients.has(value.client_id)) throw new StoreError(409, "Cliente não encontrado.", "23503");
-      const c = { id: randomUUID(), ...value, scheduled_time: value.scheduled_time ? `${value.scheduled_time}:00` : null, version: 1, created_at: now(), updated_at: now() };
+      const c = { id: randomUUID(), pillar: null, cta: null, ...syncStatus(value), scheduled_time: value.scheduled_time ? `${value.scheduled_time}:00` : null, version: 1, created_at: now(), updated_at: now() };
       contents.set(c.id, c);
       return { ...c };
     },
@@ -151,8 +184,8 @@ export function createMemoryStore() {
       await this.tick();
       const c = contents.get(id); if (!c) throw new StoreError(404, "Registro não encontrado.", "PGRST116");
       const next = { ...value, scheduled_time: value.scheduled_time ? `${value.scheduled_time}:00` : null };
-      const changed = VISIBLE_FIELDS.some((k) => (c[k] ?? null) !== (next[k] ?? null));
-      Object.assign(c, next, { version: c.version + (changed ? 1 : 0), updated_at: now() });
+      const changed = VISIBLE_FIELDS.some((k) => k in next && (c[k] ?? null) !== (next[k] ?? null));
+      Object.assign(c, syncStatus(next, c), { version: c.version + (changed ? 1 : 0), updated_at: now() });
       return { ...c };
     },
     async deleteContent(id) { await this.tick(); if (!contents.delete(id)) throw new StoreError(404, "Registro não encontrado.", "PGRST116"); },
@@ -200,5 +233,9 @@ export function createMemoryStore() {
     }
   };
   Object.assign(store, createAdsMemory({ clients, members, now, tick: () => store.tick() }));
+  Object.assign(store, createApprovalsMemory({
+    clients, contents, assetsOf, now, tick: () => store.tick(),
+    setContentApproval(id, approval) { const c = contents.get(id); if (c) Object.assign(c, syncStatus({ approval_status: approval }, c)); }
+  }));
   return store;
 }

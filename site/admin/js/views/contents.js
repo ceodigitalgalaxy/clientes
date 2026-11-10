@@ -1,15 +1,15 @@
 /* Seção Conteúdos: filtros, lista, detalhes, cadastro, edição e exclusão */
 
-import { $, esc, on } from "../../../js/lib/dom.js?v=73c6ab8727";
-import { icon } from "../../../js/lib/icons.js?v=73c6ab8727";
-import { longDayLabel, timeLabel, todayISO } from "../../../js/lib/dates.js?v=73c6ab8727";
-import { typeBadge } from "../../../js/ui/badges.js?v=73c6ab8727";
-import { renderMedia, wireMediaFallbacks } from "../../../js/ui/media.js?v=73c6ab8727";
-import { CONTENT_STATUS, CLIENT_VISIBLE_STATUS, NETWORKS, FORMATS, LIMITS, validateContent, validateContentFilters } from "../domain/rules.js?v=73c6ab8727";
-import { closeDialog, wireDialog, showFieldErrors, setBusy } from "../ui/dialogs.js?v=73c6ab8727";
-import { stateBlock, loadingRows, button } from "../ui/states.js?v=73c6ab8727";
-import { reviewSections, mountReview } from "./content-review.js?v=73c6ab8727";
-import { describeMedia, mediaCover, coverHtml } from "../../../js/ui/media.js?v=73c6ab8727";
+import { $, esc, on } from "../../../js/lib/dom.js?v=887272bbb7";
+import { icon } from "../../../js/lib/icons.js?v=887272bbb7";
+import { longDayLabel, timeLabel, todayISO } from "../../../js/lib/dates.js?v=887272bbb7";
+import { typeBadge } from "../../../js/ui/badges.js?v=887272bbb7";
+import { renderMedia, wireMediaFallbacks } from "../../../js/ui/media.js?v=887272bbb7";
+import { CONTENT_STATUS, CLIENT_VISIBLE_STATUS, APPROVAL_STATUS, PRODUCTION_STATUS, NETWORKS, FORMATS, LIMITS, validateContent, validateContentFilters } from "../domain/rules.js?v=887272bbb7";
+import { closeDialog, wireDialog, showFieldErrors, setBusy } from "../ui/dialogs.js?v=887272bbb7";
+import { stateBlock, loadingRows, button } from "../ui/states.js?v=887272bbb7";
+import { reviewSections, mountReview } from "./content-review.js?v=887272bbb7";
+import { describeMedia, mediaCover, coverHtml } from "../../../js/ui/media.js?v=887272bbb7";
 
 const shortDate = (iso) => iso.split("-").reverse().join("/");
 const statusChip = (status) => `<span class="content-status cs--${esc(status)}">${esc(CONTENT_STATUS[status]?.label || status)}</span>`;
@@ -65,7 +65,8 @@ export function setupContents({ api, state, toast, confirm, navigate }) {
   filtersForm.elements.status.insertAdjacentHTML("beforeend", options(Object.entries(CONTENT_STATUS).map(([k, v]) => [k, v.label])));
   form.elements.network.innerHTML = `<option value="">Escolha a rede</option>${options(Object.entries(NETWORKS))}`;
   form.elements.format.innerHTML = `<option value="">Escolha o formato</option>${options(Object.entries(FORMATS).map(([k, v]) => [k, v.label]))}`;
-  form.elements.status.innerHTML = options(Object.entries(CONTENT_STATUS).map(([k, v]) => [k, v.label]));
+  form.elements.approval_status.innerHTML = options(Object.entries(APPROVAL_STATUS).map(([k, v]) => [k, v.label]));
+  form.elements.production_status.innerHTML = `<option value="">Ainda não começou</option>${options(Object.entries(PRODUCTION_STATUS).map(([k, v]) => [k, v.label]))}`;
 
   const clientName = (id) => state.clients.find((c) => c.id === id)?.name || "Cliente removido";
 
@@ -157,7 +158,7 @@ export function setupContents({ api, state, toast, confirm, navigate }) {
           <span class="row__titlecell">${refThumb(c)}<button class="row__title" type="button" data-view-content="${esc(c.id)}">${esc(c.title)}</button>${c.assets_count ? `<span class="row__art" title="Itens na arte final">${icon("layers")}${esc(c.assets_count)}</span>` : ""}</span>
           <span class="row__network">${esc(NETWORKS[c.network] || c.network)}</span>
           <span class="row__format">${typeBadge(c.format)}</span>
-          <span class="row__status">${statusChip(c.status)}</span>
+          <span class="row__status">${statusChip(c.status)}${c.production_status && c.production_status !== "publicado" ? `<span class="prod-chip">${esc(PRODUCTION_STATUS[c.production_status]?.label || "")}</span>` : ""}</span>
           <span class="row__actions">
             <button class="icon-btn" type="button" data-edit-content="${esc(c.id)}" aria-label="Editar ${esc(c.title)}" title="Editar">${icon("edit")}</button>
             <button class="icon-btn icon-btn--danger" type="button" data-delete-content="${esc(c.id)}" aria-label="Excluir ${esc(c.title)}" title="Excluir">${icon("trash")}</button>
@@ -175,7 +176,7 @@ export function setupContents({ api, state, toast, confirm, navigate }) {
     requestAnimationFrame(() => { body.scrollTop = scroll; });
     $("#drawer-badges").innerHTML = `${typeBadge(content.format, true)}${statusChip(content.status)}`;
     // Referência: só a equipe vê (o portal do cliente não recebe este link)
-    const guided = [["A ideia", content.idea], ["Como vai ser", content.content_plan], ["Texto na arte", content.art_text], ["Objetivo", content.objective]]
+    const guided = [["Pilar editorial", content.pillar], ["A ideia", content.idea], ["Roteiro / como vai ser", content.content_plan], ["Texto na arte", content.art_text], ["Objetivo", content.objective], ["Chamada para ação", content.cta]]
       .filter(([, text]) => text).map(([label, text]) => `<div class="detail"><h3 class="detail__title">${label}</h3><p class="caption-text">${esc(text)}</p></div>`).join("")
       || '<div class="detail"><h3 class="detail__title">Como vai ser o conteúdo</h3><p class="caption-text"><span class="field__optional">Ainda sem explicação para o cliente. Use “Editar” para preencher a ideia e como vai ser.</span></p></div>';
     const media = content.media_url
@@ -228,7 +229,9 @@ export function setupContents({ api, state, toast, confirm, navigate }) {
   }
   const syncCaption = () => { captionCount.textContent = `${form.elements.caption.value.length.toLocaleString("pt-BR")} de ${LIMITS.caption.toLocaleString("pt-BR")} caracteres`; };
 
-  function openForm(content = null) {
+  let afterSave = null;   // quem abriu o formulário quer saber do conteúdo salvo (ex.: lote de aprovação)
+  function openForm(content = null, preset = null) {
+    afterSave = preset?.onSaved || null;
     const active = state.clients.filter((c) => c.active || c.id === content?.client_id);
     if (!active.length) { toast("Cadastre um cliente antes de criar conteúdos.", "info"); navigate("clientes"); return; }
     editing = content;
@@ -238,13 +241,16 @@ export function setupContents({ api, state, toast, confirm, navigate }) {
     submit.querySelector("span").textContent = content ? "Salvar alterações" : "Cadastrar conteúdo";
     form.elements.client_id.innerHTML = `<option value="">Escolha o cliente</option>${options(active.map((c) => [c.id, c.name]))}`;
     if (content) {
-      ["client_id", "title", "scheduled_date", "network", "format", "media_url", "idea", "content_plan", "art_text", "objective", "caption", "client_notes", "internal_notes", "status"].forEach((name) => { form.elements[name].value = content[name] || ""; });
+      ["client_id", "title", "scheduled_date", "network", "format", "media_url", "pillar", "idea", "content_plan", "art_text", "objective", "caption", "cta", "client_notes", "internal_notes", "approval_status", "production_status"].forEach((name) => { form.elements[name].value = content[name] || ""; });
       form.elements.scheduled_time.value = content.scheduled_time ? content.scheduled_time.slice(0, 5) : "";
       form.elements.media_kind.value = content.media_kind || "";
     } else {
       form.elements.client_id.value = state.filters.client_id || (active.length === 1 ? active[0].id : "");
       form.elements.scheduled_date.value = todayISO();
-      form.elements.status.value = "planejado";
+      form.elements.client_id.value = preset?.client_id || form.elements.client_id.value;
+      if (preset?.scheduled_date) form.elements.scheduled_date.value = preset.scheduled_date;
+      form.elements.approval_status.value = "rascunho";
+      form.elements.production_status.value = "";
     }
     syncMediaKind();
     syncCaption();
@@ -265,11 +271,11 @@ export function setupContents({ api, state, toast, confirm, navigate }) {
     saving = true;
     setBusy(submit, true);
     try {
-      if (editing) await api.updateContent(editing.id, data);
-      else await api.createContent(data);
+      const saved = editing ? await api.updateContent(editing.id, data) : await api.createContent(data);
       closeDialog(dialog);
       toast(editing ? "Conteúdo atualizado" : "Conteúdo cadastrado");
-      await load();
+      const callback = afterSave; afterSave = null;
+      if (callback) await callback(saved); else await load();
     } catch (error) {
       showFieldErrors(form, error.fields || {}, error.message);
     } finally {
@@ -351,5 +357,5 @@ export function setupContents({ api, state, toast, confirm, navigate }) {
   on(document, "click", "[data-edit-content]", (event, btn) => { const c = find(btn.dataset.editContent); if (c) openForm(c); });
   on(document, "click", "[data-delete-content]", (event, btn) => { const c = find(btn.dataset.deleteContent); if (c) remove(c); });
 
-  return { load, renderLoading };
+  return { load, renderLoading, openForm };
 }

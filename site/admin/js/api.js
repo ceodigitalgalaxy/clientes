@@ -2,8 +2,8 @@
    Valida os dados antes de enviar (domain/rules.js); o banco confere de novo
    com as próprias regras e só aceita membros da equipe (RLS). */
 
-import { validateClient, validateContent, validateContentFilters, parseUsername, passwordProblem, CONTENT_STATUS, isUuid, validateAd, validateAdFilters, AD_LIMITS, validateBrandKit } from "./domain/rules.js?v=73c6ab8727";
-import { UPLOAD_LIMITS, fileName, fileProblem, resizeImage } from "../../js/lib/storage.js?v=73c6ab8727";
+import { validateClient, validateContent, validateContentFilters, parseUsername, passwordProblem, CONTENT_STATUS, PRODUCTION_STATUS, isUuid, validateAd, validateAdFilters, AD_LIMITS, validateBrandKit, validateBatch } from "./domain/rules.js?v=887272bbb7";
+import { UPLOAD_LIMITS, fileName, fileProblem, resizeImage } from "../../js/lib/storage.js?v=887272bbb7";
 
 export class ApiError extends Error {
   constructor(status, message, fields) { super(message); this.status = status; this.fields = fields || {}; }
@@ -182,8 +182,70 @@ export function createApi({ store, onSessionLost, access = null, storage = null 
     })
   };
 
+  /* ---------- Central de aprovação ---------- */
+  const ids = (list, label = "Seleção inválida.") => {
+    const unique = [...new Set(list || [])];
+    if (unique.length > 200 || !unique.every(isUuid)) throw new ApiError(422, label);
+    return unique;
+  };
+  const expiresOf = (date) => {
+    if (!date) return null;
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) throw new ApiError(422, "Data de expiração inválida.", { expires_at: "Data inválida." });
+    const end = new Date(`${date}T23:59:59`);
+    if (!(end > new Date())) throw new ApiError(422, "A data de expiração precisa ser no futuro.", { expires_at: "Escolha uma data no futuro." });
+    return end.toISOString();
+  };
+  /** Arquivos das versões enviadas, com link assinado (equipe) */
+  async function signView(view) {
+    const paths = (view.items || []).flatMap((i) => (i.content?.assets || []).map((a) => a.storage_path)).filter(Boolean);
+    const signed = storage && paths.length ? await storage.sign("content-media", [...new Set(paths)]) : {};
+    return {
+      ...view,
+      client: { name: view.client?.name || "", logo: view.client?.logo_path && storage ? storage.publicUrl("client-logos", view.client.logo_path) : null },
+      items: (view.items || []).map((i) => ({ ...i, content: i.content ? { ...i.content, assets: (i.content.assets || []).map(({ storage_path, url, ...a }) => ({ ...a, src: url || signed[storage_path] || null, file: Boolean(storage_path) })) } : null }))
+    };
+  }
+  const approvals = {
+    listBatches: guard((filters = {}) => store.listBatches(isUuid(filters.client_id) ? { client_id: filters.client_id } : {})),
+    createBatch: guard((data) => store.createBatch(requireValid(validateBatch(data)))),
+    updateBatch: guard((id, data) => store.updateBatch(id, requireValid(validateBatch(data, { requireClient: false })))),
+    setBatchOptions: guard((id, { allow_individual, allow_bulk }) => {
+      if (!allow_individual && !allow_bulk) throw new ApiError(422, "Deixe o cliente aprovar de pelo menos um jeito (individual ou em lote).");
+      return store.updateBatch(id, { allow_individual: Boolean(allow_individual), allow_bulk: Boolean(allow_bulk) });
+    }),
+    archiveBatch: guard((id, archived) => store.updateBatch(id, { archived_at: archived ? new Date().toISOString() : null })),
+    deleteBatch: guard((id) => store.deleteBatch(id)),
+    /** Tudo do lote para gerenciar: itens, versões enviadas, decisões e histórico */
+    batchDetail: guard(async (batchId) => {
+      const [items, decisions, events] = await Promise.all([store.listBatchItems(batchId), store.listDecisions({ batchId }), store.listEvents({ batchId })]);
+      const versions = await store.listVersions({ ids: [...new Set(items.map((i) => i.version_id).filter(Boolean))] });
+      return { items, decisions, events, versions };
+    }),
+    setBatchItems: guard((batchId, contentIds) => store.approvalRpc("approval_set_items", { p_batch: batchId, p_contents: ids(contentIds, "Seleção de conteúdos inválida.") })),
+    /** "Gerar link para aprovação": envia os escolhidos e devolve o token do link */
+    publishBatch: guard(async (batchId, { items, title, intro, mode, expiresOn = null, allowIndividual = true, allowBulk = true, regenerate = false }) => {
+      const fields = {};
+      const chosen = ids(items, "Seleção de conteúdos inválida.");
+      if (!chosen.length) fields.items = "Escolha pelo menos um conteúdo.";
+      if (!String(title || "").trim()) fields.title = "Dê um título ao lote.";
+      if (String(intro || "").length > 1000) fields.intro = "Use até 1.000 caracteres.";
+      if (!allowIndividual && !allowBulk) fields.allow_individual = "Deixe o cliente aprovar de pelo menos um jeito.";
+      if (Object.keys(fields).length) throw new ApiError(422, "Revise os campos destacados.", fields);
+      return store.approvalRpc("approval_publish", { p_batch: batchId, p_items: chosen, p_title: String(title).trim().slice(0, 120), p_intro: String(intro || "").trim() || null,
+        p_mode: mode === "final" ? "final" : "planejamento", p_expires: expiresOf(expiresOn), p_allow_individual: Boolean(allowIndividual), p_allow_bulk: Boolean(allowBulk), p_regenerate: Boolean(regenerate) });
+    }),
+    resendItems: guard((batchId, itemIds) => store.approvalRpc("approval_resend", { p_batch: batchId, p_items: ids(itemIds) })),
+    linkToken: guard((batchId) => store.approvalRpc("approval_link_token", { p_batch: batchId })),
+    regenerateLink: guard((batchId, expiresOn = null) => store.approvalRpc("approval_link_regenerate", { p_batch: batchId, p_expires: expiresOf(expiresOn) })),
+    revokeLink: guard((batchId) => store.approvalRpc("approval_link_revoke", { p_batch: batchId })),
+    previewBatch: guard(async (batchId) => signView(await store.approvalRpc("approval_preview", { p_batch: batchId }))),
+    unreadEvents: guard(() => store.listEvents({ unread: true })),
+    markRead: guard((eventIds = null) => store.approvalRpc("approval_mark_read", { p_ids: eventIds ? ids(eventIds) : null }))
+  };
+
   return {
     ...ads,
+    ...approvals,
     logoUrl: (path) => (storage && path ? storage.publicUrl("client-logos", path) : null),
 
     /** Foto do cliente: diminui no navegador, envia e troca a antiga */
@@ -222,13 +284,15 @@ export function createApi({ store, onSessionLost, access = null, storage = null 
 
     listAssets: guard((contentId) => assetsWithSources(contentId)),
     /** Envia um arquivo da arte final (imagem ou vídeo) para o fim do carrossel */
-    addAssetFile: guard(async (content, file, { position, onProgress } = {}) => {
-      const problem = fileProblem(file, { types: UPLOAD_LIMITS.mediaTypes, maxBytes: UPLOAD_LIMITS.mediaBytes });
+    addAssetFile: guard(async (content, file, { position, onProgress, role = "midia" } = {}) => {
+      const problem = fileProblem(file, { types: UPLOAD_LIMITS.contentTypes, maxBytes: UPLOAD_LIMITS.mediaBytes });
       if (problem) throw new ApiError(422, problem);
       const path = `${content.client_id}/${content.id}/${fileName(file.type)}`;
       await storage.upload("content-media", path, file, { onProgress });
+      const kind = file.type === "application/pdf" ? "pdf" : file.type.startsWith("video/") ? "video" : "image";
+      const name = String(file.name || "").replace(/[\u0000-\u001f]/g, "").slice(0, 160) || null;
       try {
-        return await store.addAsset({ content_id: content.id, kind: file.type.startsWith("video/") ? "video" : "image", storage_path: path, position });
+        return await store.addAsset({ content_id: content.id, kind, role: kind === "pdf" ? "midia" : role, name, storage_path: path, position });
       } catch (error) {
         await storage.remove("content-media", [path]).catch(() => {});
         throw error;
@@ -244,10 +308,29 @@ export function createApi({ store, onSessionLost, access = null, storage = null 
       await store.moveAsset(a.id, b.position);
       await store.moveAsset(b.id, a.position);
     }),
+    /** Capa, thumbnail do vídeo ou mídia comum (galeria/carrossel) */
+    setAssetRole: guard((asset, role) => {
+      if (!["midia", "capa", "thumbnail"].includes(role)) throw new ApiError(422, "Papel do arquivo inválido.");
+      return store.setAssetRole(asset.id, role);
+    }),
+    /** O arquivo só sai do armazenamento se nenhuma versão enviada ao cliente usar */
     deleteAsset: guard(async (asset) => {
       const removed = await store.deleteAsset(asset.id);
       const path = removed?.storage_path || asset.storage_path;
-      if (path) await storage.remove("content-media", [path]).catch(() => {});
+      if (!path) return;
+      const inHistory = await store.approvalRpc("media_in_history", { p_path: path }).catch(() => true);
+      if (!inHistory) await storage.remove("content-media", [path]).catch(() => {});
+    }),
+    setContentProduction: guard((contentId, production) => {
+      if (production !== null && !PRODUCTION_STATUS[production]) throw new ApiError(422, "Etapa de produção inválida.");
+      return store.setContentProduction(contentId, production);
+    }),
+    /** Versões enviadas e decisões do cliente pelo link (mais recentes primeiro) */
+    contentApprovalHistory: guard(async (contentId) => {
+      const [versions, decisions, legacy] = await Promise.all([
+        store.listVersions({ contentId }), store.listDecisions({ contentId }), store.listApprovals(contentId).catch(() => [])
+      ]);
+      return { versions, decisions, legacy };
     }),
     listApprovals: guard((contentId) => store.listApprovals(contentId)),
     sendForApproval: guard((contentId) => store.setContentStatus(contentId, "aguardando_aprovacao")),

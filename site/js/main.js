@@ -8,20 +8,20 @@
    para a aba e no botão "Atualizar").
    ========================================================================== */
 
-import { createSupabaseRepository } from "./data/supabase-repository.js?v=73c6ab8727";
-import { createAuth } from "./lib/auth.js?v=73c6ab8727";
-import { SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY, PORTAL_FEATURES } from "./config.js?v=73c6ab8727";
-import { $, esc, on, reduceMotion } from "./lib/dom.js?v=73c6ab8727";
-import { icon, brandMark } from "./lib/icons.js?v=73c6ab8727";
-import { monthKey, addMonths, addDays, monthLabel, weekLabel, weekDays, todayISO, fromISO, daysInMonth } from "./lib/dates.js?v=73c6ab8727";
-import { summarize } from "./domain/status.js?v=73c6ab8727";
-import { createHighlights, pickHighlights } from "./ui/highlights.js?v=73c6ab8727";
-import { createAdsView } from "./ui/ads-portal.js?v=73c6ab8727";
-import { buildCalendarPdf, pdfFileName } from "./ui/calendar-pdf.js?v=73c6ab8727";
-import { renderCalendar, renderAgenda, renderLegend, setupDayPopover } from "./ui/calendar.js?v=73c6ab8727";
-import { createDrawer } from "./ui/drawer.js?v=73c6ab8727";
-import { renderIdeas, setupIdeaModal } from "./ui/ideas.js?v=73c6ab8727";
-import { toast } from "./ui/toast.js?v=73c6ab8727";
+import { createSupabaseRepository } from "./data/supabase-repository.js?v=887272bbb7";
+import { createAuth } from "./lib/auth.js?v=887272bbb7";
+import { SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY, PORTAL_FEATURES } from "./config.js?v=887272bbb7";
+import { $, esc, on, reduceMotion } from "./lib/dom.js?v=887272bbb7";
+import { icon, brandMark } from "./lib/icons.js?v=887272bbb7";
+import { monthKey, addMonths, addDays, monthLabel, weekLabel, weekDays, todayISO, fromISO, daysInMonth } from "./lib/dates.js?v=887272bbb7";
+import { summarize } from "./domain/status.js?v=887272bbb7";
+import { createHighlights, pickHighlights } from "./ui/highlights.js?v=887272bbb7";
+import { createAdsView } from "./ui/ads-portal.js?v=887272bbb7";
+import { buildCalendarPdf, pdfFileName } from "./ui/calendar-pdf.js?v=887272bbb7";
+import { renderCalendar, renderAgenda, renderLegend, setupDayPopover } from "./ui/calendar.js?v=887272bbb7";
+import { createDrawer } from "./ui/drawer.js?v=887272bbb7";
+import { renderIdeas, setupIdeaModal } from "./ui/ideas.js?v=887272bbb7";
+import { toast } from "./ui/toast.js?v=887272bbb7";
 
 /* O portal não abre dentro de outro site (proteção contra clique disfarçado).
    A página fica invisível até esta checagem (body.portal em style.css). */

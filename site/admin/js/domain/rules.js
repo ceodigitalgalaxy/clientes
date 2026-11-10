@@ -7,7 +7,10 @@
    Sem dependências: roda no navegador e no Node.
    ========================================================================== */
 
-/** Status do fluxo de produção (guardado no conteúdo) */
+import { APPROVAL_STATUS, PRODUCTION_STATUS, statusFromPair, pairFromStatus } from "../../../js/domain/approvals.js?v=887272bbb7";
+export { APPROVAL_STATUS, PRODUCTION_STATUS, statusFromPair, pairFromStatus };
+
+/** Situação no calendário (coluna antiga "status", calculada da aprovação + produção) */
 export const CONTENT_STATUS = {
   planejado:            { label: "Planejado" },
   em_producao:          { label: "Em produção" },
@@ -28,7 +31,8 @@ export const NETWORKS = {
   linkedin: "LinkedIn",
   youtube: "YouTube",
   google: "Perfil do Google",
-  whatsapp: "WhatsApp"
+  whatsapp: "WhatsApp",
+  outra: "Outra rede"
 };
 
 /** Formatos: mesmas chaves de ACTIVITY_TYPES (cores e ícones do calendário) */
@@ -44,7 +48,7 @@ export const MEDIA_KINDS = { image: "Imagem", video: "Vídeo" };
 
 export const LIMITS = {
   clientName: 120, slug: 60, segment: 120, contactName: 120, clientNotes: 2000,
-  title: 160, mediaUrl: 2000, caption: 2200, internalNotes: 4000, sharedNotes: 2000, idea: 2000, contentPlan: 4000, artText: 1000, objective: 500
+  title: 160, mediaUrl: 2000, caption: 2200, internalNotes: 4000, sharedNotes: 2000, idea: 2000, contentPlan: 4000, artText: 1000, objective: 500, pillar: 80, cta: 200
 };
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
@@ -125,15 +129,27 @@ export function validateContent(input = {}) {
     format: clean(input.format),
     media_url: clean(input.media_url),
     media_kind: clean(input.media_kind),
+    pillar: clean(input.pillar),
     idea: clean(input.idea),
     content_plan: clean(input.content_plan),
     art_text: clean(input.art_text),
     objective: clean(input.objective),
     caption: clean(input.caption),
+    cta: clean(input.cta),
     internal_notes: clean(input.internal_notes),
     client_notes: clean(input.client_notes),
     status: clean(input.status) || "planejado"
   };
+  // Aprovação e produção separadas; a situação no calendário sai das duas
+  if (input.approval_status !== undefined || input.production_status !== undefined) {
+    value.approval_status = clean(input.approval_status) || "rascunho";
+    value.production_status = clean(input.production_status);
+    if (!APPROVAL_STATUS[value.approval_status]) errors.approval_status = "Escolha a situação da aprovação.";
+    if (value.production_status && !PRODUCTION_STATUS[value.production_status]) errors.production_status = "Escolha a etapa de produção.";
+    value.status = statusFromPair(value.approval_status, value.production_status);
+  } else {
+    Object.assign(value, pairFromStatus(value.status));
+  }
   if (value.scheduled_time && value.scheduled_time.length > 5) value.scheduled_time = value.scheduled_time.slice(0, 5);
   if (!value.media_url) value.media_kind = null;
   else if (!value.media_kind) value.media_kind = FORMATS[value.format]?.media || "image";
@@ -152,7 +168,7 @@ export function validateContent(input = {}) {
     else if (value.media_url.length > LIMITS.mediaUrl) errors.media_url = "Link muito longo.";
     if (!MEDIA_KINDS[value.media_kind]) errors.media_kind = "Escolha se é imagem ou vídeo.";
   }
-  [["idea", LIMITS.idea], ["content_plan", LIMITS.contentPlan], ["art_text", LIMITS.artText], ["objective", LIMITS.objective]].forEach(([field, max]) => {
+  [["idea", LIMITS.idea], ["content_plan", LIMITS.contentPlan], ["art_text", LIMITS.artText], ["objective", LIMITS.objective], ["pillar", LIMITS.pillar], ["cta", LIMITS.cta]].forEach(([field, max]) => {
     if (value[field] && value[field].length > max) errors[field] = `Use até ${max.toLocaleString("pt-BR")} caracteres.`;
   });
   if (value.caption && value.caption.length > LIMITS.caption) errors.caption = `A legenda pode ter até ${LIMITS.caption} caracteres.`;
@@ -174,11 +190,11 @@ export function validateContentFilters(input = {}) {
 }
 
 /* Regras de usuário e senha: as mesmas do portal do cliente (site/js/domain/accounts.js) */
-export { USERNAME_LIMITS, PASSWORD_LIMITS, normalizeUsername, parseUsername, loginEmail, usernameFromEmail, accountKind, passwordProblem } from "../../../js/domain/accounts.js?v=73c6ab8727";
+export { USERNAME_LIMITS, PASSWORD_LIMITS, normalizeUsername, parseUsername, loginEmail, usernameFromEmail, accountKind, passwordProblem } from "../../../js/domain/accounts.js?v=887272bbb7";
 
 /* ---------- Anúncios ---------- */
-export { AD_STAGES, AD_STATUS, AD_CLIENT_STATUS, AD_PLATFORMS, AD_OBJECTIVES, AD_FORMATS, AD_CTAS, AD_LIMITS, AD_EVENTS, platformLabel, adCanSend, adSendBlock } from "../../../js/domain/ads.js?v=73c6ab8727";
-import { AD_STAGES as STAGES_OF_ADS, AD_STATUS as STATUS_OF_ADS, AD_PLATFORMS as PLATFORMS_OF_ADS, AD_OBJECTIVES as OBJECTIVES_OF_ADS, AD_FORMATS as FORMATS_OF_ADS, AD_LIMITS as L } from "../../../js/domain/ads.js?v=73c6ab8727";
+export { AD_STAGES, AD_STATUS, AD_CLIENT_STATUS, AD_PLATFORMS, AD_OBJECTIVES, AD_FORMATS, AD_CTAS, AD_LIMITS, AD_EVENTS, platformLabel, adCanSend, adSendBlock } from "../../../js/domain/ads.js?v=887272bbb7";
+import { AD_STAGES as STAGES_OF_ADS, AD_STATUS as STATUS_OF_ADS, AD_PLATFORMS as PLATFORMS_OF_ADS, AD_OBJECTIVES as OBJECTIVES_OF_ADS, AD_FORMATS as FORMATS_OF_ADS, AD_LIMITS as L } from "../../../js/domain/ads.js?v=887272bbb7";
 
 const isHttpUrl = (value) => { try { return ["http:", "https:"].includes(new URL(value).protocol); } catch { return false; } };
 
@@ -276,4 +292,34 @@ export function validateBrandKit(input = {}) {
   const logos = {};
   Object.keys(BRAND_LOGO_SLOTS).forEach((key) => { const v = input.logos?.[key]; if (typeof v === "string" && /^[0-9a-f-]{36}\/[A-Za-z0-9._-]+$/.test(v)) logos[key] = v; });
   return { value: { enabled: input.enabled !== false, colors, logos, units, campaigns, models, legal: legal || null }, errors };
+}
+
+
+/* ---------- Central de aprovação: lote ---------- */
+export const BATCH_MODES = ["planejamento", "final"];
+const MONTH = /^\d{4}-(0[1-9]|1[0-2])$/;
+
+/**
+ * Lote de aprovação (título, mês AAAA-MM, modo e mensagem de abertura).
+ * @returns {{ value: object, errors: Record<string, string> }}
+ */
+export function validateBatch(input = {}, { requireClient = true } = {}) {
+  const errors = {};
+  const month = clean(input.month);
+  const value = {
+    title: clean(input.title),
+    month: month && MONTH.test(month.slice(0, 7)) ? `${month.slice(0, 7)}-01` : null,
+    approval_mode: clean(input.approval_mode) || "planejamento",
+    intro_message: clean(input.intro_message)
+  };
+  if (requireClient) {
+    value.client_id = clean(input.client_id);
+    if (!isUuid(value.client_id)) errors.client_id = "Escolha o cliente.";
+  }
+  if (!value.title) errors.title = "Dê um título ao lote (ex.: Planejamento de novembro).";
+  else if (value.title.length > 120) errors.title = "Use até 120 caracteres.";
+  if (!value.month) errors.month = "Escolha o mês do planejamento.";
+  if (!BATCH_MODES.includes(value.approval_mode)) errors.approval_mode = "Escolha o tipo de aprovação.";
+  if (value.intro_message && value.intro_message.length > 1000) errors.intro_message = "Use até 1.000 caracteres.";
+  return { value, errors };
 }

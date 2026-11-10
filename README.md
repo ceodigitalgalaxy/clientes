@@ -84,6 +84,22 @@ Serve a pasta `site/` como o GitHub Pages. Não usa chave nenhuma: entra com usu
 - A página tem CSP (só arquivos do site e o Supabase do painel), `noindex` e não aparece dentro de outros sites (iframe).
 - Sessão: token de acesso de 1 hora, renovado sozinho. "Sair" apaga a sessão do navegador e a encerra no Supabase.
 
+### Central de aprovação de conteúdos (link público, sem login)
+
+Menu **Aprovações** no painel:
+
+1. **Novo lote**: cliente, título, mês e o tipo de aprovação — **Planejamento** (o cliente aprova tema, ideia, formato, data e abordagem; arte e legenda podem não estar prontas) ou **Conteúdo final** (arte, vídeo, carrossel, legenda e data).
+2. **Adicionar conteúdo**: marque os conteúdos do mês do cliente (ou crie um novo dali mesmo). Ordene com as setas; retirar um conteúdo preserva o histórico.
+3. **Gerar link para aprovação**: escolha os conteúdos, título, mensagem de abertura, expiração opcional e se o cliente pode aprovar um a um e/ou todos de uma vez. Cada conteúdo enviado vira uma **versão congelada**: o cliente aprova exatamente o que viu. O link é copiado na hora; **Copiar mensagem WhatsApp** já traz o texto pronto com o link.
+4. O cliente abre `https://clientes.digitalgalaxy.com.br/aprovacao/#<código>` (sem conta, sem senha), vê o aviso do tipo de aprovação, o progresso, a lista (ou o calendário, que no celular vira agenda) com filtros, e em cada cartão **Aprovar conteúdo** (com confirmação) ou **Solicitar ajuste** (comentário obrigatório), ou **Aprovar todos os pendentes** (confirmação com a quantidade; quem tem ajuste pedido não entra). Na primeira ação pedimos um nome para o histórico (identifica a sessão, não comprova identidade).
+5. As respostas aparecem no painel: contagens e status geral de cada lote, quem precisa aprovar, **Avisos** (a cada 30 s, sem recarregar), histórico de cada lote e de cada conteúdo, e **Relatório PDF**.
+6. Ajuste pedido: edite o conteúdo e clique em **Reenviar nova versão**; o cliente vê "Revisado e reenviado" com o pedido anterior. Conteúdo alterado depois do envio fica marcado no painel até ser reenviado.
+7. **Regenerar link** (o anterior para na hora), **Desativar link**, **Visualizar como cliente** (pré-visualização só para a equipe), **Arquivar lote**. Lote já enviado não é apagado.
+
+Segurança: token de 32 bytes aleatórios (43 caracteres) depois do `#` (não vai ao servidor do site nem em Referer); no banco só o SHA-256 (o token fica cifrado no Vault para copiar de novo); tudo conferido na função `aprovacao` (Edge Function) e no banco, por lote; limite de tentativas por IP e por link; arquivos por links assinados de 30 minutos; páginas com `noindex` e `robots.txt`. Qualquer pessoa com o link válido pode ver e aprovar: envie só ao cliente e desative quando precisar. Avisos por e-mail/WhatsApp ainda não existem (`approval_events` está pronto para isso).
+
+Status separados no conteúdo: **Aprovação** (rascunho, aguardando aprovação, aprovado, ajustes solicitados, revisado e reenviado) e **Produção** (em produção, pronto para agendar, agendado, publicado). O calendário continua usando a situação calculada dos dois.
+
 ### Gerador de artes do cliente
 
 O cliente cria artes prontas (oferta de produto, plano/pacote de serviço e aviso de feriado ou horário) com a identidade visual da marca dele, em **stories** (1080×1920), **feed** (1080×1080) e **A4 para impressão** (2480×3508). Fica em `clientes.digitalgalaxy.com.br/artes/` e aparece como a aba **Criar artes** no portal, só para clientes com a identidade liberada.
@@ -158,6 +174,7 @@ node admin/test/portal.test.mjs                   # links de mídia, repositóri
 PLAYWRIGHT=$P node admin/test/e2e.mjs             # painel da agência, ponta a ponta
 PLAYWRIGHT=$P node admin/test/portal-e2e.mjs      # painel → calendário do cliente, ponta a ponta
 PLAYWRIGHT=$P node admin/test/review-e2e.mjs      # foto, arte final, aprovação/ajuste e importação, ponta a ponta
+PLAYWRIGHT=$P node admin/test/approvals-e2e.mjs    # central de aprovação: lote → link → cliente (computador e celular) → avisos → nova versão → aprovar todos → relatório → desativar
 PLAYWRIGHT=$P node admin/test/ads-e2e.mjs         # aprovação de anúncios: rascunho → envio → alterações → nova versão → aprovação
 PLAYWRIGHT=$P UX_SHOTS=pasta node admin/test/ux-shots.mjs   # só capturas do portal (computador e celular) para revisão visual
 PLAYWRIGHT=$P UX_SHOTS=pasta node admin/test/ux-admin-shots.mjs   # só capturas do painel no celular, com a medida de rolagem lateral

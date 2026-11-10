@@ -159,7 +159,7 @@ await step("Foto aparece no portal do cliente", async () => {
 
 await step("Arte final: enviar duas imagens e um link de vídeo, na ordem", async () => {
   await adminOpen("Carrossel de lançamento");
-  assert.match(await admin.textContent("#content-drawer .final-art__empty"), /Nenhuma arte final/);
+  assert.match(await admin.textContent("#content-drawer .final-art__empty"), /Nenhum arquivo ainda/);
   await admin.setInputFiles("#content-drawer [data-final-files]", [
     { name: "capa.png", mimeType: "image/png", buffer: FIX("arte.png") },
     { name: "segunda.png", mimeType: "image/png", buffer: FIX("arte2.png") }
@@ -181,17 +181,26 @@ await step("Arte final: enviar duas imagens e um link de vídeo, na ordem", asyn
 });
 
 await step("Arquivo de tipo não aceito é recusado com aviso", async () => {
-  await admin.setInputFiles("#content-drawer [data-final-files]", { name: "planilha.pdf", mimeType: "application/pdf", buffer: Buffer.from("%PDF") });
+  await admin.setInputFiles("#content-drawer [data-final-files]", { name: "planilha.zip", mimeType: "application/zip", buffer: Buffer.from("PK") });
   await admin.waitForSelector("#content-drawer .upload.is-error");
   assert.match(await admin.textContent("#content-drawer .upload.is-error"), /Formato não aceito/);
   assert.equal(await admin.locator("#content-drawer .final-item").count(), 3);
 });
 
-await step("Enviar para aprovação", async () => {
-  await admin.click("#content-drawer [data-send-approval]");
-  await toastSays(admin, /Enviado para o cliente aprovar/);
-  await admin.waitForFunction(() => /Aguardando o cliente aprovar/.test(document.querySelector("#content-drawer [data-approval-actions]")?.textContent || ""));
-  assert.equal((await store.getContent(lancamento.id)).status, "aguardando_aprovacao");
+await step("PDF de referência e capa: aceitos e marcados", async () => {
+  await admin.setInputFiles("#content-drawer [data-final-files]", { name: "briefing.pdf", mimeType: "application/pdf", buffer: Buffer.from("%PDF-1.4") });
+  await admin.waitForFunction(() => document.querySelectorAll("#content-drawer .final-item").length === 4);
+  assert.match(await admin.textContent("#content-drawer .final-item:nth-child(4)"), /briefing\.pdf/);
+  await admin.selectOption("#content-drawer .final-item:nth-child(1) [data-asset-role]", "capa");
+  await toastSays(admin, /Definido como capa/);
+  assert.equal((await store.listAssets(lancamento.id))[0].role, "capa");
+  // Tira o PDF (nunca enviado ao cliente: sai do armazenamento)
+  await admin.click("#content-drawer .final-item:nth-child(4) [data-asset-delete]");
+  await admin.click('#confirm-modal [data-confirm="ok"]');
+  await admin.waitForFunction(() => document.querySelectorAll("#content-drawer .final-item").length === 3);
+  // O cliente passa a ver no calendário (aprovação pelo link fica em Aprovações)
+  await store.setContentStatus(lancamento.id, "aguardando_aprovacao");
+  assert.equal((await store.getContent(lancamento.id)).approval_status, "aguardando_aprovacao");
 });
 
 let versionSent = 0;
@@ -228,20 +237,19 @@ await step("Cliente pede ajuste com mensagem", async () => {
 await step("Painel mostra o pedido de ajuste no histórico", async () => {
   await adminOpen("Carrossel de lançamento");
   await admin.waitForSelector("#content-drawer .history__item--ajustes");
-  assert.match(await admin.textContent("#content-drawer .history__item--ajustes"), /Cliente pediu ajuste.*versão \d+.*Trocar a foto da capa/s);
+  assert.match(await admin.textContent("#content-drawer .history__item--ajustes"), /Cliente pediu ajuste pelo portal.*versão \d+.*Trocar a foto da capa/s);
   assert.match(await admin.textContent("#content-drawer .drawer__badges"), /Ajustes solicitados/);
   assert.match(await admin.textContent('.row:has-text("Carrossel de lançamento") .row__status'), /Ajustes solicitados/);
 });
 
-await step("Equipe troca a capa e envia a nova versão", async () => {
+await step("Equipe troca a capa (nova versão)", async () => {
   await admin.click("#content-drawer .final-item:nth-child(1) [data-asset-delete]");
   await admin.click('#confirm-modal [data-confirm="ok"]');
   await admin.waitForFunction(() => document.querySelectorAll("#content-drawer .final-item").length === 2);
   assert.equal([...fake.files.keys()].filter((k) => k.startsWith("content-media/")).length, 1, "arquivo apagado do armazenamento");
   await admin.setInputFiles("#content-drawer [data-final-files]", { name: "capa-nova.png", mimeType: "image/png", buffer: FIX("arte2.png") });
   await admin.waitForFunction(() => document.querySelectorAll("#content-drawer .final-item").length === 3);
-  await admin.click("#content-drawer [data-send-approval]");
-  await admin.waitForFunction(() => /Aguardando o cliente aprovar/.test(document.querySelector("#content-drawer [data-approval-actions]")?.textContent || ""));
+  await store.setContentStatus(lancamento.id, "aguardando_aprovacao");
   assert.ok((await store.getContent(lancamento.id)).version > versionSent);
 });
 
@@ -270,7 +278,8 @@ await step("Painel: aprovado no histórico e marcar como publicado", async () =>
   await admin.waitForSelector("#content-drawer .history__item--aprovado");
   await shot(admin, "r05-historico");
   await admin.click("#content-drawer [data-mark-published]");
-  await admin.waitForFunction(() => /Conteúdo publicado/.test(document.querySelector("#content-drawer [data-approval-actions]")?.textContent || ""));
+  await admin.waitForFunction(() => /Publicado/.test(document.querySelector("#content-drawer [data-approval-actions]")?.textContent || ""));
+  assert.deepEqual([(await store.getContent(lancamento.id)).approval_status, (await store.getContent(lancamento.id)).production_status], ["aprovado", "publicado"]);
   await portalOpen("Carrossel de lançamento", "Publicado");
   assert.match(await portal.textContent("#drawer .decision"), /Conteúdo publicado/);
   await closePortal();

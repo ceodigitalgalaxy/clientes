@@ -99,6 +99,7 @@ export const PLATFORMS = {
   youtube: "YouTube",
   google: "Perfil do Google",
   whatsapp: "WhatsApp",
+  outra: "Outra rede",
   loja: "Na loja"
 };
 

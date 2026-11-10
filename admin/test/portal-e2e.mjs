@@ -14,6 +14,7 @@ import { createMemoryStore } from "./memory-store.mjs";
 import { createFakeSupabase } from "./fake-supabase.mjs";
 import { SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY } from "../../site/js/config.js";
 import { validateContent } from "../../site/admin/js/domain/rules.js";
+import { pairFromStatus } from "../../site/js/domain/approvals.js";
 
 const { chromium, devices } = await import(process.env.PLAYWRIGHT || "playwright");
 const HERE = path.dirname(fileURLToPath(import.meta.url));
@@ -87,11 +88,18 @@ const portal = await portalContext.newPage();
 watch(portal, "portal");
 
 /* ---------- Ajudantes ---------- */
+/** "status" antigo → os dois campos novos do formulário (aprovação e produção) */
+const withPair = (data) => {
+  if (!("status" in data)) return Object.entries(data);
+  const { status, ...rest } = data;
+  const pair = pairFromStatus(status);
+  return Object.entries({ ...rest, approval_status: pair.approval_status, production_status: pair.production_status || "" });
+};
 async function adminCreate(data) {
   await admin.waitForSelector("#content-modal:not([open])", { state: "attached" });
   await admin.click('.view__head [data-action="new-content"]');
   await admin.selectOption('#content-modal [name="client_id"]', { label: data.client });
-  for (const [name, value] of Object.entries(data)) {
+  for (const [name, value] of withPair(data)) {
     if (name === "client") continue;
     const el = admin.locator(`#content-modal [name="${name}"]`).first();
     if ((await el.evaluate((n) => n.tagName)) === "SELECT") await el.selectOption(value); else await el.fill(value);

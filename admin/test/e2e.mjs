@@ -9,6 +9,7 @@ import { createPreviewServer } from "../server.mjs";
 import { createMemoryStore } from "./memory-store.mjs";
 import { createFakeSupabase } from "./fake-supabase.mjs";
 import { SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY } from "../../site/js/config.js";
+import { pairFromStatus } from "../../site/js/domain/approvals.js";
 
 const { chromium } = await import(process.env.PLAYWRIGHT || "playwright");
 const PORT = 5611;
@@ -75,8 +76,15 @@ page.on("console", (m) => { if (m.type() === "error" && !m.text().startsWith("Fa
 page.on("pageerror", (e) => consoleErrors.push(e.message));
 const shot = async (name) => { if (SHOTS) await page.screenshot({ path: `${SHOTS}/${name}.png`, fullPage: true }); };
 const toastText = async () => (await page.locator(".toast").last().textContent()).trim();
+/** "status" antigo → os dois campos novos do formulário (aprovação e produção) */
+const withPair = (data) => {
+  if (!("status" in data)) return Object.entries(data);
+  const { status, ...rest } = data;
+  const pair = pairFromStatus(status);
+  return Object.entries({ ...rest, approval_status: pair.approval_status, production_status: pair.production_status || "" });
+};
 const fillContent = async (data) => {
-  for (const [name, value] of Object.entries(data)) {
+  for (const [name, value] of withPair(data)) {
     const el = page.locator(`#content-modal [name="${name}"]`).first();
     const tag = await el.evaluate((n) => n.tagName);
     if (tag === "SELECT") await el.selectOption(value); else await el.fill(value);
@@ -255,14 +263,14 @@ await step("Editar conteúdo (sobe a versão)", async () => {
   await page.fill('#content-modal [name="content_plan"]', "1. Forno abrindo\n2. Pães na vitrine");
   await page.fill('#content-modal [name="art_text"]', "Saiu agora!");
   await page.fill('#content-modal [name="objective"]', "Trazer movimento de manhã");
-  await page.selectOption('#content-modal [name="status"]', "aguardando_aprovacao");
+  await page.selectOption('#content-modal [name="approval_status"]', "aguardando_aprovacao");
   await page.click("#content-modal [type=submit]");
   await page.waitForFunction(() => document.querySelector(".toast:last-child")?.textContent.includes("Conteúdo atualizado"));
   await page.click('.row__title:text("Lançamento do pão de fermentação natural")');
   await page.waitForSelector("#content-drawer[open]");
   assert.match(await page.textContent(".drawer__version"), /Visível no calendário do cliente · versão 2/);
   assert.match(await page.textContent('#content-drawer .detail:has-text("Legenda") .caption-text'), /pão de fermentação natural!/);
-  assert.match(await page.textContent("#content-drawer"), /A ideia.*primeira fornada.*Como vai ser.*Forno abrindo.*Texto na arte.*Saiu agora!.*Objetivo.*movimento de manhã.*Referência · só a equipe vê/s);
+  assert.match(await page.textContent("#content-drawer"), /A ideia.*primeira fornada.*Roteiro \/ como vai ser.*Forno abrindo.*Texto na arte.*Saiu agora!.*Objetivo.*movimento de manhã.*Referência · só a equipe vê/s);
   const saved = (await store.listContents({})).find((c) => c.title === "Lançamento do pão de fermentação natural");
   assert.deepEqual([saved.idea, saved.art_text], ["Mostrar a primeira fornada do dia", "Saiu agora!"]);
   await page.click('#content-drawer [data-action="close-drawer"]');

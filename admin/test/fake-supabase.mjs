@@ -12,6 +12,7 @@
 import { randomUUID, randomBytes } from "node:crypto";
 import { loginEmail, usernameFromEmail } from "../../site/admin/js/domain/rules.js";
 import { createHandler } from "../../supabase/functions/acesso-cliente/handler.js";
+import { createHandler as createApprovalHandler } from "../../supabase/functions/aprovacao/handler.js";
 
 /** Chave secreta de mentira: só o "servidor" (a função) conhece */
 export const FAKE_SECRET = "sb_secret_FAKE_SERVIDOR";
@@ -74,6 +75,22 @@ export function createFakeSupabase({ store, publishableKey }) {
     if (name === "portal_ad_list" && keys === "") return store.portalAds(user.id);
     if (name === "portal_ad_decide" && ["p_ad_id,p_decision,p_message,p_version", "p_ad_id,p_decision,p_version"].includes(keys)) return store.portalAdDecide(actor, body);
     if (name === "portal_decide" && ["p_content_id,p_decision,p_message,p_version", "p_content_id,p_decision,p_version"].includes(keys)) return store.portalDecide(user.id, body);
+    /* Central de aprovação (equipe): as funções conferem se é membro */
+    const team = { id: user.id, member: user.member, username: usernameFromEmail(user.email) };
+    const approvalRpc = {
+      approval_set_items: ["p_batch,p_contents", "approvalSetItems"],
+      approval_publish: [null, "approvalPublish"],
+      approval_resend: ["p_batch,p_items", "approvalResend"],
+      approval_link_token: ["p_batch", "approvalLinkToken"],
+      approval_link_regenerate: [null, "approvalLinkRegenerate"],
+      approval_link_revoke: ["p_batch", "approvalLinkRevoke"],
+      approval_preview: ["p_batch", "approvalPreview"],
+      approval_mark_read: [null, "approvalMarkRead"],
+      media_in_history: ["p_path", "mediaInHistory"]
+    }[name];
+    if (approvalRpc && (!approvalRpc[0] || approvalRpc[0] === keys)) return store[approvalRpc[1]](team, body || {});
+    // As públicas só a chave secreta executa (como o GRANT para service_role)
+    if (name.startsWith("approval_public_")) return { error: json(404, { code: "PGRST202", message: "Could not find the function" }) };
     return { error: json(404, { code: "PGRST202", message: "Could not find the function with the given parameters" }) };
   }
 
@@ -109,6 +126,7 @@ export function createFakeSupabase({ store, publishableKey }) {
     if (table === "content_assets") {
       if (method === "GET") return store.listAssets(eq(params, "content_id"));
       if (method === "POST") return [await store.addAsset(body)];
+      if (method === "PATCH" && Object.keys(body).join() === "role") return [await store.setAssetRole(id, body.role)];
       if (method === "PATCH") return [await store.moveAsset(id, body.position)];
       if (method === "DELETE") return [await store.deleteAsset(id)];
     }
@@ -130,6 +148,21 @@ export function createFakeSupabase({ store, publishableKey }) {
     if (table === "ad_events" && method === "GET") return store.listAdEvents(eq(params, "ad_id"));
     if (table === "ad_versions" && method === "GET") return store.listAdVersions(eq(params, "ad_id"));
     if (table === "content_approvals" && method === "GET") return store.listApprovals(eq(params, "content_id"));
+    /* Central de aprovação (RLS: equipe lê; lotes com colunas liberadas) */
+    if (table === "approval_batch_summary" && method === "GET") return store.listBatchSummary({ client_id: eq(params, "client_id") });
+    if (table === "approval_batches") {
+      const actor = { id: user.id, member: true, username: usernameFromEmail(user.email) };
+      if (method === "POST") return [await store.createBatch(body, actor)];
+      if (method === "PATCH") return [await store.updateBatch(id, body)];
+      if (method === "DELETE") return store.deleteBatch(id);
+    }
+    if (table === "approval_items" && method === "GET") return store.listItems(eq(params, "batch_id"));
+    if (table === "content_versions" && method === "GET") {
+      const ids = params.get("id")?.match(/^in\.\((.*)\)$/)?.[1];
+      return store.listVersions({ content_id: eq(params, "content_id"), ids: ids === undefined ? undefined : ids.split(",").filter(Boolean) });
+    }
+    if (table === "approval_decisions" && method === "GET") return store.listDecisions({ batch_id: eq(params, "batch_id"), content_id: eq(params, "content_id") });
+    if (table === "approval_events" && method === "GET") return store.listEvents({ batch_id: eq(params, "batch_id"), content_id: eq(params, "content_id"), unread: params.get("read_at") === "is.null" });
     if (table === "contents") {
       if (method === "GET" && id) return [await store.getContent(id)];
       if (method === "GET") return (await store.listContents({ client_id: eq(params, "client_id"), status: eq(params, "status"), ...range(params, "scheduled_date") })).map(({ assets_count, ...c }) => ({ ...c, content_assets: [{ count: assets_count }] }));
@@ -143,6 +176,7 @@ export function createFakeSupabase({ store, publishableKey }) {
         return found;
       }
       if (method === "PATCH" && Object.keys(body).join() === "status") return [await store.setContentStatus(id, body.status)];
+      if (method === "PATCH" && Object.keys(body).join() === "production_status") return [await store.setContentProduction(id, body.production_status)];
       if (method === "PATCH") return [await store.updateContent(id, body)];
       if (method === "DELETE") { await store.deleteContent(id); return [{ id }]; }
     }
@@ -158,7 +192,7 @@ export function createFakeSupabase({ store, publishableKey }) {
   const BUCKETS = {
     "client-logos": { public: true, max: 2 * 1024 * 1024, types: ["image/png", "image/jpeg", "image/webp"] },
     "ad-media": { public: false, max: 50 * 1024 * 1024, types: ["image/png", "image/jpeg", "image/webp", "image/gif", "video/mp4", "video/webm", "video/quicktime"] },
-    "content-media": { public: false, max: 50 * 1024 * 1024, types: ["image/png", "image/jpeg", "image/webp", "image/gif", "video/mp4", "video/webm", "video/quicktime"] }
+    "content-media": { public: false, max: 50 * 1024 * 1024, types: ["image/png", "image/jpeg", "image/webp", "image/gif", "video/mp4", "video/webm", "video/quicktime", "application/pdf"] }
   };
   const serve = (key) => {
     const file = files.get(key);
@@ -171,6 +205,18 @@ export function createFakeSupabase({ store, publishableKey }) {
     if (method === "GET" && rest[0] === "sign") {
       const key = rest.slice(1).join("/");
       return signTokens.get(searchParams.get("token")) === key ? serve(key) : json(400, { message: "Invalid signature" });
+    }
+    // Chave secreta (só a função "aprovacao"): assina os arquivos que o banco liberou
+    if (headers.apikey === FAKE_SECRET && method === "POST" && rest[0] === "sign") {
+      const bucket = rest[1];
+      const { paths = [] } = JSON.parse(body || "{}");
+      return json(200, paths.map((path) => {
+        const key = `${bucket}/${path}`;
+        if (!files.has(key)) return { path, signedURL: null, error: "not found" };
+        const token = randomBytes(12).toString("hex");
+        signTokens.set(token, key);
+        return { path, signedURL: `/object/sign/${bucket}/${path.split("/").map(encodeURIComponent).join("/")}?token=${token}`, error: null };
+      }));
     }
     if (headers.apikey !== publishableKey) return json(401, { message: "Invalid API key" });
     const user = userById(accessTokens.get((headers.authorization || "").slice(7)));
@@ -255,6 +301,7 @@ export function createFakeSupabase({ store, publishableKey }) {
       if (pathname.startsWith("/storage/v1/object/")) return storageRoute({ method, pathname, searchParams, headers, body, bodyBuffer });
       // Funções do Supabase: não exigem apikey (a função confere quem chama)
       if (pathname === "/functions/v1/acesso-cliente") return this.callFunction({ method, url, headers, body });
+      if (pathname === "/functions/v1/aprovacao") return this.callApproval({ method, url, headers, body });
       const secret = headers.apikey === FAKE_SECRET;
       if (!secret && headers.apikey !== publishableKey) return json(401, { message: "Invalid API key" });
       const data = body ? JSON.parse(body) : undefined;
@@ -288,6 +335,9 @@ export function createFakeSupabase({ store, publishableKey }) {
           return json(200, {});
         }
       }
+      // Funções públicas de aprovação: só com a chave secreta (a função "aprovacao")
+      const publicRpc = { "/rest/v1/rpc/approval_public_view": "approvalPublicView", "/rest/v1/rpc/approval_public_decide": "approvalPublicDecide", "/rest/v1/rpc/approval_public_approve_all": "approvalPublicApproveAll" }[pathname];
+      if (secret && publicRpc && method === "POST") return json(200, await store[publicRpc](data));
       if (secret && pathname.startsWith("/rest/v1/")) {
         const result = await serviceRest(method, pathname.slice("/rest/v1/".length), searchParams, data);
         if (result?.error) return result.error;
@@ -350,6 +400,19 @@ export function createFakeSupabase({ store, publishableKey }) {
     },
     { allowedOrigins: ["http://localhost:5611", "http://localhost:5612", "http://localhost:5600"] }
   );
+  // A função pública "aprovacao" de verdade, com a chave secreta de mentira
+  const approvalFetch = async (url, init = {}) => {
+    const headers = Object.fromEntries(Object.entries(init.headers || {}).map(([k, v]) => [k.toLowerCase(), v]));
+    const answer = await fake.handle({ method: init.method || "GET", url, headers, body: init.body });
+    if (answer === "abort") throw new TypeError("rede");
+    return new Response(answer.status === 204 ? null : answer.body, { status: answer.status, headers: answer.headers });
+  };
+  const approvalHandler = createApprovalHandler({ url: "https://peieimwpkrattuldmjux.supabase.co", secret: FAKE_SECRET }, approvalFetch,
+    { allowedOrigins: ["http://localhost:5611", "http://localhost:5612", "http://localhost:5600", "http://localhost:5613", "http://localhost:5621", "http://localhost:5631"] });
+  fake.callApproval = async ({ method, url, headers, body }) => {
+    const response = await approvalHandler(new Request(url, { method, headers: { ...headers, "x-forwarded-for": headers["x-forwarded-for"] || "203.0.113.7" }, body: method === "GET" || method === "HEAD" ? undefined : body }));
+    return { status: response.status, headers: Object.fromEntries(response.headers), body: response.status === 204 ? "" : await response.text() };
+  };
   fake.callFunction = async ({ method, url, headers, body }) => {
     const response = await functionHandler(new Request(url, { method, headers, body: method === "GET" || method === "HEAD" ? undefined : body }));
     return { status: response.status, headers: Object.fromEntries(response.headers), body: response.status === 204 ? "" : await response.text() };

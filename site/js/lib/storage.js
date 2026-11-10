@@ -17,10 +17,12 @@ export const UPLOAD_LIMITS = {
   logoBytes: 2 * 1024 * 1024,
   mediaBytes: 50 * 1024 * 1024,
   logoTypes: ["image/png", "image/jpeg", "image/webp"],
-  mediaTypes: ["image/png", "image/jpeg", "image/webp", "image/gif", "video/mp4", "video/webm", "video/quicktime"]
+  mediaTypes: ["image/png", "image/jpeg", "image/webp", "image/gif", "video/mp4", "video/webm", "video/quicktime"],
+  // Arquivos do conteúdo também aceitam PDF de referência (bucket content-media)
+  contentTypes: ["image/png", "image/jpeg", "image/webp", "image/gif", "video/mp4", "video/webm", "video/quicktime", "application/pdf"]
 };
 
-const EXTENSIONS = { "image/png": "png", "image/jpeg": "jpg", "image/webp": "webp", "image/gif": "gif", "video/mp4": "mp4", "video/webm": "webm", "video/quicktime": "mov" };
+const EXTENSIONS = { "image/png": "png", "image/jpeg": "jpg", "image/webp": "webp", "image/gif": "gif", "video/mp4": "mp4", "video/webm": "webm", "video/quicktime": "mov", "application/pdf": "pdf" };
 
 /** Nome de arquivo seguro e único: <aleatório>.<extensão> */
 export function fileName(type) {

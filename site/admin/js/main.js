@@ -9,30 +9,31 @@
    O banco aplica as mesmas regras (RLS): esconder a tela não é a proteção.
    ========================================================================== */
 
-import { $, on } from "../../js/lib/dom.js?v=73c6ab8727";
-import { icon, brandMark } from "../../js/lib/icons.js?v=73c6ab8727";
-import { toast } from "../../js/ui/toast.js?v=73c6ab8727";
-import { SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY } from "../../js/config.js?v=73c6ab8727";
-import { createAuth } from "../../js/lib/auth.js?v=73c6ab8727";
-import { createStorage } from "../../js/lib/storage.js?v=73c6ab8727";
-import { createSupabaseStore } from "./data/store.js?v=73c6ab8727";
-import { createApi } from "./api.js?v=73c6ab8727";
-import { validateContentFilters } from "./domain/rules.js?v=73c6ab8727";
-import { createConfirm, showFieldErrors, setBusy } from "./ui/dialogs.js?v=73c6ab8727";
-import { setupClients } from "./views/clients.js?v=73c6ab8727";
-import { setupContents } from "./views/contents.js?v=73c6ab8727";
-import { setupAccess } from "./views/access.js?v=73c6ab8727";
-import { setupImport } from "./views/import.js?v=73c6ab8727";
-import { setupAds } from "./views/ads.js?v=73c6ab8727";
-import { setupBrand } from "./views/brand.js?v=73c6ab8727";
+import { $, on } from "../../js/lib/dom.js?v=887272bbb7";
+import { icon, brandMark } from "../../js/lib/icons.js?v=887272bbb7";
+import { toast } from "../../js/ui/toast.js?v=887272bbb7";
+import { SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY } from "../../js/config.js?v=887272bbb7";
+import { createAuth } from "../../js/lib/auth.js?v=887272bbb7";
+import { createStorage } from "../../js/lib/storage.js?v=887272bbb7";
+import { createSupabaseStore } from "./data/store.js?v=887272bbb7";
+import { createApi } from "./api.js?v=887272bbb7";
+import { validateContentFilters } from "./domain/rules.js?v=887272bbb7";
+import { createConfirm, showFieldErrors, setBusy } from "./ui/dialogs.js?v=887272bbb7";
+import { setupClients } from "./views/clients.js?v=887272bbb7";
+import { setupContents } from "./views/contents.js?v=887272bbb7";
+import { setupAccess } from "./views/access.js?v=887272bbb7";
+import { setupImport } from "./views/import.js?v=887272bbb7";
+import { setupAds } from "./views/ads.js?v=887272bbb7";
+import { setupBrand } from "./views/brand.js?v=887272bbb7";
+import { setupApprovals } from "./views/approvals.js?v=887272bbb7";
 
 /* O painel não abre dentro de outro site (proteção contra clique disfarçado).
    A página fica invisível até esta checagem (veja .admin em admin.css). */
 if (window.top !== window.self) throw new Error("O painel não pode ser aberto dentro de outra página.");
 document.body.classList.add("is-ready");
 
-const ROUTES = ["conteudos", "anuncios", "clientes", "importar"];
-const TITLES = { conteudos: "Conteúdos", anuncios: "Aprovação de anúncios", clientes: "Clientes", importar: "Importar conteúdos" };
+const ROUTES = ["conteudos", "aprovacoes", "anuncios", "clientes", "importar"];
+const TITLES = { conteudos: "Conteúdos", aprovacoes: "Aprovações de Conteúdo", anuncios: "Aprovação de anúncios", clientes: "Clientes", importar: "Importar conteúdos" };
 
 const auth = createAuth({ url: SUPABASE_URL, apiKey: SUPABASE_PUBLISHABLE_KEY, kind: "equipe" });
 const store = createSupabaseStore({
@@ -88,6 +89,7 @@ const contents = setupContents({ api, state, toast, confirm, navigate });
 setupAccess({ api, state, toast, confirm, onChanged: () => loadClients() });
 const importer = setupImport({ api, state, toast, navigate });
 const adsView = setupAds({ api, state, toast, confirm, navigate });
+const approvalsView = setupApprovals({ api, state, toast, confirm, navigate, openContentForm: (content, preset) => contents.openForm(content, preset) });
 
 /** Mostra a seção do endereço atual */
 async function showRoute() {
@@ -105,12 +107,14 @@ async function showRoute() {
     clients.renderLoading();
     if (state.route === "conteudos") contents.renderLoading();
     if (state.route === "anuncios") adsView.renderLoading();
+    if (state.route === "aprovacoes") approvalsView.renderLoading();
     const ok = await loadClients();
     if (!ok && state.route === "conteudos") { await contents.load(); return; }
   }
   if (state.route === "conteudos") await contents.load();
   if (state.route === "importar") importer.show();
   if (state.route === "anuncios") await adsView.load(Object.fromEntries(new URLSearchParams(query)));
+  if (state.route === "aprovacoes") await approvalsView.load(Object.fromEntries(new URLSearchParams(query)));
 }
 
 /* ---------- Entrada e saída ---------- */
@@ -129,6 +133,8 @@ function showLogin(message = "", { info = false } = {}) {
   $("#contents-list").innerHTML = "";
   $("#ads-list").innerHTML = "";
   document.querySelector("[data-ads-attention]").hidden = true;
+  approvalsView.stopPolling();
+  approvalsView.reset();
   $("#clients-list").innerHTML = "";
   $("#contents-count").textContent = "";
   $("#clients-count").textContent = "";
@@ -164,6 +170,9 @@ async function enterApp() {
   await showRoute();
   // Contador do menu "Anúncios": quantos o cliente pediu para alterar
   if (state.route !== "anuncios") adsView.refreshAttention();
+  // Avisos da central de aprovação (decisões dos clientes), a cada 30 s
+  if (state.route !== "aprovacoes") approvalsView.refreshAttention();
+  approvalsView.startPolling();
 }
 
 loginForm.addEventListener("submit", async (event) => {

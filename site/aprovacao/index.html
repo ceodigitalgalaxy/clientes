@@ -1,0 +1,33 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <!-- Página pública de aprovação: o código do link fica depois do # (nunca vai ao servidor do site).
+       Só fala com a função "aprovacao" do Supabase; nada de scripts de fora. -->
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data: blob: https:; media-src 'self' blob: https:; font-src 'self'; connect-src 'self' https://peieimwpkrattuldmjux.supabase.co; object-src 'none'; base-uri 'self'; form-action 'none'; frame-src https://www.youtube-nocookie.com https://player.vimeo.com https://www.tiktok.com https://drive.google.com https://www.instagram.com; upgrade-insecure-requests">
+  <meta name="referrer" content="no-referrer">
+  <meta name="robots" content="noindex, nofollow, noarchive">
+  <title>Aprovação de conteúdos · Digital Galaxy</title>
+  <meta name="description" content="Aprovação de conteúdos da Digital Galaxy.">
+  <meta name="theme-color" content="#F5F3FA">
+  <link rel="icon" href="../images/logo/favicon.svg" type="image/svg+xml">
+  <link rel="icon" href="../images/logo/icon-96.png" type="image/png" sizes="96x96">
+  <link rel="apple-touch-icon" href="../images/logo/apple-touch-icon.png">
+  <link rel="preload" href="../fonts/sora-latin-400-normal.woff2" as="font" type="font/woff2" crossorigin>
+  <link rel="preload" href="../fonts/sora-latin-600-normal.woff2" as="font" type="font/woff2" crossorigin>
+  <link rel="stylesheet" href="../css/style.css?v=887272bbb7">
+  <link rel="stylesheet" href="../css/approval.css?v=887272bbb7">
+</head>
+<body class="ap-page">
+  <main class="ap-main" id="aprovacao" aria-live="polite" aria-busy="true">
+    <div class="ap-loading" role="status">
+      <span class="ap-loading__spinner" aria-hidden="true"></span>
+      <p>Carregando o seu planejamento…</p>
+    </div>
+  </main>
+  <div class="toasts" id="toasts" aria-live="polite"></div>
+  <noscript><p class="ap-noscript">Para ver e aprovar os conteúdos, ative o JavaScript do navegador.</p></noscript>
+  <script type="module" src="../js/approval-main.js?v=887272bbb7"></script>
+</body>
+</html>

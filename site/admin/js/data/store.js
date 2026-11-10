@@ -35,9 +35,17 @@ export const AD_ERRORS = {
   transicao_invalida: "Esta ação não vale para o status atual do anúncio. Atualize a página.",
   anuncio_nao_encontrado: "Anúncio não encontrado. Ele pode ter sido excluído.",
   sem_permissao: "Seu usuário não tem permissão para fazer isso.",
-  mensagem_longa: "A mensagem passou do limite de 1000 caracteres."
+  mensagem_longa: "A mensagem passou do limite de 1000 caracteres.",
+  // Central de aprovação
+  lote_nao_encontrado: "Lote não encontrado. Ele pode ter sido apagado.",
+  lote_arquivado: "Este lote está arquivado. Reative para mexer nele.",
+  nada_para_enviar: "Escolha pelo menos um conteúdo para o cliente revisar.",
+  conteudo_de_outro_cliente: "Só dá para incluir conteúdos do mesmo cliente do lote.",
+  conteudos_demais: "Use até 200 conteúdos por lote.",
+  expiracao_no_passado: "A data de expiração precisa ser no futuro."
 };
-const CONTENT_FIELDS = "id,client_id,title,scheduled_date,scheduled_time,network,format,media_url,media_kind,idea,content_plan,art_text,objective,caption,internal_notes,client_notes,status,version,created_at,updated_at";
+const CONTENT_FIELDS = "id,client_id,title,scheduled_date,scheduled_time,network,format,media_url,media_kind,pillar,idea,content_plan,art_text,objective,caption,cta,internal_notes,client_notes,status,approval_status,production_status,version,created_at,updated_at";
+const ASSET_FIELDS = "id,content_id,kind,role,name,storage_path,url,position,created_at";
 
 /** Traduz erros do PostgREST/PostgreSQL para mensagens do painel */
 function translate(status, body, withSession) {
@@ -173,10 +181,16 @@ export function createSupabaseStore({ url, apiKey, secretKey, getToken, onUnauth
 
     /* Arte final (content_assets): arquivos ou links, na ordem do carrossel */
     async listAssets(contentId) {
-      return request(`content_assets?select=id,content_id,kind,storage_path,url,position,created_at&content_id=eq.${enc(contentId)}&order=position.asc,created_at.asc`);
+      return request(`content_assets?select=${ASSET_FIELDS}&content_id=eq.${enc(contentId)}&order=position.asc,created_at.asc`);
     },
     async addAsset(value) {
-      return request("content_assets?select=id,content_id,kind,storage_path,url,position,created_at", { method: "POST", body: value, single: true, prefer: "return=representation" });
+      return request(`content_assets?select=${ASSET_FIELDS}`, { method: "POST", body: value, single: true, prefer: "return=representation" });
+    },
+    async setAssetRole(id, role) {
+      return request(`content_assets?select=${ASSET_FIELDS}&id=eq.${enc(id)}`, { method: "PATCH", body: { role }, single: true, prefer: "return=representation" });
+    },
+    async setContentProduction(id, production) {
+      return request(`contents?select=${CONTENT_FIELDS}&id=eq.${enc(id)}`, { method: "PATCH", body: { production_status: production }, single: true, prefer: "return=representation" });
     },
     async moveAsset(id, position) {
       return request(`content_assets?select=id,position&id=eq.${enc(id)}`, { method: "PATCH", body: { position }, single: true, prefer: "return=representation" });
@@ -260,6 +274,49 @@ export function createSupabaseStore({ url, apiKey, secretKey, getToken, onUnauth
     },
     async listAdVersions(id) {
       return request(`ad_versions?select=id,version,snapshot,submitted_at&ad_id=eq.${enc(id)}&order=version.desc`);
+    },
+
+    /* ---------- Central de aprovação (lotes, versões, links, decisões) ---------- */
+    async listBatches(filters = {}) {
+      const query = ["select=*", "order=month.desc,created_at.desc"];
+      if (filters.client_id) query.push(`client_id=eq.${enc(filters.client_id)}`);
+      return request(`approval_batch_summary?${query.join("&")}`);
+    },
+    async createBatch(value) {
+      return request("approval_batches?select=*", { method: "POST", body: value, single: true, prefer: "return=representation" });
+    },
+    async updateBatch(id, value) {
+      return request(`approval_batches?select=*&id=eq.${enc(id)}`, { method: "PATCH", body: value, single: true, prefer: "return=representation" });
+    },
+    /** Só apaga lote nunca enviado (o banco ignora os outros): devolve se apagou */
+    async deleteBatch(id) {
+      const rows = await request(`approval_batches?select=id&id=eq.${enc(id)}`, { method: "DELETE", prefer: "return=representation" });
+      return Array.isArray(rows) && rows.length > 0;
+    },
+    async listBatchItems(batchId) {
+      return request(`approval_items?select=*&batch_id=eq.${enc(batchId)}&order=display_order.asc,created_at.asc`);
+    },
+    async listVersions({ contentId, ids } = {}) {
+      const query = ["select=id,content_id,version_number,content_version,snapshot,created_at", "order=version_number.desc"];
+      if (contentId) query.push(`content_id=eq.${enc(contentId)}`);
+      if (ids) { if (!ids.length) return []; query.push(`id=in.(${ids.map(enc).join(",")})`); }
+      return request(`content_versions?${query.join("&")}`);
+    },
+    async listDecisions({ batchId, contentId } = {}) {
+      const query = ["select=*", "order=created_at.desc"];
+      if (batchId) query.push(`batch_id=eq.${enc(batchId)}`);
+      if (contentId) query.push(`content_id=eq.${enc(contentId)}`);
+      return request(`approval_decisions?${query.join("&")}`);
+    },
+    async listEvents({ batchId, contentId, unread } = {}) {
+      const query = ["select=*", "order=created_at.desc", "limit=300"];
+      if (batchId) query.push(`batch_id=eq.${enc(batchId)}`);
+      if (contentId) query.push(`content_id=eq.${enc(contentId)}`);
+      if (unread) query.push("read_at=is.null", "actor_type=neq.equipe");
+      return request(`approval_events?${query.join("&")}`);
+    },
+    async approvalRpc(name, body) {
+      return request(`rpc/${name}`, { method: "POST", body });
     },
 
     /** A pessoa logada faz parte da equipe? (ela só enxerga o próprio cadastro) */

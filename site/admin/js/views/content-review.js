@@ -1,16 +1,19 @@
-/* Arte final e aprovação, dentro dos detalhes do conteúdo (painel).
-   - Arte final: arquivos (enviados para o armazenamento privado) ou links, na
-     ordem do carrossel. Mudar a arte sobe a versão do conteúdo.
-   - Aprovação: "Enviar para aprovação" deixa o conteúdo aguardando o cliente;
-     o histórico mostra o que ele respondeu e em qual versão. */
+/* Arquivos e aprovação, dentro dos detalhes do conteúdo (painel).
+   - Arquivos e materiais: capa, imagens, slides do carrossel (na ordem),
+     vídeo, thumbnail do vídeo e PDF (armazenamento privado) ou links. Mudar os
+     arquivos sobe a versão do conteúdo.
+   - Aprovação e produção: status separados; o cliente aprova pelo link do lote
+     (seção Aprovações). O histórico mostra cada versão enviada e a resposta. */
 
-import { esc, on } from "../../../js/lib/dom.js?v=73c6ab8727";
-import { icon } from "../../../js/lib/icons.js?v=73c6ab8727";
-import { stampLabel } from "../../../js/lib/dates.js?v=73c6ab8727";
-import { renderMedia, mediaFallback } from "../../../js/ui/media.js?v=73c6ab8727";
-import { UPLOAD_LIMITS } from "../../../js/lib/storage.js?v=73c6ab8727";
+import { esc, on } from "../../../js/lib/dom.js?v=887272bbb7";
+import { icon } from "../../../js/lib/icons.js?v=887272bbb7";
+import { stampLabel } from "../../../js/lib/dates.js?v=887272bbb7";
+import { renderMedia, mediaFallback } from "../../../js/ui/media.js?v=887272bbb7";
+import { UPLOAD_LIMITS } from "../../../js/lib/storage.js?v=887272bbb7";
+import { APPROVAL_STATUS, PRODUCTION_STATUS } from "../../../js/domain/approvals.js?v=887272bbb7";
 
-const ACCEPT = UPLOAD_LIMITS.mediaTypes.join(",");
+const ACCEPT = UPLOAD_LIMITS.contentTypes.join(",");
+const ROLES = { midia: "Galeria / carrossel", capa: "Capa", thumbnail: "Thumbnail do vídeo" };
 /** Última arte final vista de cada conteúdo: o painel redesenhado já começa com ela (sem piscar) */
 const lastAssets = new Map();
 
@@ -18,8 +21,8 @@ const lastAssets = new Map();
 export const reviewSections = () => `
   <section class="detail final-art" data-final-art>
     <div class="detail__head">
-      <h3 class="detail__title">Arte final</h3>
-      <span class="field__hint">Imagem, vídeo ou as imagens do carrossel, na ordem</span>
+      <h3 class="detail__title">Arquivos e materiais</h3>
+      <span class="field__hint">Capa, imagens, slides do carrossel (na ordem), vídeo, thumbnail e PDF</span>
     </div>
     <div data-final-list><span class="skeleton final-art__loading" aria-hidden="true"></span></div>
     <div class="final-art__add">
@@ -38,12 +41,12 @@ export const reviewSections = () => `
         </select>
         <button class="btn btn--ghost btn--sm" type="submit">Adicionar link</button>
       </form>
-      <p class="field__hint">Arquivos de até 50 MB (JPG, PNG, WebP, GIF, MP4, WebM, MOV). Vídeos maiores: use um link.</p>
+      <p class="field__hint">Arquivos de até 50 MB (JPG, PNG, WebP, GIF, MP4, WebM, MOV ou PDF). Vídeos maiores: use um link. Escolha em cada item se é a capa ou a thumbnail do vídeo.</p>
     </div>
     <div class="uploads" data-final-uploads aria-live="polite"></div>
   </section>
   <section class="detail approval-box" data-approval>
-    <div class="detail__head"><h3 class="detail__title">Aprovação do cliente</h3></div>
+    <div class="detail__head"><h3 class="detail__title">Aprovação e produção</h3></div>
     <div data-approval-actions></div>
     <div data-approval-history><span class="skeleton final-art__loading" aria-hidden="true"></span></div>
   </section>`;
@@ -62,23 +65,26 @@ export function mountReview({ root, content, api, toast, confirm, onChanged }) {
   const actionsBox = root.querySelector("[data-approval-actions]");
   const historyBox = root.querySelector("[data-approval-history]");
   let assets = [];
-  let history = [];
+  let history = { versions: [], decisions: [], legacy: [] };
   let busy = false;
   const alive = () => root.isConnected;
 
   /* ---------- Arte final ---------- */
   function renderAssets() {
     if (!assets.length) {
-      listBox.innerHTML = '<p class="final-art__empty">Nenhuma arte final ainda. Quando o conteúdo ficar pronto, envie aqui e mande para o cliente aprovar.</p>';
+      listBox.innerHTML = '<p class="final-art__empty">Nenhum arquivo ainda. Na aprovação de planejamento eles são opcionais; para a aprovação de conteúdo final, envie aqui a arte, o vídeo ou os slides.</p>';
       return;
     }
     listBox.innerHTML = `<ol class="final-list">${assets.map((asset, i) => `
       <li class="final-item" data-asset="${esc(asset.id)}">
         <span class="final-item__n" aria-hidden="true">${i + 1}</span>
-        <div class="final-item__media">${asset.src
+        <div class="final-item__media">${asset.kind === "pdf"
+          ? `<a class="pdf-card" href="${esc(asset.src || "#")}" target="_blank" rel="noopener noreferrer">${icon("download")}<span>${esc(asset.name || "Arquivo PDF")}</span></a>`
+          : asset.src
           ? renderMedia({ url: asset.src, kind: asset.kind, title: `${content.title} (${i + 1})` })
           : mediaFallback({ reason: "Não foi possível abrir este arquivo agora." })}</div>
         <div class="final-item__actions">
+          ${asset.kind === "pdf" ? '<span class="asset-role asset-role--pdf">PDF</span>' : `<label class="asset-role"><span class="visually-hidden">Uso deste arquivo</span><select class="field__input" data-asset-role aria-label="Uso deste arquivo">${Object.entries(ROLES).map(([k, v]) => `<option value="${k}" ${(asset.role || "midia") === k ? "selected" : ""}>${esc(v)}</option>`).join("")}</select></label>`}
           <button class="icon-btn" type="button" data-asset-move="-1" ${i === 0 ? "disabled" : ""} aria-label="Mover para antes" title="Mover para antes">${icon("chevronLeft")}</button>
           <button class="icon-btn" type="button" data-asset-move="1" ${i === assets.length - 1 ? "disabled" : ""} aria-label="Mover para depois" title="Mover para depois">${icon("chevronRight")}</button>
           <button class="icon-btn icon-btn--danger" type="button" data-asset-delete aria-label="Remover da arte final" title="Remover">${icon("trash")}</button>
@@ -178,7 +184,7 @@ export function mountReview({ root, content, api, toast, confirm, onChanged }) {
   on(root, "click", "[data-asset-delete]", async (event, button) => {
     const asset = assets.find((a) => a.id === button.closest("[data-asset]").dataset.asset);
     if (!asset || busy) return;
-    const ok = await confirm({ title: "Remover este item da arte final?", text: asset.storage_path ? "O arquivo será apagado do armazenamento." : "O link será retirado da arte final." , confirmLabel: "Remover" });
+    const ok = await confirm({ title: "Remover este item?", text: asset.storage_path ? "O arquivo sai do conteúdo. Se ele já foi enviado ao cliente numa versão, continua guardado no histórico." : "O link será retirado do conteúdo.", confirmLabel: "Remover" });
     if (!ok) return;
     busy = true;
     try {
@@ -192,44 +198,63 @@ export function mountReview({ root, content, api, toast, confirm, onChanged }) {
     }
   });
 
-  /* ---------- Aprovação ---------- */
-  function renderActions() {
-    const latest = history[0];
-    const changedAfterApproval = content.status === "aprovado" && latest?.decision === "aprovado" && latest.version < content.version;
-    const parts = [];
-    if (content.status === "aguardando_aprovacao") {
-      parts.push(`<p class="approval-box__state">${icon("clock")}Aguardando o cliente aprovar a versão ${esc(content.version)}.</p>`);
-    } else if (content.status === "publicado") {
-      parts.push(`<p class="approval-box__state">${icon("send")}Conteúdo publicado.</p>`);
-    } else {
-      if (changedAfterApproval) parts.push(`<p class="approval-box__warn">${icon("refresh")}A arte mudou depois da aprovação (aprovada a versão ${esc(latest.version)}; agora é a ${esc(content.version)}). Envie de novo para o cliente aprovar.</p>`);
-      if (content.status === "ajustes") parts.push(`<p class="approval-box__state">${icon("edit")}O cliente pediu ajuste. Depois de ajustar, envie a nova versão.</p>`);
-      const label = content.status === "aprovado" ? (changedAfterApproval ? "Enviar nova versão para aprovação" : "Enviar de novo para aprovação") : content.status === "ajustes" ? "Enviar nova versão para aprovação" : "Enviar para aprovação";
-      parts.push(`<div class="approval-box__buttons">
-        <button class="btn btn--primary btn--sm" type="button" data-send-approval>${icon("send")}<span>${esc(label)}</span></button>
-        ${content.status === "aprovado" && !changedAfterApproval ? `<button class="btn btn--ghost btn--sm" type="button" data-mark-published>${icon("check")}<span>Marcar como publicado</span></button>` : ""}
-      </div>`);
-      if (!assets.length && content.status !== "aprovado") parts.push('<p class="field__hint">Dica: envie a arte final antes, para o cliente ver o conteúdo pronto.</p>');
+  on(root, "change", "[data-asset-role]", async (event, select) => {
+    const asset = assets.find((a) => a.id === select.closest("[data-asset]").dataset.asset);
+    if (!asset) return;
+    select.disabled = true;
+    try {
+      await api.setAssetRole(asset, select.value);
+      toast(select.value === "capa" ? "Definido como capa" : select.value === "thumbnail" ? "Definido como thumbnail do vídeo" : "Arquivo na galeria");
+      await changed();
+    } catch (error) {
+      toast(error.message, "error");
+      select.value = asset.role || "midia";
+    } finally {
+      select.disabled = false;
     }
-    actionsBox.innerHTML = parts.join("");
+  });
+
+  /* ---------- Aprovação e produção ---------- */
+  function renderActions() {
+    const a = APPROVAL_STATUS[content.approval_status] || APPROVAL_STATUS.rascunho;
+    const p = PRODUCTION_STATUS[content.production_status];
+    const latest = history.versions?.[0];
+    const stale = latest && latest.content_version < content.version && content.approval_status !== "rascunho";
+    actionsBox.innerHTML = `
+      <div class="approval-box__pair">
+        <span class="appr-chip appr-chip--${esc(a.tone)}">${icon(a.icon)}${esc(a.label)}</span>
+        <span class="prod-chip">${icon(p?.icon || "edit")}${esc(p ? p.label : "Produção não iniciada")}</span>
+      </div>
+      ${stale ? `<p class="approval-box__warn">${icon("refresh")}Este conteúdo mudou depois do último envio (o cliente viu a versão ${esc(latest.version_number)}). Reenvie pelo lote em Aprovações para ele aprovar de novo.</p>` : ""}
+      <div class="approval-box__buttons">
+        <button class="btn btn--ghost btn--sm" type="button" data-go-approvals>${icon("send")}<span>Abrir aprovações do cliente</span></button>
+        ${content.production_status !== "publicado" ? `<button class="btn btn--ghost btn--sm" type="button" data-mark-published>${icon("check")}<span>Marcar como publicado</span></button>` : ""}
+      </div>`;
   }
 
   function renderHistory() {
-    historyBox.innerHTML = history.length
-      ? `<ul class="history">${history.map((h) => `
-          <li class="history__item history__item--${esc(h.decision)}">
-            ${icon(h.decision === "aprovado" ? "check" : "edit")}
-            <div>
-              <p class="history__title">${h.decision === "aprovado" ? "Cliente aprovou" : "Cliente pediu ajuste"} <span class="history__meta">· versão ${esc(h.version)} · ${esc(stampLabel(h.created_at))}</span></p>
-              ${h.message ? `<p class="history__text">${esc(h.message)}</p>` : ""}
-            </div>
-          </li>`).join("")}</ul>`
-      : '<p class="field__hint">O cliente ainda não respondeu sobre este conteúdo.</p>';
+    const rows = [];
+    for (const v of history.versions || []) {
+      const ds = (history.decisions || []).filter((d) => d.version_id === v.id);
+      rows.push(`<li class="history__item history__item--versao">${icon("layers")}<div><p class="history__title">Versão ${esc(v.version_number)} enviada <span class="history__meta">· ${esc(stampLabel(v.created_at))}</span></p></div></li>`);
+      ds.forEach((d) => rows.push(`
+        <li class="history__item history__item--${d.action === "aprovado" ? "aprovado" : "ajustes"}">
+          ${icon(d.action === "aprovado" ? "check" : "edit")}
+          <div>
+            <p class="history__title">${d.action === "aprovado" ? "Aprovado" : "Ajuste solicitado"}${d.reviewer_name ? ` por ${esc(d.reviewer_name)}` : ""} <span class="history__meta">· versão ${esc(v.version_number)} · ${esc(stampLabel(d.created_at))}${d.bulk ? " · aprovação em lote" : ""}</span></p>
+            ${d.comment ? `<p class="history__text">${esc(d.comment)}</p>` : ""}
+          </div>
+        </li>`));
+    }
+    for (const h of history.legacy || []) {
+      rows.push(`<li class="history__item history__item--${esc(h.decision)}">${icon(h.decision === "aprovado" ? "check" : "edit")}<div><p class="history__title">${h.decision === "aprovado" ? "Cliente aprovou pelo portal" : "Cliente pediu ajuste pelo portal"} <span class="history__meta">· versão ${esc(h.version)} · ${esc(stampLabel(h.created_at))}</span></p>${h.message ? `<p class="history__text">${esc(h.message)}</p>` : ""}</div></li>`);
+    }
+    historyBox.innerHTML = rows.length ? `<ul class="history">${rows.join("")}</ul>` : '<p class="field__hint">Ainda não foi enviado ao cliente. Inclua num lote em Aprovações e gere o link.</p>';
   }
 
   async function loadHistory() {
     try {
-      history = await api.listApprovals(content.id);
+      history = await api.contentApprovalHistory(content.id);
       if (!alive()) return;
       renderHistory();
       renderActions();
@@ -238,21 +263,20 @@ export function mountReview({ root, content, api, toast, confirm, onChanged }) {
     }
   }
 
-  async function setStatus(button, action, message) {
+  on(root, "click", "[data-go-approvals]", () => { location.hash = `#/aprovacoes?client_id=${encodeURIComponent(content.client_id)}`; });
+  on(root, "click", "[data-mark-published]", async (event, button) => {
     button.disabled = true;
     button.classList.add("is-loading");
     try {
-      const updated = await action();
-      toast(message);
+      const updated = await api.setContentProduction(content.id, "publicado");
+      toast("Marcado como publicado");
       await onChanged(updated);
     } catch (error) {
       toast(error.message, "error");
       button.disabled = false;
       button.classList.remove("is-loading");
     }
-  }
-  on(root, "click", "[data-send-approval]", (event, button) => setStatus(button, () => api.sendForApproval(content.id), "Enviado para o cliente aprovar"));
-  on(root, "click", "[data-mark-published]", (event, button) => setStatus(button, () => api.setContentStatus(content.id, "publicado"), "Marcado como publicado"));
+  });
 
   if (lastAssets.has(content.id)) { assets = lastAssets.get(content.id); renderAssets(); }
   renderActions();
