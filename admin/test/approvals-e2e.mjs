@@ -88,6 +88,12 @@ const confirmOk = async (page = admin) => {
 const batchId = () => store.listBatchSummary({ client_id: padaria.id }).then((rows) => rows[0].id);
 const linkFor = async () => `${ORIGIN}/aprovacao/#${store.approvalTokenOf(await batchId())}`;
 const card = (title) => `.ap-card:has(.ap-card__title:text-is("${title}"))`;
+const DETAIL = ".ap-detail[open]";
+const openDetail = async (page, title) => {
+  await page.click(`${card(title)} [data-ap-open]`);
+  await page.waitForSelector(`${DETAIL} .ap-detail__title:text-is("${title}")`);
+};
+const closeDetail = async (page) => { await page.click(`${DETAIL} [data-ap-close]`); await page.waitForSelector(".ap-detail", { state: "hidden" }); };
 
 const adminContext = await newContext();
 admin = await adminContext.newPage();
@@ -166,7 +172,23 @@ await step("Cliente abre o link sem login e vê só o lote, sem nada interno", a
   assert.match(text, /Oi! Preparamos 3 conteúdos para você\./);
   assert.match(text, /Aprovação de planejamento.*Você está aprovando a IDEIA/s);
   assert.equal(await client.locator(".ap-card").count(), 3);
-  assert.match(await client.textContent(card("Primeira fornada")), /Bastidores.*A ideia.*Mostrar o pão.*Roteiro \/ como vai ser.*Forno abrindo.*Texto na arte.*Saiu agora!.*Objetivo.*Legenda.*Chamada para ação.*Peça pelo WhatsApp/s);
+  assert.match(await client.textContent(card("Primeira fornada")), /Aguardando aprovação.*Primeira fornada.*Reels.*Ver detalhes/s);
+  assert.ok(!(await client.textContent(card("Primeira fornada"))).includes("Mostrar o pão"), "cartão sem a descrição longa");
+  assert.equal(await client.locator(`${card("Primeira fornada")} .ap-thumb img`).count(), 1, "com arte: miniatura");
+  assert.equal(await client.locator(`${card("Promoção do café")} .ap-thumb`).count(), 0, "sem arte: sem espaço de imagem");
+  await openDetail(client, "Primeira fornada");
+  assert.match(await client.textContent(DETAIL), /Conteúdo 1 de 3.*A ideia.*Mostrar o pão.*Roteiro \/ como vai ser.*Forno abrindo.*Texto na arte.*Saiu agora!.*Ver legenda.*Nada como pão quentinho.*Chamada para ação.*Peça pelo WhatsApp.*Informações adicionais.*Objetivo.*Movimento de manhã.*Pilar.*Bastidores/s);
+  await client.waitForFunction(() => document.querySelector(".ap-detail[open] .media img")?.naturalWidth > 0);
+  await shot(client, "ap02b-detalhe");
+  await client.click(`${DETAIL} [data-ap-step="1"]`);
+  await client.waitForSelector(`${DETAIL} .ap-detail__title:text-is("Promoção do café")`);
+  assert.match(await client.textContent(`${DETAIL} .ap-detail__count`), /2 de 3/);
+  await client.keyboard.press("ArrowLeft");
+  await client.waitForSelector(`${DETAIL} .ap-detail__title:text-is("Primeira fornada")`);
+  assert.ok(await client.isDisabled(`${DETAIL} [data-ap-step="-1"]`), "não há anterior ao primeiro");
+  await client.keyboard.press("Escape");
+  await client.waitForSelector(".ap-detail", { state: "hidden" });
+  assert.equal(await client.evaluate(() => document.activeElement?.closest(".ap-card")?.querySelector(".ap-card__title")?.textContent), "Primeira fornada", "o foco volta para o cartão");
   const html = await client.content();
   assert.ok(!html.includes("REFERENCIA-INTERNA") && !html.includes("SEGREDO-DA-EQUIPE") && !html.includes("Ensaio do estúdio"));
   await client.waitForFunction(() => document.querySelector(".ap-card img")?.naturalWidth > 0);
@@ -177,28 +199,35 @@ await step("Cliente abre o link sem login e vê só o lote, sem nada interno", a
 });
 
 await step("Aprovar um conteúdo: confirma, pede o nome uma vez e atualiza o progresso", async () => {
-  await client.click(`${card("Primeira fornada")} [data-ap-approve]`);
-  await client.click(`${card("Primeira fornada")} [data-ap-approve-now]`);
+  await openDetail(client, "Primeira fornada");
+  await client.click(`${DETAIL} [data-ap-approve]`);
+  await client.click(`${DETAIL} [data-ap-approve-now]`);
   await client.waitForSelector("dialog.ap-dialog--small [name=name]");
   assert.match(await client.textContent("dialog.ap-dialog--small"), /Como podemos identificar sua aprovação\?/);
   await client.fill("dialog.ap-dialog--small [name=name]", "Maria");
   await client.click("dialog.ap-dialog--small [type=submit]");
   await toastSays(client, /Conteúdo aprovado com sucesso!/);
   await client.waitForFunction(() => /1 de 3/.test(document.querySelector(".ap-progress__text")?.textContent || ""));
-  assert.match(await client.textContent(card("Primeira fornada")), /Aprovado por Maria/);
+  assert.match(await client.textContent(DETAIL), /Aprovado por Maria/);
+  assert.match(await client.textContent(card("Primeira fornada")), /Aprovado/);
+  // Depois de decidir, segue para o próximo pendente sem fechar
+  await client.click(`${DETAIL} [data-ap-goto]`);
+  await client.waitForSelector(`${DETAIL} .ap-detail__title:text-is("Promoção do café")`);
   const [decision] = await store.listDecisions({ content_id: c1.id });
   assert.deepEqual([decision.action, decision.reviewer_name], ["aprovado", "Maria"]);
   assert.ok(decision.session_id, "sessão registrada");
 });
 
 await step("Solicitar ajuste exige comentário e registra", async () => {
-  await client.click(`${card("Promoção do café")} [data-ap-request]`);
-  await client.click(`${card("Promoção do café")} [data-ap-adjust] [type=submit]`);
-  await client.waitForSelector(`${card("Promoção do café")} .form-error:not([hidden])`);
-  await client.fill(`${card("Promoção do café")} [data-ap-adjust] textarea`, "Gostaria de falar mais do café especial.");
-  await client.click(`${card("Promoção do café")} [data-ap-adjust] [type=submit]`);
+  await client.click(`${DETAIL} [data-ap-request]`);
+  await client.click(`${DETAIL} [data-ap-adjust] [type=submit]`);
+  await client.waitForSelector(`${DETAIL} .form-error:not([hidden])`);
+  await client.fill(`${DETAIL} [data-ap-adjust] textarea`, "Gostaria de falar mais do café especial.");
+  await client.click(`${DETAIL} [data-ap-adjust] [type=submit]`);
   await toastSays(client, /Pedido de ajuste enviado/);
-  await client.waitForFunction(() => /Ajuste solicitado/.test(document.querySelector('.ap-card:nth-child(2)')?.textContent || ""));
+  await client.waitForFunction(() => /Ajuste solicitado/.test(document.querySelector(".ap-detail[open]")?.textContent || ""));
+  assert.match(await client.textContent(card("Promoção do café")), /Ajustes solicitados.*Você pediu ajuste/s);
+  await closeDetail(client);
   assert.equal(await client.locator("dialog.ap-dialog--small").count(), 0, "o nome não é pedido de novo");
   assert.equal((await store.getContent(c2.id)).approval_status, "ajustes");
 });
@@ -212,9 +241,12 @@ await step("Calendário: conteúdos nas datas, abre os detalhes com as ações",
   await shot(client, "ap03-calendario");
   await client.click(".ap-dialog[open] [data-ap-close]");
   await client.click('[data-ap-layout="lista"]');
+  await client.click("[data-ap-filters]");
   await client.selectOption('[data-ap-filter="status"]', "ajustes");
   assert.equal(await client.locator(".ap-list .ap-card").count(), 1);
-  await client.selectOption('[data-ap-filter="status"]', "");
+  assert.match(await client.textContent("[data-ap-filters]"), /Filtros\s*1/);
+  await client.click(".ap-filters [data-ap-clear]");
+  assert.equal(await client.locator(".ap-list .ap-card").count(), 3);
 });
 
 await step("Painel: avisos internos, contagens e status geral sem recarregar", async () => {
@@ -244,11 +276,14 @@ await step("Nova versão: edita, reenvia; cliente vê 'revisado' com o pedido", 
   await toastSays(admin, /Nova versão enviada/);
   await client.reload();
   await client.waitForSelector(card("Promoção do café"));
-  const text = await client.textContent(card("Promoção do café"));
+  assert.match(await client.textContent(card("Promoção do café")), /Revisado a seu pedido/);
+  await openDetail(client, "Promoção do café");
+  const text = await client.textContent(DETAIL);
   assert.match(text, /Revisado e reenviado.*Versão 2/s);
   assert.match(text, /Revisamos este conteúdo.*café especial/s);
   assert.match(text, /Café especial da casa \+ pão/);
   assert.equal((await store.listVersions({ content_id: c2.id })).length, 2, "versão anterior preservada");
+  await closeDetail(client);
 });
 
 await step("Aprovar todos os pendentes: confirmação, cada um registrado, planejamento aprovado", async () => {
@@ -288,6 +323,9 @@ await step("Visualizar como cliente (pré-visualização da equipe, sem botões)
   await preview.waitForSelector(".ap-preview-bar");
   assert.equal(await preview.locator(".ap-card").count(), 3);
   assert.equal(await preview.locator("[data-ap-approve], [data-ap-all]").count(), 0);
+  await preview.click(".ap-card [data-ap-open] >> nth=0");
+  await preview.waitForSelector(".ap-detail[open] .ap-preview-note");
+  assert.equal(await preview.locator(".ap-detail[open] [data-ap-approve]").count(), 0);
   await preview.close();
 });
 
@@ -337,9 +375,27 @@ await step("Celular: lista, decisão e calendário em agenda, sem rolagem latera
   assert.match(await page.textContent(".ap-mode"), /Aprovação de conteúdo final/);
   const overflow = () => page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth);
   assert.ok(await overflow() <= 0, "sem rolagem lateral na lista");
-  const btn = await page.$eval(".ap-card [data-ap-approve]", (b) => b.getBoundingClientRect().height);
-  assert.ok(btn >= 48, `botão de ${btn}px (fácil de tocar)`);
+  const cardHeight = await page.$eval(".ap-card__open", (b) => b.getBoundingClientRect().height);
+  assert.ok(cardHeight >= 48 && cardHeight < 260, `cartão compacto e fácil de tocar (${cardHeight}px)`);
+  assert.ok(await page.isVisible(".ap-bulkbar [data-ap-all]"), "aprovar todos fixo no rodapé");
+  assert.ok(await page.isHidden(".ap-tools [data-ap-all]"), "sem botão repetido na barra do topo");
   await shot(page, "ap07-celular", { fullPage: true });
+  await page.tap(".ap-card [data-ap-open] >> nth=0");
+  await page.waitForSelector(".ap-detail[open] [data-ap-approve]");
+  const btn = await page.$eval(".ap-detail[open] [data-ap-approve]", (b) => b.getBoundingClientRect().height);
+  assert.ok(btn >= 48, `botão de ${btn}px (fácil de tocar)`);
+  const fit = await page.$eval(".ap-detail[open] .ap-detail__panel", (p) => p.scrollWidth - p.clientWidth);
+  assert.ok(fit <= 0, "detalhe sem rolagem lateral");
+  await shot(page, "ap07b-celular-detalhe");
+  // Deslizar para a esquerda passa para o próximo conteúdo
+  await page.evaluate(() => {
+    const el = document.querySelector(".ap-detail[open] .ap-detail__title");
+    const at = (x) => [new Touch({ identifier: 1, target: el, clientX: x, clientY: 300 })];
+    el.dispatchEvent(new TouchEvent("touchstart", { bubbles: true, touches: at(300), changedTouches: at(300) }));
+    el.dispatchEvent(new TouchEvent("touchend", { bubbles: true, touches: [], changedTouches: at(120) }));
+  });
+  await page.waitForFunction(() => /2 de 2/.test(document.querySelector(".ap-detail[open] .ap-detail__count")?.textContent || ""));
+  await page.tap(".ap-detail[open] [data-ap-close]");
   await page.tap('[data-ap-layout="calendario"]');
   await page.waitForSelector(".ap-agenda .ap-chip");
   assert.ok(await page.isHidden(".ap-cal"), "no celular o calendário vira agenda");

@@ -1,15 +1,15 @@
 /* Seção Conteúdos: filtros, lista, detalhes, cadastro, edição e exclusão */
 
-import { $, esc, on } from "../../../js/lib/dom.js?v=887272bbb7";
-import { icon } from "../../../js/lib/icons.js?v=887272bbb7";
-import { longDayLabel, timeLabel, todayISO } from "../../../js/lib/dates.js?v=887272bbb7";
-import { typeBadge } from "../../../js/ui/badges.js?v=887272bbb7";
-import { renderMedia, wireMediaFallbacks } from "../../../js/ui/media.js?v=887272bbb7";
-import { CONTENT_STATUS, CLIENT_VISIBLE_STATUS, APPROVAL_STATUS, PRODUCTION_STATUS, NETWORKS, FORMATS, LIMITS, validateContent, validateContentFilters } from "../domain/rules.js?v=887272bbb7";
-import { closeDialog, wireDialog, showFieldErrors, setBusy } from "../ui/dialogs.js?v=887272bbb7";
-import { stateBlock, loadingRows, button } from "../ui/states.js?v=887272bbb7";
-import { reviewSections, mountReview } from "./content-review.js?v=887272bbb7";
-import { describeMedia, mediaCover, coverHtml } from "../../../js/ui/media.js?v=887272bbb7";
+import { $, esc, on } from "../../../js/lib/dom.js?v=476ab22dd7";
+import { icon } from "../../../js/lib/icons.js?v=476ab22dd7";
+import { longDayLabel, timeLabel, todayISO } from "../../../js/lib/dates.js?v=476ab22dd7";
+import { typeBadge } from "../../../js/ui/badges.js?v=476ab22dd7";
+import { renderMedia, wireMediaFallbacks } from "../../../js/ui/media.js?v=476ab22dd7";
+import { CONTENT_STATUS, CLIENT_VISIBLE_STATUS, APPROVAL_STATUS, PRODUCTION_STATUS, NETWORKS, FORMATS, LIMITS, validateContent, validateContentFilters } from "../domain/rules.js?v=476ab22dd7";
+import { closeDialog, wireDialog, showFieldErrors, setBusy } from "../ui/dialogs.js?v=476ab22dd7";
+import { stateBlock, loadingRows, button } from "../ui/states.js?v=476ab22dd7";
+import { reviewSections, mountReview } from "./content-review.js?v=476ab22dd7";
+import { describeMedia, mediaCover, coverHtml } from "../../../js/ui/media.js?v=476ab22dd7";
 
 const shortDate = (iso) => iso.split("-").reverse().join("/");
 const statusChip = (status) => `<span class="content-status cs--${esc(status)}">${esc(CONTENT_STATUS[status]?.label || status)}</span>`;

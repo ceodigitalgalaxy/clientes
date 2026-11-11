@@ -13,15 +13,15 @@
    O banco confere tudo de novo (funções approval_* e RLS).
    ========================================================================== */
 
-import { $, esc, on } from "../../../js/lib/dom.js?v=887272bbb7";
-import { icon } from "../../../js/lib/icons.js?v=887272bbb7";
-import { monthLabel, timeLabel, stampLabel, todayISO, longDayLabel } from "../../../js/lib/dates.js?v=887272bbb7";
-import { typeBadge } from "../../../js/ui/badges.js?v=887272bbb7";
-import { APPROVAL_STATUS, APPROVAL_MODES, BATCH_STATUS, APPROVAL_EVENTS, isPending, approvalUrl, whatsappMessage } from "../../../js/domain/approvals.js?v=887272bbb7";
-import { NETWORKS, validateBatch } from "../domain/rules.js?v=887272bbb7";
-import { closeDialog, wireDialog, showFieldErrors, setBusy } from "../ui/dialogs.js?v=887272bbb7";
-import { stateBlock, loadingCards, button } from "../ui/states.js?v=887272bbb7";
-import { buildApprovalReport, reportFileName } from "../ui/approval-report.js?v=887272bbb7";
+import { $, esc, on } from "../../../js/lib/dom.js?v=476ab22dd7";
+import { icon } from "../../../js/lib/icons.js?v=476ab22dd7";
+import { monthLabel, timeLabel, stampLabel, todayISO, longDayLabel } from "../../../js/lib/dates.js?v=476ab22dd7";
+import { typeBadge } from "../../../js/ui/badges.js?v=476ab22dd7";
+import { APPROVAL_STATUS, APPROVAL_MODES, BATCH_STATUS, APPROVAL_EVENTS, isPending, approvalUrl, whatsappMessage } from "../../../js/domain/approvals.js?v=476ab22dd7";
+import { NETWORKS, validateBatch } from "../domain/rules.js?v=476ab22dd7";
+import { closeDialog, wireDialog, showFieldErrors, setBusy } from "../ui/dialogs.js?v=476ab22dd7";
+import { stateBlock, loadingCards, button } from "../ui/states.js?v=476ab22dd7";
+import { buildApprovalReport, reportFileName } from "../ui/approval-report.js?v=476ab22dd7";
 
 const POLL_MS = 30000;
 const options = (entries, placeholder) => `${placeholder !== undefined ? `<option value="">${esc(placeholder)}</option>` : ""}${entries.map(([v, l]) => `<option value="${esc(v)}">${esc(l)}</option>`).join("")}`;
