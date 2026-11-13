@@ -340,6 +340,15 @@ export function createSupabaseStore({ url, apiKey, secretKey, getToken, onUnauth
       return Boolean(profile && profile.active !== false);
     },
 
+    /* ---------- Ajustes da agência (limites das cores de alerta) ---------- */
+    async getSettings() {
+      const rows = await request("agency_settings?select=alert_soon_days,alert_urgent_days&id=eq.true");
+      return Array.isArray(rows) && rows.length ? rows[0] : null;
+    },
+    async updateSettings(value) {
+      return request("agency_settings?select=alert_soon_days,alert_urgent_days&id=eq.true", { method: "PATCH", body: value, single: true, prefer: "return=representation" });
+    },
+
     /* ---------- Equipe e tarefas ---------- */
     async teamDirectory() {
       return request("rpc/team_directory", { method: "POST", body: {} });

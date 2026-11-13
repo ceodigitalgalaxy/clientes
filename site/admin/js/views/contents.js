@@ -1,17 +1,17 @@
 /* Seção Conteúdos: filtros, lista, detalhes, cadastro, edição e exclusão */
 
-import { $, esc, on } from "../../../js/lib/dom.js?v=b28509c2bb";
-import { icon } from "../../../js/lib/icons.js?v=b28509c2bb";
-import { longDayLabel, timeLabel, todayISO, stampLabel } from "../../../js/lib/dates.js?v=b28509c2bb";
-import { typeBadge } from "../../../js/ui/badges.js?v=b28509c2bb";
-import { renderMedia, wireMediaFallbacks } from "../../../js/ui/media.js?v=b28509c2bb";
-import { PRIORITIES } from "../domain/rules.js?v=b28509c2bb";
-import { CONTENT_STATUS, CLIENT_VISIBLE_STATUS, APPROVAL_STATUS, PRODUCTION_STATUS, NETWORKS, FORMATS, LIMITS, validateContent, validateContentFilters } from "../domain/rules.js?v=b28509c2bb";
-import { closeDialog, wireDialog, showFieldErrors, setBusy } from "../ui/dialogs.js?v=b28509c2bb";
-import { stateBlock, loadingRows, button } from "../ui/states.js?v=b28509c2bb";
-import { reviewSections, mountReview } from "./content-review.js?v=b28509c2bb";
-import { describeMedia, mediaCover, coverHtml } from "../../../js/ui/media.js?v=b28509c2bb";
-import { CAL_MODES, renderCalendar, calendarRange, stepCursor, calendarTitle } from "./contents-calendar.js?v=b28509c2bb";
+import { $, esc, on } from "../../../js/lib/dom.js?v=424169d0b1";
+import { icon } from "../../../js/lib/icons.js?v=424169d0b1";
+import { longDayLabel, timeLabel, todayISO, stampLabel, addDays } from "../../../js/lib/dates.js?v=424169d0b1";
+import { typeBadge } from "../../../js/ui/badges.js?v=424169d0b1";
+import { renderMedia, wireMediaFallbacks } from "../../../js/ui/media.js?v=424169d0b1";
+import { PRIORITIES } from "../domain/rules.js?v=424169d0b1";
+import { CONTENT_STATUS, CLIENT_VISIBLE_STATUS, APPROVAL_STATUS, PRODUCTION_STATUS, NETWORKS, FORMATS, LIMITS, validateContent, validateContentFilters } from "../domain/rules.js?v=424169d0b1";
+import { closeDialog, wireDialog, showFieldErrors, setBusy } from "../ui/dialogs.js?v=424169d0b1";
+import { stateBlock, loadingRows, button } from "../ui/states.js?v=424169d0b1";
+import { reviewSections, mountReview } from "./content-review.js?v=424169d0b1";
+import { describeMedia, mediaCover, coverHtml } from "../../../js/ui/media.js?v=424169d0b1";
+import { CAL_MODES, BOARD_COLUMNS, renderCalendar, calendarRange, stepCursor, calendarTitle, attentionItems, renderAttention } from "./contents-calendar.js?v=424169d0b1";
 
 const shortDate = (iso) => iso.split("-").reverse().join("/");
 const statusChip = (status) => `<span class="content-status cs--${esc(status)}">${esc(CONTENT_STATUS[status]?.label || status)}</span>`;
@@ -193,6 +193,7 @@ export function setupContents({ api, state, toast, confirm, navigate }) {
       // A seleção vale só para o que continua na lista
       [...picked].forEach((id) => { if (!contents.some((c) => c.id === id)) picked.delete(id); });
       render();
+      loadAttention();   // depois da lista principal (ela tem prioridade)
     } catch (error) {
       if (token !== loadToken) return;
       box().setAttribute("aria-busy", "false");
@@ -216,16 +217,41 @@ export function setupContents({ api, state, toast, confirm, navigate }) {
     });
   }
 
+  const calCtx = () => ({
+    contents, mode, cursor, today: todayISO(), limits: state.alerts,
+    selected: mode === "mes" && phone.matches ? selected : null,
+    clientIndex, clientName, canEdit, canCreate: Boolean(state.can.edit), canConfigure: Boolean(state.can.admin),
+    people: (c) => ((c.assignees || []).length ? avatars(state.team, c.assignees) : ""),
+    stages: stageChips
+  });
   function renderCal() {
     calendar.setAttribute("aria-busy", "false");
-    calendar.innerHTML = renderCalendar({
-      contents, mode, cursor, today: todayISO(),
-      selected: mode === "mes" && phone.matches ? selected : null,
-      clientIndex, clientName, canEdit, canCreate: Boolean(state.can.edit),
-      people: (c) => ((c.assignees || []).length ? avatars(state.team, c.assignees) : ""),
-      stages: stageChips
-    });
+    calendar.innerHTML = renderCalendar(calCtx());
   }
+
+  /* "Precisam de atenção": atrasados e com prazo perto, de todo o período (não só do mês aberto) */
+  const attention = $("#attention");
+  const ATT_KEY = "dg-painel-atencao-aberta";
+  let attentionOpen = (() => { try { return localStorage.getItem(ATT_KEY) === "1"; } catch { return false; } })();
+  let attentionList = [];
+  function renderAttentionBox() { attention.innerHTML = renderAttention(calCtx(), attentionList, attentionOpen); }
+  async function loadAttention() {
+    const today = todayISO();
+    try {
+      // Cliente e responsável do filtro valem aqui; período e status, não (é sempre "de hoje para trás e o que vence logo")
+      const rest = { client_id: state.filters.client_id };
+      let rows = await api.listContents({ ...rest, from: addDays(today, -90), to: addDays(today, Number(state.alerts.soon)) });
+      const who = state.filters.assignee;
+      if (who) rows = rows.filter((c) => (who === "ninguem" ? !(c.assignees || []).length : (c.assignees || []).includes(who)));
+      attentionList = attentionItems(rows, today, state.alerts);
+    } catch { attentionList = []; }
+    renderAttentionBox();
+  }
+  on(attention, "click", '[data-action="toggle-attention"]', () => {
+    attentionOpen = !attentionOpen;
+    try { localStorage.setItem(ATT_KEY, attentionOpen ? "1" : "0"); } catch { /* só não lembra */ }
+    renderAttentionBox();
+  });
 
   function render() {
     if (mode !== "lista") { queueMicrotask(syncBulk); renderCal(); return; }
@@ -462,33 +488,57 @@ export function setupContents({ api, state, toast, confirm, navigate }) {
   phone.addEventListener("change", () => { if (mode !== "lista" && state.route === "conteudos" && contents) renderCal(); });
 
   // Arrastar uma etiqueta para outro dia muda a data (só o que a pessoa pode editar; o banco confere de novo)
-  let dragId = null;
+  // Arrastar: etiqueta do calendário → outro dia (data); cartão do quadro → outra coluna (etapa)
+  let drag = null;   // { id, kind: "day" | "stage" }
+  const DROP = { day: "[data-cal-day]", stage: "[data-kcol]" };
   calendar.addEventListener("dragstart", (event) => {
-    const el = event.target.closest?.("[data-drag]");
+    const el = event.target.closest?.("[data-drag], [data-kdrag]");
     if (!el) return;
-    dragId = el.dataset.drag;
+    drag = el.dataset.drag ? { id: el.dataset.drag, kind: "day" } : { id: el.dataset.kdrag, kind: "stage" };
     event.dataTransfer.effectAllowed = "move";
-    event.dataTransfer.setData("text/plain", dragId);
+    event.dataTransfer.setData("text/plain", drag.id);
     el.classList.add("is-dragging");
   });
   const clearDrag = () => calendar.querySelectorAll(".is-dragging, .is-drop").forEach((n) => n.classList.remove("is-dragging", "is-drop"));
-  calendar.addEventListener("dragend", () => { dragId = null; clearDrag(); });
+  calendar.addEventListener("dragend", () => { drag = null; clearDrag(); });
   calendar.addEventListener("dragover", (event) => {
-    const cell = dragId && event.target.closest?.("[data-cal-day]");
-    if (!cell) return;
+    const target = drag && event.target.closest?.(DROP[drag.kind]);
+    if (!target) return;
     event.preventDefault();
     event.dataTransfer.dropEffect = "move";
-    if (!cell.classList.contains("is-drop")) { calendar.querySelectorAll(".is-drop").forEach((n) => n.classList.remove("is-drop")); cell.classList.add("is-drop"); }
+    if (!target.classList.contains("is-drop")) { calendar.querySelectorAll(".is-drop").forEach((n) => n.classList.remove("is-drop")); target.classList.add("is-drop"); }
   });
   calendar.addEventListener("drop", (event) => {
-    const cell = event.target.closest?.("[data-cal-day]");
-    const id = dragId;
-    dragId = null;
+    const current = drag;
+    const target = current && event.target.closest?.(DROP[current.kind]);
+    drag = null;
     clearDrag();
-    if (!cell || !id) return;
+    if (!target) return;
     event.preventDefault();
-    moveTo(id, cell.dataset.calDay);
+    if (current.kind === "day") moveTo(current.id, target.dataset.calDay);
+    else moveStage(current.id, target.dataset.kcol);
   });
+  on(calendar, "change", "[data-kmove]", (event, select) => moveStage(select.dataset.kmove, select.value));
+  async function moveStage(id, stage) {
+    const c = find(id);
+    const next = stage || null;
+    if (!c || (c.production_status || null) === next || !canEdit(c)) return;
+    const before = c.production_status || null;
+    c.production_status = next;
+    renderCal();
+    try {
+      const saved = await api.setContentProduction(id, next);
+      Object.assign(c, saved, { assignees: c.assignees });
+      renderCal();
+      toast(`"${c.title}": ${BOARD_COLUMNS.find(([k]) => k === (stage || ""))[1]}`);
+      document.dispatchEvent(new CustomEvent("content-saved", { detail: { id } }));
+      loadAttention();
+    } catch (error) {
+      c.production_status = before;
+      renderCal();
+      toast(error.message, "error");
+    }
+  }
   async function moveTo(id, date) {
     const c = find(id);
     if (!c || c.scheduled_date === date || !canEdit(c)) return;
@@ -500,12 +550,40 @@ export function setupContents({ api, state, toast, confirm, navigate }) {
       Object.assign(c, saved, { assignees: c.assignees });
       toast(`"${c.title}" foi para ${shortDate(date)}`);
       document.dispatchEvent(new CustomEvent("content-saved", { detail: { id } }));
+      loadAttention();
     } catch (error) {
       c.scheduled_date = before;
       renderCal();
       toast(error.message, "error");
     }
   }
+
+  /* ---------- Prazos das cores (só administrador; o banco também confere) ---------- */
+  const alertModal = $("#alert-modal");
+  const alertForm = alertModal.querySelector("form");
+  wireDialog(alertModal);
+  on(document, "click", '[data-action="alert-settings"]', () => {
+    if (!state.can.admin) return;
+    showFieldErrors(alertForm, {});
+    alertForm.elements.soon.value = state.alerts.soon;
+    alertForm.elements.urgent.value = state.alerts.urgent;
+    alertModal.showModal();
+    alertForm.elements.soon.focus();
+  });
+  alertForm.addEventListener("submit", async (event) => {
+    event.preventDefault();
+    const button = alertForm.querySelector("[type=submit]");
+    setBusy(button, true);
+    try {
+      state.alerts = await api.saveAlertSettings({ soon: alertForm.elements.soon.value, urgent: alertForm.elements.urgent.value });
+      closeDialog(alertModal);
+      toast("Prazos das cores atualizados para toda a equipe");
+      if (mode !== "lista") renderCal();
+      loadAttention();
+    } catch (error) {
+      showFieldErrors(alertForm, error.fields || {}, Object.keys(error.fields || {}).length ? "" : error.message);
+    } finally { setBusy(button, false); }
+  });
 
   /* ---------- Status em massa ---------- */
   on(list, "change", "[data-pick]", (event, box) => {

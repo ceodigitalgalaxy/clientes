@@ -3,12 +3,12 @@
    O administrador (e quem edita tudo) pode ver as demandas de outra pessoa.
    Dá para mudar a etapa de produção ali mesmo e abrir o conteúdo. */
 
-import { $, esc, on } from "../../../js/lib/dom.js?v=b28509c2bb";
-import { icon } from "../../../js/lib/icons.js?v=b28509c2bb";
-import { typeBadge } from "../../../js/ui/badges.js?v=b28509c2bb";
-import { PRODUCTION_STATUS, PRIORITIES } from "../domain/rules.js?v=b28509c2bb";
-import { stateBlock, loadingRows } from "../ui/states.js?v=b28509c2bb";
-import { stageChips, dueChip, priorityChip, daysUntil, personName } from "./contents.js?v=b28509c2bb";
+import { $, esc, on } from "../../../js/lib/dom.js?v=424169d0b1";
+import { icon } from "../../../js/lib/icons.js?v=424169d0b1";
+import { typeBadge } from "../../../js/ui/badges.js?v=424169d0b1";
+import { PRODUCTION_STATUS, PRIORITIES } from "../domain/rules.js?v=424169d0b1";
+import { stateBlock, loadingRows } from "../ui/states.js?v=424169d0b1";
+import { stageChips, dueChip, priorityChip, daysUntil, personName } from "./contents.js?v=424169d0b1";
 
 const shortDate = (iso) => (iso ? iso.split("-").reverse().slice(0, 2).join("/") : "—");
 const GROUPS = [

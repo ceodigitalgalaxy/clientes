@@ -13,9 +13,9 @@
   <link rel="preload" href="../fonts/sora-latin-400-normal.woff2" as="font" type="font/woff2" crossorigin>
   <link rel="preload" href="../fonts/sora-latin-600-normal.woff2" as="font" type="font/woff2" crossorigin>
   <!-- Mesmos tokens e componentes do portal do cliente -->
-  <link rel="stylesheet" href="../css/style.css?v=b28509c2bb">
-  <link rel="stylesheet" href="css/admin.css?v=b28509c2bb">
-  <script type="module" src="js/main.js?v=b28509c2bb"></script>
+  <link rel="stylesheet" href="../css/style.css?v=424169d0b1">
+  <link rel="stylesheet" href="css/admin.css?v=424169d0b1">
+  <script type="module" src="js/main.js?v=424169d0b1"></script>
 </head>
 <body class="admin">
   <!-- Tela de entrada: aparece enquanto ninguém estiver logado -->
@@ -108,11 +108,13 @@
         <button class="link-btn filters__clear" type="reset" data-icon="refresh">Limpar filtros</button>
       </form>
 
+      <div class="attention" id="attention" aria-live="polite"></div>
       <div class="cal-bar">
         <div class="seg" role="group" aria-label="Como ver os conteúdos" data-cal-modes>
           <button type="button" data-cal-mode="mes" aria-pressed="true">Mês</button>
           <button type="button" data-cal-mode="semana" aria-pressed="false">Semana</button>
           <button type="button" data-cal-mode="dia" aria-pressed="false">Dia</button>
+          <button type="button" data-cal-mode="quadro" aria-pressed="false">Quadro</button>
           <button type="button" data-cal-mode="lista" aria-pressed="false">Lista</button>
         </div>
         <div class="cal-bar__nav" data-cal-nav>
@@ -843,6 +845,28 @@
       <div class="modal__actions">
         <button class="btn btn--ghost" type="button" data-action="close-modal">Cancelar</button>
         <button class="btn btn--primary" type="submit"><span>Gerar link</span></button>
+      </div>
+    </form>
+  </dialog>
+
+  <dialog class="modal" id="alert-modal" aria-labelledby="alert-modal-title">
+    <form class="modal__form" method="dialog" novalidate>
+      <div class="modal__head">
+        <span class="modal__icon modal__icon--brand" data-icon="clock"></span>
+        <div>
+          <h2 class="modal__title" id="alert-modal-title">Prazos das cores</h2>
+          <p class="modal__text">Quando um conteúdo fica amarelo ou vermelho no calendário. Vale para toda a equipe. Conta o prazo mais próximo entre o interno e a publicação.</p>
+        </div>
+        <button class="icon-btn modal__close" type="button" data-action="close-modal" aria-label="Fechar" data-icon="close"></button>
+      </div>
+      <div class="form-grid">
+        <label class="field"><span class="field__label"><span class="tdot tone--atencao" aria-hidden="true"></span> Amarelo: faltam até</span><span class="input-row"><input class="field__input" name="soon" type="number" min="1" max="30" step="1" inputmode="numeric" required><span class="field__suffix">dias</span></span><span class="field__hint">E ainda não foi concluído (agendado ou publicado).</span></label>
+        <label class="field"><span class="field__label"><span class="tdot tone--urgente" aria-hidden="true"></span> Vermelho: faltam até</span><span class="input-row"><input class="field__input" name="urgent" type="number" min="0" max="29" step="1" inputmode="numeric" required><span class="field__suffix">dias</span></span><span class="field__hint">E não foi aprovado. Atrasado fica sempre vermelho.</span></label>
+      </div>
+      <p class="form-error" role="alert" hidden></p>
+      <div class="modal__actions">
+        <button class="btn btn--ghost" type="button" data-action="close-modal">Cancelar</button>
+        <button class="btn btn--primary" type="submit"><span>Salvar</span></button>
       </div>
     </form>
   </dialog>

@@ -1,18 +1,23 @@
-/* Calendário editorial do painel (aba Conteúdos): mês, semana e dia.
+/* Calendário editorial do painel (aba Conteúdos): mês, semana, dia e quadro.
    - Computador: cada dia mostra os conteúdos como etiquetas coloridas pelo
      alerta de prazo/status, com a bolinha da cor do cliente; dá para
      arrastar a etiqueta para outro dia (quem pode editar) e criar no "+".
    - Celular: o mês vira uma grade compacta com pontinhos; tocar no dia mostra
      a agenda dele logo abaixo. Semana vira uma agenda dia a dia.
+   - Quadro (Kanban): colunas pelas etapas de produção; arrastar o cartão muda
+     a etapa (no celular, um seletor no cartão faz o mesmo).
    Só monta o HTML; os cliques e o arrastar ficam em contents.js. */
 
-import { esc } from "../../../js/lib/dom.js?v=b28509c2bb";
-import { icon } from "../../../js/lib/icons.js?v=b28509c2bb";
-import { monthGrid, weekDays, weekLabel, monthLabel, longDayLabel, timeLabel, WEEKDAYS_SHORT, addDays, fromISO, toISO } from "../../../js/lib/dates.js?v=b28509c2bb";
-import { typeBadge } from "../../../js/ui/badges.js?v=b28509c2bb";
-import { TONES, alertTone } from "../domain/deadlines.js?v=b28509c2bb";
+import { esc } from "../../../js/lib/dom.js?v=424169d0b1";
+import { icon } from "../../../js/lib/icons.js?v=424169d0b1";
+import { monthGrid, weekDays, weekLabel, monthLabel, longDayLabel, timeLabel, WEEKDAYS_SHORT, addDays, fromISO, toISO } from "../../../js/lib/dates.js?v=424169d0b1";
+import { typeBadge } from "../../../js/ui/badges.js?v=424169d0b1";
+import { TONES, alertTone, nearestDeadline, daysFrom } from "../domain/deadlines.js?v=424169d0b1";
+import { PRODUCTION_STATUS } from "../domain/rules.js?v=424169d0b1";
 
-export const CAL_MODES = { mes: "Mês", semana: "Semana", dia: "Dia", lista: "Lista" };
+export const CAL_MODES = { mes: "Mês", semana: "Semana", dia: "Dia", quadro: "Quadro", lista: "Lista" };
+/** Colunas do quadro: "" = ainda não começou */
+export const BOARD_COLUMNS = [["", "Não iniciado"], ...Object.entries(PRODUCTION_STATUS).map(([k, v]) => [k, v.label])];
 const MAX_CHIPS = 3;
 const CLIENT_COLORS = 8;
 
@@ -41,17 +46,17 @@ export function calendarTitle(mode, cursor) {
 
 /**
  * ctx: { contents, mode, cursor, selected, today, clientIndex(id), clientName(id),
- *        canEdit(c), canCreate, people(c) (avatares), stages(c) (etiquetas de etapa) }
+ *        canEdit(c), canCreate, canConfigure, limits {soon, urgent}, people(c), stages(c) }
  */
 export function renderCalendar(ctx) {
   const byDay = {};
   for (const c of ctx.contents) (byDay[c.scheduled_date] ||= []).push(c);
   Object.values(byDay).forEach((items) => items.sort((a, b) => (a.scheduled_time || "99").localeCompare(b.scheduled_time || "99") || a.title.localeCompare(b.title)));
-  const body = ctx.mode === "semana" ? week(ctx, byDay) : ctx.mode === "dia" ? dayView(ctx, byDay) : month(ctx, byDay);
-  return `${body}${legend()}`;
+  const body = ctx.mode === "quadro" ? board(ctx) : ctx.mode === "semana" ? week(ctx, byDay) : ctx.mode === "dia" ? dayView(ctx, byDay) : month(ctx, byDay);
+  return `${body}${legend(ctx)}`;
 }
 
-const toneOf = (ctx, c) => alertTone(c, ctx.today);
+const toneOf = (ctx, c) => alertTone(c, ctx.today, ctx.limits);
 const cli = (ctx, c) => `cli-${ctx.clientIndex(c.client_id) % CLIENT_COLORS}`;
 
 function chip(ctx, c, { detailed = false } = {}) {
@@ -150,9 +155,86 @@ function dayView(ctx, byDay) {
   return `<section class="agenda agenda--day" data-cal-day="${esc(ctx.cursor)}" aria-label="Conteúdos do dia">${agendaList(ctx, byDay[ctx.cursor], ctx.cursor)}</section>`;
 }
 
-function legend() {
+/** Rótulos das cores com os limites atuais (o administrador ajusta) */
+export function toneLabels(limits) {
+  const days = (n) => (n === 0 ? "no dia" : `${n} ${n === 1 ? "dia" : "dias"}`);
+  return {
+    urgente: { label: "Urgente ou atrasado", hint: `até ${days(limits.urgent)} e não aprovado, ou com o prazo vencido` },
+    atencao: { label: `Prazo em até ${days(limits.soon)}`, hint: `até ${days(limits.soon)} e não concluído` },
+    cliente: TONES.cliente, producao: TONES.producao, nao_iniciado: TONES.nao_iniciado, concluido: TONES.concluido
+  };
+}
+
+function legend(ctx) {
+  const labels = toneLabels(ctx.limits);
   return `
-    <ul class="tone-legend" aria-label="O que cada cor quer dizer">
-      ${Object.entries(TONES).map(([k, t]) => `<li title="${esc(t.hint)}"><span class="tdot tone--${k}" aria-hidden="true"></span>${esc(t.label)}</li>`).join("")}
-    </ul>`;
+    <div class="tone-legend-row">
+      <ul class="tone-legend" aria-label="O que cada cor quer dizer">
+        ${Object.entries(labels).map(([k, t]) => `<li title="${esc(t.hint)}"><span class="tdot tone--${k}" aria-hidden="true"></span>${esc(t.label)}</li>`).join("")}
+      </ul>
+      ${ctx.canConfigure ? `<button class="link-btn tone-legend__edit" type="button" data-action="alert-settings">${icon("clock")}<span>Ajustar prazos das cores</span></button>` : ""}
+    </div>`;
+}
+
+/* ---------- Quadro (Kanban) ---------- */
+const shortDay = (iso) => (iso ? iso.split("-").reverse().slice(0, 2).join("/") : "—");
+function boardCard(ctx, c) {
+  const tone = toneOf(ctx, c);
+  const editable = ctx.canEdit(c);
+  const due = c.due_date ? `<span class="kcard__due" title="Prazo interno">${icon("clock")}${esc(shortDay(c.due_date))}</span>` : "";
+  return `
+    <article class="kcard tone--${tone}"${editable ? ` draggable="true" data-kdrag="${esc(c.id)}"` : ""} data-kcard="${esc(c.id)}">
+      <button class="kcard__open" type="button" data-view-content="${esc(c.id)}" aria-label="Abrir ${esc(c.title)}"></button>
+      <p class="kcard__client"><span class="cli-dot ${cli(ctx, c)}" aria-hidden="true"></span>${esc(ctx.clientName(c.client_id))}</p>
+      <p class="kcard__title">${esc(c.title)}</p>
+      <p class="kcard__meta">${typeBadge(c.format)}<span class="kcard__date">${icon("calendar")}${esc(shortDay(c.scheduled_date))}${c.scheduled_time ? ` · ${esc(timeLabel(c.scheduled_time.slice(0, 5)))}` : ""}</span>${due}</p>
+      <div class="kcard__foot"><span class="tone-pill tone--${tone}">${esc(toneLabels(ctx.limits)[tone].label)}</span>${ctx.people(c)}</div>
+      ${editable ? `<label class="kcard__move"><span class="visually-hidden">Etapa de ${esc(c.title)}</span><select class="field__input" data-kmove="${esc(c.id)}">${BOARD_COLUMNS.map(([k, label]) => `<option value="${esc(k)}"${(c.production_status || "") === k ? " selected" : ""}>${esc(label)}</option>`).join("")}</select></label>` : ""}
+    </article>`;
+}
+function board(ctx) {
+  const sorted = [...ctx.contents].sort((a, b) => (a.scheduled_date || "").localeCompare(b.scheduled_date || "") || (a.scheduled_time || "99").localeCompare(b.scheduled_time || "99"));
+  return `
+    <div class="kboard" role="list" aria-label="Quadro por etapa de produção">
+      ${BOARD_COLUMNS.map(([key, label]) => {
+        const items = sorted.filter((c) => (c.production_status || "") === key);
+        return `
+          <section class="kcol" role="listitem" data-kcol="${esc(key)}" aria-label="${esc(label)}">
+            <h3 class="kcol__title">${esc(label)} <span class="kcol__count">${items.length}</span></h3>
+            <div class="kcol__items">${items.length ? items.map((c) => boardCard(ctx, c)).join("") : '<p class="kcol__empty">Nada aqui</p>'}</div>
+          </section>`;
+      }).join("")}
+    </div>`;
+}
+
+/* ---------- Precisam de atenção ---------- */
+/** Os conteúdos atrasados, urgentes e com prazo perto (fora os concluídos), do mais apertado ao mais folgado */
+export function attentionItems(contents, today, limits) {
+  return contents
+    .map((c) => ({ c, tone: alertTone(c, today, limits), n: daysFrom(today, nearestDeadline(c)) }))
+    .filter((x) => x.tone === "urgente" || x.tone === "atencao")
+    .sort((a, b) => (a.n ?? 99) - (b.n ?? 99) || a.c.title.localeCompare(b.c.title));
+}
+export function renderAttention(ctx, items, open) {
+  if (!items.length) return "";
+  const late = items.filter((x) => x.n !== null && x.n < 0).length;
+  const urgent = items.filter((x) => x.tone === "urgente").length - late;
+  const soon = items.filter((x) => x.tone === "atencao").length;
+  const parts = [late && `<b class="att__n att__n--late">${late}</b> ${late === 1 ? "atrasada" : "atrasadas"}`, urgent && `<b class="att__n att__n--urgent">${urgent}</b> ${urgent === 1 ? "urgente" : "urgentes"}`, soon && `<b class="att__n att__n--soon">${soon}</b> com prazo perto`].filter(Boolean);
+  const when = (n) => (n === null ? "" : n < 0 ? `Atrasado ${-n} ${-n === 1 ? "dia" : "dias"}` : n === 0 ? "Vence hoje" : n === 1 ? "Vence amanhã" : `Vence em ${n} dias`);
+  return `
+    <div class="att${open ? " is-open" : ""}">
+      <button class="att__bar" type="button" data-action="toggle-attention" aria-expanded="${open}">
+        ${icon("bell")}<span class="att__title">Precisam de atenção</span><span class="att__parts">${parts.join('<span class="att__sep">·</span>')}</span><span class="att__chev">${icon("chevronRight")}</span>
+      </button>
+      ${open ? `<ul class="att__list">${items.slice(0, 12).map(({ c, tone, n }) => `
+        <li class="att__item tone--${tone}">
+          <button type="button" class="att__open" data-view-content="${esc(c.id)}">
+            <span class="att__when">${esc(when(n))}</span>
+            <span class="att__name">${esc(c.title)}</span>
+            <span class="att__client"><span class="cli-dot ${cli(ctx, c)}" aria-hidden="true"></span>${esc(ctx.clientName(c.client_id))}</span>
+          </button>
+          ${ctx.people(c)}
+        </li>`).join("")}${items.length > 12 ? `<li class="att__more">e mais ${items.length - 12}</li>` : ""}</ul>` : ""}
+    </div>`;
 }

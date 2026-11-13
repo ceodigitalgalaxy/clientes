@@ -5,12 +5,12 @@
    - Aprovação e produção: status separados; o cliente aprova pelo link do lote
      (seção Aprovações). O histórico mostra cada versão enviada e a resposta. */
 
-import { esc, on } from "../../../js/lib/dom.js?v=b28509c2bb";
-import { icon } from "../../../js/lib/icons.js?v=b28509c2bb";
-import { stampLabel } from "../../../js/lib/dates.js?v=b28509c2bb";
-import { renderMedia, mediaFallback } from "../../../js/ui/media.js?v=b28509c2bb";
-import { UPLOAD_LIMITS } from "../../../js/lib/storage.js?v=b28509c2bb";
-import { APPROVAL_STATUS, PRODUCTION_STATUS } from "../../../js/domain/approvals.js?v=b28509c2bb";
+import { esc, on } from "../../../js/lib/dom.js?v=424169d0b1";
+import { icon } from "../../../js/lib/icons.js?v=424169d0b1";
+import { stampLabel } from "../../../js/lib/dates.js?v=424169d0b1";
+import { renderMedia, mediaFallback } from "../../../js/ui/media.js?v=424169d0b1";
+import { UPLOAD_LIMITS } from "../../../js/lib/storage.js?v=424169d0b1";
+import { APPROVAL_STATUS, PRODUCTION_STATUS } from "../../../js/domain/approvals.js?v=424169d0b1";
 
 const ACCEPT = UPLOAD_LIMITS.contentTypes.join(",");
 const ROLES = { midia: "Galeria / carrossel", capa: "Capa", thumbnail: "Thumbnail do vídeo" };

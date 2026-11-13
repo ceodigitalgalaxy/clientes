@@ -52,6 +52,7 @@ const mover = await make(padaria, "Agenda de pães", busyDay, { status: "em_prod
 await make(padaria, "Carrossel de receitas", busyDay, { format: "carrossel", status: "aguardando_aprovacao" });
 await make(estudio, "Ensaio de fim de ano", busyDay, { format: "reels" });
 await make(estudio, "Bastidores do estúdio", busyDay);
+const atrasado = await make(estudio, "Atrasado sem começar", plus(-2));
 await make(padaria, "Publicado ontem", plus(-1) .slice(0, 7) === MONTH ? plus(-1) : TODAY, { status: "publicado" });
 
 const server = createPreviewServer({ port: PORT });
@@ -173,6 +174,55 @@ await step("Lista continua disponível (com seleção em massa)", async () => {
   await page.waitForSelector(".acal--month");
 });
 
+await step("Quadro: colunas por etapa e arrastar muda a etapa", async () => {
+  await page.click('[data-cal-mode="quadro"]');
+  await page.waitForSelector(".kboard");
+  assert.equal(await page.locator(".kcol").count(), 5);
+  assert.ok(await page.locator(`.kcol[data-kcol="em_producao"] [data-kcard="${mover.id}"]`).count() === 1);
+  await shot("cal10-quadro");
+  const from = await page.locator(`[data-kcard="${mover.id}"]`).boundingBox();
+  const to = await page.locator('.kcol[data-kcol="pronto_para_agendar"]').boundingBox();
+  await page.mouse.move(from.x + 30, from.y + 20);
+  await page.mouse.down();
+  await page.mouse.move(from.x + 50, from.y + 40, { steps: 5 });
+  await page.mouse.move(to.x + to.width / 2, to.y + 80, { steps: 12 });
+  await page.mouse.up();
+  await toastSays(/Agenda de pães.*Pronto para agendar/);
+  assert.equal((await store.getContent(mover.id)).production_status, "pronto_para_agendar");
+  await page.waitForSelector(`.kcol[data-kcol="pronto_para_agendar"] [data-kcard="${mover.id}"]`);
+});
+
+await step("Precisam de atenção: mostra o atrasado e abre o conteúdo", async () => {
+  await page.waitForSelector("#attention .att");
+  assert.match(await page.textContent("#attention .att__bar"), /Precisam de atenção.*1.*atrasada/s);
+  if (!(await page.isVisible("#attention .att__list"))) await page.click('[data-action="toggle-attention"]');
+  await page.waitForSelector(`#attention [data-view-content="${atrasado.id}"]`);
+  assert.match(await page.textContent("#attention .att__list"), /Atrasado 2 dias.*Atrasado sem começar.*Estúdio Luz/s);
+  await shot("cal11-atencao");
+  await page.click(`#attention [data-view-content="${atrasado.id}"]`);
+  await page.waitForSelector("#content-drawer[open]");
+  await page.keyboard.press("Escape");
+  await page.waitForSelector("#content-drawer", { state: "hidden" });
+});
+
+await step("Prazos das cores: o administrador ajusta e vale na hora", async () => {
+  await page.click('[data-cal-mode="mes"]');
+  await page.waitForSelector(".acal--month");
+  await page.click('[data-action="alert-settings"]');
+  await page.waitForSelector("#alert-modal[open]");
+  assert.equal(await page.inputValue('#alert-modal [name="soon"]'), "3");
+  await page.fill('#alert-modal [name="soon"]', "10");
+  await page.fill('#alert-modal [name="urgent"]', "12");
+  await page.click("#alert-modal [type=submit]");
+  await page.waitForSelector("#alert-modal .field__error");
+  await page.fill('#alert-modal [name="urgent"]', "2");
+  await shot("cal12-prazos");
+  await page.click("#alert-modal [type=submit]");
+  await toastSays(/Prazos das cores atualizados/);
+  assert.deepEqual(store.getSettings(), { alert_soon_days: 10, alert_urgent_days: 2 });
+  await page.waitForFunction(() => /Prazo em até 10 dias/.test(document.querySelector(".tone-legend").textContent));
+});
+
 /* ============================== Celular ============================== */
 page = await newPage({ ...devices["iPhone 13"] }, "celular");
 
@@ -245,6 +295,18 @@ await step("Celular: semana vira agenda dia a dia", async () => {
   const cols = await page.$eval(".acal--week", (n) => getComputedStyle(n).gridTemplateColumns.split(" ").length);
   assert.equal(cols, 1);
   await shot("cal09-celular-semana", { fullPage: true });
+});
+
+await step("Celular: quadro desliza e o seletor do cartão muda a etapa", async () => {
+  await page.click('[data-cal-mode="quadro"]');
+  await page.waitForSelector(".kboard");
+  const overflow = await page.evaluate(() => document.documentElement.scrollWidth - innerWidth);
+  assert.ok(overflow <= 1, `a página não rola de lado, só o quadro (${overflow}px)`);
+  await page.selectOption(`[data-kmove="${mover.id}"]`, "agendado");
+  await toastSays(/Agenda de pães.*Agendado/);
+  assert.equal((await store.getContent(mover.id)).production_status, "agendado");
+  await shot("cal13-celular-quadro");
+  await page.click('[data-cal-mode="mes"]');
 });
 
 await step("Sem erros de JavaScript no console", async () => assert.deepEqual(consoleErrors, [], JSON.stringify(consoleErrors)));

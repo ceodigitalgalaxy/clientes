@@ -11,12 +11,12 @@
        Solicitar alterações → comentário obrigatório → registrado.
    ========================================================================== */
 
-import { esc, on, reduceMotion } from "../lib/dom.js?v=b28509c2bb";
-import { icon } from "../lib/icons.js?v=b28509c2bb";
-import { renderAdMock, renderAdTexts, renderAdHistory, adStatusBadge } from "./ad-preview.js?v=b28509c2bb";
-import { coverHtml, mediaCover, embedCoverHtml, wireMediaFallbacks } from "./media.js?v=b28509c2bb";
-import { wireCarousel } from "./preview.js?v=b28509c2bb";
-import { AD_STATUS, AD_STAGES, AD_FORMATS, AD_LIMITS, platformLabel } from "../domain/ads.js?v=b28509c2bb";
+import { esc, on, reduceMotion } from "../lib/dom.js?v=424169d0b1";
+import { icon } from "../lib/icons.js?v=424169d0b1";
+import { renderAdMock, renderAdTexts, renderAdHistory, adStatusBadge } from "./ad-preview.js?v=424169d0b1";
+import { coverHtml, mediaCover, embedCoverHtml, wireMediaFallbacks } from "./media.js?v=424169d0b1";
+import { wireCarousel } from "./preview.js?v=424169d0b1";
+import { AD_STATUS, AD_STAGES, AD_FORMATS, AD_LIMITS, platformLabel } from "../domain/ads.js?v=424169d0b1";
 
 const TABS = [
   ["", "Todos"],

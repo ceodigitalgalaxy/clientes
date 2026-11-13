@@ -2,8 +2,9 @@
    Valida os dados antes de enviar (domain/rules.js); o banco confere de novo
    com as próprias regras e só aceita membros da equipe (RLS). */
 
-import { validateClient, validateContent, validateContentFilters, parseUsername, passwordProblem, CONTENT_STATUS, PRODUCTION_STATUS, isUuid, validateAd, validateAdFilters, AD_LIMITS, validateBrandKit, validateBatch, validateMember } from "./domain/rules.js?v=b28509c2bb";
-import { UPLOAD_LIMITS, fileName, fileProblem, resizeImage } from "../../js/lib/storage.js?v=b28509c2bb";
+import { validateClient, validateContent, validateContentFilters, parseUsername, passwordProblem, CONTENT_STATUS, PRODUCTION_STATUS, isUuid, validateAd, validateAdFilters, AD_LIMITS, validateBrandKit, validateBatch, validateMember } from "./domain/rules.js?v=424169d0b1";
+import { ALERT_DEFAULTS, validateAlertSettings } from "./domain/deadlines.js?v=424169d0b1";
+import { UPLOAD_LIMITS, fileName, fileProblem, resizeImage } from "../../js/lib/storage.js?v=424169d0b1";
 
 export class ApiError extends Error {
   constructor(status, message, fields) { super(message); this.status = status; this.fields = fields || {}; }
@@ -370,6 +371,19 @@ export function createApi({ store, onSessionLost, access = null, storage = null,
 
     /* ---------- Equipe (só administrador; o banco e a função conferem) ---------- */
     teamDirectory: guard(() => store.teamDirectory()),
+    /** Limites das cores de alerta; sem a tabela (banco antigo) valem os padrões */
+    alertSettings: async () => {
+      try {
+        const row = await store.getSettings();
+        return row ? { soon: row.alert_soon_days, urgent: row.alert_urgent_days } : { ...ALERT_DEFAULTS };
+      } catch { return { ...ALERT_DEFAULTS }; }
+    },
+    saveAlertSettings: guard(async (data) => {
+      const { value, errors } = validateAlertSettings(data);
+      if (Object.keys(errors).length) throw new ApiError(422, "Confira os campos destacados.", errors);
+      const row = await store.updateSettings({ alert_soon_days: value.soon, alert_urgent_days: value.urgent });
+      return { soon: row.alert_soon_days, urgent: row.alert_urgent_days };
+    }),
     createMember: guard((data) => {
       const { value, clientIds, errors } = validateMember(data);
       const username = parseUsername(data.username);

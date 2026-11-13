@@ -19,6 +19,17 @@ const DONE = ["agendado", "publicado"];
 const READY = ["pronto_para_agendar", ...DONE];
 const WITH_CLIENT = ["aguardando_aprovacao", "reenviado"];
 
+/** Limites editados pelo administrador: vermelho sempre menor que amarelo */
+export function validateAlertSettings(input = {}) {
+  const errors = {};
+  const soon = Number(input.soon);
+  const urgent = Number(input.urgent);
+  if (!Number.isInteger(soon) || soon < 1 || soon > 30) errors.soon = "Use de 1 a 30 dias.";
+  if (!Number.isInteger(urgent) || urgent < 0 || urgent > 29) errors.urgent = "Use de 0 a 29 dias.";
+  if (!errors.soon && !errors.urgent && urgent >= soon) errors.urgent = "Precisa ser menor que o prazo do amarelo.";
+  return { value: { soon, urgent }, errors };
+}
+
 /** Dias entre hoje e a data (negativo = já passou); null sem data */
 export function daysFrom(today, iso) {
   if (!iso) return null;

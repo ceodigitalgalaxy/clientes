@@ -9,25 +9,25 @@
    O banco aplica as mesmas regras (RLS): esconder a tela não é a proteção.
    ========================================================================== */
 
-import { $, on } from "../../js/lib/dom.js?v=b28509c2bb";
-import { icon, brandMark } from "../../js/lib/icons.js?v=b28509c2bb";
-import { toast } from "../../js/ui/toast.js?v=b28509c2bb";
-import { SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY } from "../../js/config.js?v=b28509c2bb";
-import { createAuth } from "../../js/lib/auth.js?v=b28509c2bb";
-import { createStorage } from "../../js/lib/storage.js?v=b28509c2bb";
-import { createSupabaseStore } from "./data/store.js?v=b28509c2bb";
-import { createApi } from "./api.js?v=b28509c2bb";
-import { validateContentFilters } from "./domain/rules.js?v=b28509c2bb";
-import { createConfirm, showFieldErrors, setBusy } from "./ui/dialogs.js?v=b28509c2bb";
-import { setupClients } from "./views/clients.js?v=b28509c2bb";
-import { setupContents } from "./views/contents.js?v=b28509c2bb";
-import { setupAccess } from "./views/access.js?v=b28509c2bb";
-import { setupImport } from "./views/import.js?v=b28509c2bb";
-import { setupAds } from "./views/ads.js?v=b28509c2bb";
-import { setupBrand } from "./views/brand.js?v=b28509c2bb";
-import { setupApprovals } from "./views/approvals.js?v=b28509c2bb";
-import { setupTeam } from "./views/team.js?v=b28509c2bb";
-import { setupTasks } from "./views/tasks.js?v=b28509c2bb";
+import { $, on } from "../../js/lib/dom.js?v=424169d0b1";
+import { icon, brandMark } from "../../js/lib/icons.js?v=424169d0b1";
+import { toast } from "../../js/ui/toast.js?v=424169d0b1";
+import { SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY } from "../../js/config.js?v=424169d0b1";
+import { createAuth } from "../../js/lib/auth.js?v=424169d0b1";
+import { createStorage } from "../../js/lib/storage.js?v=424169d0b1";
+import { createSupabaseStore } from "./data/store.js?v=424169d0b1";
+import { createApi } from "./api.js?v=424169d0b1";
+import { validateContentFilters } from "./domain/rules.js?v=424169d0b1";
+import { createConfirm, showFieldErrors, setBusy } from "./ui/dialogs.js?v=424169d0b1";
+import { setupClients } from "./views/clients.js?v=424169d0b1";
+import { setupContents } from "./views/contents.js?v=424169d0b1";
+import { setupAccess } from "./views/access.js?v=424169d0b1";
+import { setupImport } from "./views/import.js?v=424169d0b1";
+import { setupAds } from "./views/ads.js?v=424169d0b1";
+import { setupBrand } from "./views/brand.js?v=424169d0b1";
+import { setupApprovals } from "./views/approvals.js?v=424169d0b1";
+import { setupTeam } from "./views/team.js?v=424169d0b1";
+import { setupTasks } from "./views/tasks.js?v=424169d0b1";
 
 /* O painel não abre dentro de outro site (proteção contra clique disfarçado).
    A página fica invisível até esta checagem (veja .admin em admin.css). */
@@ -66,7 +66,8 @@ const state = {
   signedIn: false,
   me: null,          // cadastro de quem entrou (perfil e permissões)
   team: [],          // diretório da equipe (para escolher responsáveis)
-  can: { admin: false, edit: false, send: false }
+  can: { admin: false, edit: false, send: false },
+  alerts: { soon: 3, urgent: 1 }   // limites das cores de alerta (ajustes da agência)
 };
 
 /** O que o perfil pode fazer (espelha as regras do banco) */
@@ -206,7 +207,7 @@ async function enterApp() {
   document.body.classList.toggle("can-send", state.can.send);
   buildMobileNav();
   $("#user-name").lastChild.textContent = me.name || user.name;
-  await loadTeam();
+  [, state.alerts] = await Promise.all([loadTeam(), api.alertSettings()]);
   loginScreen.hidden = true;
   app.hidden = false;
   if (!location.hash) history.replaceState(null, "", state.can.edit ? "#/conteudos" : "#/demandas");

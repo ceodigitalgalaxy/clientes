@@ -1,8 +1,8 @@
 /* Pequenos elementos repetidos: etiqueta de tipo e selo de status */
 
-import { esc } from "../lib/dom.js?v=b28509c2bb";
-import { icon } from "../lib/icons.js?v=b28509c2bb";
-import { ACTIVITY_TYPES, STATUS } from "../domain/model.js?v=b28509c2bb";
+import { esc } from "../lib/dom.js?v=424169d0b1";
+import { icon } from "../lib/icons.js?v=424169d0b1";
+import { ACTIVITY_TYPES, STATUS } from "../domain/model.js?v=424169d0b1";
 
 export const typeBadge = (type, long = false) => {
   const t = ACTIVITY_TYPES[type] || ACTIVITY_TYPES.outro;

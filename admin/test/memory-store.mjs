@@ -45,7 +45,16 @@ export function createMemoryStore() {
   const now = () => new Date().toISOString();
   const assignees = new Map();  // content_id → Set(user_id)   (content_assignees)
   const contentEvents = [];      // histórico da demanda          (content_events)
+  const settings = { alert_soon_days: 3, alert_urgent_days: 1 };
   const store = {
+    /* Ajustes da agência (agency_settings: uma linha) */
+    getSettings() { return { ...settings }; },
+    updateSettings(value) {
+      const next = { ...settings, ...value };
+      if (!(next.alert_urgent_days < next.alert_soon_days)) throw new StoreError(400, "check", "23514");
+      Object.assign(settings, next);
+      return { ...settings };
+    },
     kind: "memory",
     failNext: 0,       // quantos pedidos devem falhar (simula banco fora do ar)
     delayMs: 0,        // atraso artificial (para ver o "carregando")

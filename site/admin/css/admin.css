@@ -646,7 +646,7 @@ body:not(.can-send) .row__pick { visibility: hidden; }
 .cal-bar { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 12px 16px; margin: 20px 0 12px; }
 .seg { display: inline-flex; gap: 2px; padding: 4px; border: 1px solid var(--line); border-radius: 12px; background: var(--surface); }
 .seg button { min-height: 36px; padding: 0 16px; border: 0; border-radius: 9px; background: transparent; font: inherit; font-size: 13px; font-weight: 600; color: var(--text-muted); cursor: pointer; transition: background-color 150ms var(--ease), color 150ms var(--ease); }
-.seg button:hover { color: var(--brand); }
+@media (hover: hover) { .seg button:hover { color: var(--brand); } }
 .seg button[aria-pressed="true"] { color: #fff; background: var(--brand); }
 .seg button:focus-visible { outline: none; box-shadow: var(--ring); }
 .cal-bar__nav { display: flex; align-items: center; gap: 8px; }
@@ -806,3 +806,75 @@ body:not(.can-send) .row__pick { visibility: hidden; }
 @keyframes sheet-in { from { opacity: 0; transform: translateY(8px); } }
 @keyframes sheet-up { from { transform: translateY(100%); } }
 @media (prefers-reduced-motion: reduce) { .modal[open], .nav-sheet:not([hidden]), form.filters.is-open { animation: none; } }
+
+/* ==========================================================================
+   Quadro (Kanban), "Precisam de atenção" e prazos das cores
+   ========================================================================== */
+.tone-legend-row { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px 16px; }
+.tone-legend__edit { font-size: 13px; }
+.tone-legend__edit .icon { width: 16px; height: 16px; }
+.field__suffix { align-self: center; font-size: 14px; color: var(--text-muted); }
+#alert-modal .input-row .field__input { max-width: 120px; }
+#alert-modal .form-grid { align-items: start; }
+#alert-modal .field__label .tdot { margin-right: 4px; }
+
+.kboard { display: grid; grid-template-columns: repeat(5, minmax(220px, 1fr)); gap: 12px; overflow-x: auto; padding-bottom: 4px; }
+.kcol { display: flex; flex-direction: column; gap: 8px; min-width: 0; min-height: 320px; padding: 10px; border: 1px solid var(--line); border-radius: var(--radius-lg); background: var(--surface-muted); transition: background-color 150ms var(--ease), box-shadow 150ms var(--ease); }
+.kcol.is-drop { background: var(--brand-soft); box-shadow: inset 0 0 0 2px var(--brand); }
+.kcol__title { display: flex; align-items: center; justify-content: space-between; padding: 2px 4px; font-size: 13px; font-weight: 600; }
+.kcol__count { display: inline-grid; place-items: center; min-width: 24px; height: 22px; padding: 0 7px; border-radius: 11px; font-size: 12px; color: var(--text-muted); background: var(--surface); border: 1px solid var(--line); }
+.kcol__items { display: grid; gap: 8px; align-content: start; }
+.kcol__empty { padding: 16px 8px; border: 1px dashed var(--line-strong); border-radius: var(--radius); font-size: 13px; text-align: center; color: var(--text-subtle); }
+.kcard { position: relative; display: grid; gap: 6px; padding: 12px; border: 1px solid var(--line); border-left: 4px solid var(--t); border-radius: var(--radius); background: var(--surface); box-shadow: var(--shadow-card); transition: transform 150ms var(--ease), box-shadow 150ms var(--ease); }
+.kcard:hover { transform: translateY(-1px); box-shadow: 0 8px 20px -12px rgba(22, 11, 46, 0.35); }
+.kcard[draggable="true"] { cursor: grab; }
+.kcard.is-dragging { opacity: 0.45; }
+.kcard__open { position: absolute; inset: 0; z-index: 1; border: 0; border-radius: inherit; background: none; cursor: inherit; }
+.kcard__open:focus-visible { outline: none; box-shadow: var(--ring); }
+.kcard__client { display: flex; align-items: center; gap: 6px; font-size: 12px; font-weight: 600; color: var(--text-muted); }
+.kcard__title { font-size: 14px; font-weight: 600; line-height: 1.35; overflow-wrap: anywhere; }
+.kcard__meta { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; font-size: 12px; color: var(--text-muted); }
+.kcard__date, .kcard__due { display: inline-flex; align-items: center; gap: 4px; }
+.kcard__date .icon, .kcard__due .icon { width: 13px; height: 13px; }
+.kcard__foot { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 6px; }
+.kcard__move { position: relative; z-index: 2; display: none; }
+.kcard__move .field__input { min-height: 40px; font-size: 14px; }
+
+.attention:empty { display: none; }
+.attention { margin: 4px 0 4px; }
+.att { overflow: hidden; border: 1px solid var(--ajustes-line); border-radius: var(--radius-lg); background: var(--surface); box-shadow: var(--shadow-card); }
+.att__bar { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 10px; width: 100%; padding: 12px 16px; border: 0; background: linear-gradient(90deg, var(--ajustes-soft), var(--surface) 70%); font: inherit; font-size: 14px; text-align: left; color: var(--text); cursor: pointer; }
+.att__bar > .icon { width: 18px; height: 18px; color: var(--ajustes); }
+.att__bar:focus-visible { outline: none; box-shadow: inset 0 0 0 3px rgba(90, 26, 199, 0.25); }
+.att__title { font-weight: 600; }
+.att__parts { display: inline-flex; flex-wrap: wrap; align-items: center; gap: 4px 6px; color: var(--text-muted); }
+.att__sep { color: var(--line-strong); }
+.att__n { font-weight: 700; }
+.att__n--late, .att__n--urgent { color: var(--ajustes); }
+.att__n--soon { color: #B07F00; }
+.att__chev { margin-left: auto; display: inline-flex; transition: transform 200ms var(--ease); }
+.att__chev .icon { width: 18px; height: 18px; color: var(--text-subtle); }
+.att.is-open .att__chev { transform: rotate(90deg); }
+.att__list { display: grid; margin: 0; padding: 4px 8px 8px; list-style: none; border-top: 1px solid var(--line); }
+.att__item { display: flex; align-items: center; gap: 10px; padding: 2px 4px 2px 8px; border-left: 3px solid var(--t); border-radius: 6px; }
+.att__item + .att__item { margin-top: 2px; }
+.att__open { display: grid; grid-template-columns: 130px minmax(0, 1fr) auto; align-items: center; gap: 12px; flex: 1; min-width: 0; min-height: 44px; padding: 6px 8px; border: 0; border-radius: 8px; background: none; font: inherit; font-size: 14px; text-align: left; color: var(--text); cursor: pointer; }
+.att__open:hover { background: var(--surface-hover); }
+.att__open:focus-visible { outline: none; box-shadow: var(--ring); }
+.att__when { font-size: 12px; font-weight: 700; color: var(--t-ink); }
+.att__name { overflow: hidden; font-weight: 500; white-space: nowrap; text-overflow: ellipsis; }
+.att__client { display: inline-flex; align-items: center; gap: 6px; overflow: hidden; font-size: 12px; color: var(--text-muted); white-space: nowrap; text-overflow: ellipsis; }
+.att__more { padding: 8px 12px; font-size: 13px; color: var(--text-muted); }
+
+@media (max-width: 768px) {
+  .seg { grid-template-columns: repeat(5, minmax(0, 1fr)); }
+  .seg button { font-size: 12px; }
+  /* Quadro no celular: colunas lado a lado, deslizando; o seletor no cartão troca a etapa (arrastar não funciona no toque) */
+  .kboard { grid-template-columns: repeat(5, 84%); gap: 10px; margin: 0 calc(var(--gutter) * -1); padding: 0 var(--gutter) 6px; scroll-snap-type: x mandatory; scroll-padding: 0 var(--gutter); }
+  .kcol { min-height: 240px; scroll-snap-align: start; }
+  .kcard__move { display: block; }
+  .att__bar { padding: 12px; font-size: 13px; }
+  .att__open { grid-template-columns: minmax(0, 1fr); gap: 2px; }
+  .att__item .avatars { display: none; }
+}
+@media (hover: none) { .kcard__move { display: block; } }

@@ -157,6 +157,11 @@ export function createFakeSupabase({ store, publishableKey }) {
       }
       return rlsDenied();
     }
+    if (table === "agency_settings") {
+      if (!active(user)) return method === "GET" ? [] : rlsDenied();
+      if (method === "GET") return [store.getSettings()];
+      if (method === "PATCH") return isAdmin(user) ? [store.updateSettings(body)] : [];
+    }
     if (table === "agency_member_clients") {
       if (!isAdmin(user)) return method === "GET" ? [] : rlsDenied();
       if (method === "POST") { for (const row of [].concat(body)) userById(row.user_id)?.profile.client_ids.push(row.client_id); return []; }
