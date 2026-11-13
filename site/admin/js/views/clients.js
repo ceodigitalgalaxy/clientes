@@ -1,11 +1,11 @@
 /* Seção Clientes: lista, cadastro, edição e exclusão (só sem conteúdos) */
 
-import { $, esc, on } from "../../../js/lib/dom.js?v=d8b3be61ca";
-import { icon } from "../../../js/lib/icons.js?v=d8b3be61ca";
-import { validateClient, slugify } from "../domain/rules.js?v=d8b3be61ca";
-import { closeDialog, wireDialog, showFieldErrors, setBusy } from "../ui/dialogs.js?v=d8b3be61ca";
-import { stateBlock, loadingCards, button } from "../ui/states.js?v=d8b3be61ca";
-import { portalBlock } from "./access.js?v=d8b3be61ca";
+import { $, esc, on } from "../../../js/lib/dom.js?v=b28509c2bb";
+import { icon } from "../../../js/lib/icons.js?v=b28509c2bb";
+import { validateClient, slugify } from "../domain/rules.js?v=b28509c2bb";
+import { closeDialog, wireDialog, showFieldErrors, setBusy } from "../ui/dialogs.js?v=b28509c2bb";
+import { stateBlock, loadingCards, button } from "../ui/states.js?v=b28509c2bb";
+import { portalBlock } from "./access.js?v=b28509c2bb";
 
 const initials = (name) => name.split(/\s+/).filter((w) => /^[\p{L}\p{N}]/u.test(w)).slice(0, 2).map((w) => w[0].toUpperCase()).join("") || "?";
 

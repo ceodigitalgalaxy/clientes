@@ -85,7 +85,9 @@ nextResponse = { status: 403, body: { code: "42501" } };
 await assert.rejects(browserStore.createClient({}), (e) => e.status === 403 && /permissão/.test(e.message));
 nextResponse = { status: 200, body: [{ user_id: id }] };
 assert.equal(await browserStore.isAgencyMember(id), true);
-assert.ok(calls.at(-1).url.includes(`agency_members?select=user_id&user_id=eq.${id}`));
+assert.ok(calls.at(-1).url.includes(`agency_members?select=`) && calls.at(-1).url.includes(`user_id=eq.${id}`));
+nextResponse = { status: 200, body: [{ user_id: id, role: "colaborador", active: false }] };
+assert.equal(await browserStore.isAgencyMember(id), false, "desativado não entra");
 nextResponse = { status: 200, body: [] };
 assert.equal(await browserStore.isAgencyMember(id), false);
 

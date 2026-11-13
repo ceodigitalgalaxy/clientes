@@ -194,6 +194,8 @@ export function createApprovalsMemory({ clients, contents, assetsOf, setContentA
     approvalEvents: events,
 
     /* ---- Equipe (RLS: membro da agência) ---- */
+    /** Cliente do lote (o fake-supabase confere a permissão, como assert_batch) */
+    batchClient(id) { return batches.get(id)?.client_id ?? null; },
     async listBatchSummary({ client_id } = {}) {
       await tick();
       return [...batches.values()].filter((b) => !client_id || b.client_id === client_id)

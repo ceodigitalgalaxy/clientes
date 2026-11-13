@@ -9,31 +9,35 @@
    O banco aplica as mesmas regras (RLS): esconder a tela não é a proteção.
    ========================================================================== */
 
-import { $, on } from "../../js/lib/dom.js?v=d8b3be61ca";
-import { icon, brandMark } from "../../js/lib/icons.js?v=d8b3be61ca";
-import { toast } from "../../js/ui/toast.js?v=d8b3be61ca";
-import { SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY } from "../../js/config.js?v=d8b3be61ca";
-import { createAuth } from "../../js/lib/auth.js?v=d8b3be61ca";
-import { createStorage } from "../../js/lib/storage.js?v=d8b3be61ca";
-import { createSupabaseStore } from "./data/store.js?v=d8b3be61ca";
-import { createApi } from "./api.js?v=d8b3be61ca";
-import { validateContentFilters } from "./domain/rules.js?v=d8b3be61ca";
-import { createConfirm, showFieldErrors, setBusy } from "./ui/dialogs.js?v=d8b3be61ca";
-import { setupClients } from "./views/clients.js?v=d8b3be61ca";
-import { setupContents } from "./views/contents.js?v=d8b3be61ca";
-import { setupAccess } from "./views/access.js?v=d8b3be61ca";
-import { setupImport } from "./views/import.js?v=d8b3be61ca";
-import { setupAds } from "./views/ads.js?v=d8b3be61ca";
-import { setupBrand } from "./views/brand.js?v=d8b3be61ca";
-import { setupApprovals } from "./views/approvals.js?v=d8b3be61ca";
+import { $, on } from "../../js/lib/dom.js?v=b28509c2bb";
+import { icon, brandMark } from "../../js/lib/icons.js?v=b28509c2bb";
+import { toast } from "../../js/ui/toast.js?v=b28509c2bb";
+import { SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY } from "../../js/config.js?v=b28509c2bb";
+import { createAuth } from "../../js/lib/auth.js?v=b28509c2bb";
+import { createStorage } from "../../js/lib/storage.js?v=b28509c2bb";
+import { createSupabaseStore } from "./data/store.js?v=b28509c2bb";
+import { createApi } from "./api.js?v=b28509c2bb";
+import { validateContentFilters } from "./domain/rules.js?v=b28509c2bb";
+import { createConfirm, showFieldErrors, setBusy } from "./ui/dialogs.js?v=b28509c2bb";
+import { setupClients } from "./views/clients.js?v=b28509c2bb";
+import { setupContents } from "./views/contents.js?v=b28509c2bb";
+import { setupAccess } from "./views/access.js?v=b28509c2bb";
+import { setupImport } from "./views/import.js?v=b28509c2bb";
+import { setupAds } from "./views/ads.js?v=b28509c2bb";
+import { setupBrand } from "./views/brand.js?v=b28509c2bb";
+import { setupApprovals } from "./views/approvals.js?v=b28509c2bb";
+import { setupTeam } from "./views/team.js?v=b28509c2bb";
+import { setupTasks } from "./views/tasks.js?v=b28509c2bb";
 
 /* O painel não abre dentro de outro site (proteção contra clique disfarçado).
    A página fica invisível até esta checagem (veja .admin em admin.css). */
 if (window.top !== window.self) throw new Error("O painel não pode ser aberto dentro de outra página.");
 document.body.classList.add("is-ready");
 
-const ROUTES = ["conteudos", "aprovacoes", "anuncios", "clientes", "importar"];
-const TITLES = { conteudos: "Conteúdos", aprovacoes: "Aprovações de Conteúdo", anuncios: "Aprovação de anúncios", clientes: "Clientes", importar: "Importar conteúdos" };
+const ROUTES = ["demandas", "conteudos", "aprovacoes", "anuncios", "clientes", "importar", "equipe"];
+const TITLES = { demandas: "Minhas demandas", conteudos: "Conteúdos", aprovacoes: "Aprovações de Conteúdo", anuncios: "Aprovação de anúncios", clientes: "Clientes", importar: "Importar conteúdos", equipe: "Equipe" };
+// Seções que dependem do perfil (o banco recusa de qualquer jeito; aqui só não mostramos)
+const NEEDS = { clientes: "admin", equipe: "admin", importar: "edit", aprovacoes: "send" };
 
 const auth = createAuth({ url: SUPABASE_URL, apiKey: SUPABASE_PUBLISHABLE_KEY, kind: "equipe" });
 const store = createSupabaseStore({
@@ -49,7 +53,9 @@ const api = createApi({
   storage,
   onSessionLost: (message) => showLogin(message),
   // Logins de cliente: função no Supabase que guarda a chave secreta (supabase/functions/acesso-cliente)
-  access: { url: `${SUPABASE_URL}/functions/v1/acesso-cliente`, apiKey: SUPABASE_PUBLISHABLE_KEY, getToken: () => auth.accessToken(), refresh: () => auth.refresh() }
+  access: { url: `${SUPABASE_URL}/functions/v1/acesso-cliente`, apiKey: SUPABASE_PUBLISHABLE_KEY, getToken: () => auth.accessToken(), refresh: () => auth.refresh() },
+  // Logins da equipe: função "equipe" (só administrador)
+  team: { url: `${SUPABASE_URL}/functions/v1/equipe`, apiKey: SUPABASE_PUBLISHABLE_KEY, getToken: () => auth.accessToken(), refresh: () => auth.refresh() }
 });
 
 const state = {
@@ -57,8 +63,22 @@ const state = {
   clients: [],
   clientsLoaded: false,
   filters: {},
-  signedIn: false
+  signedIn: false,
+  me: null,          // cadastro de quem entrou (perfil e permissões)
+  team: [],          // diretório da equipe (para escolher responsáveis)
+  can: { admin: false, edit: false, send: false }
 };
+
+/** O que o perfil pode fazer (espelha as regras do banco) */
+function permissions(me) {
+  const admin = me?.role === "admin";
+  return { admin, edit: admin || me?.edit_scope === "todos", send: admin || Boolean(me?.can_send_approval) };
+}
+const allowed = (route) => !NEEDS[route] || state.can[NEEDS[route]];
+async function loadTeam() {
+  try { state.team = await api.teamDirectory(); } catch { state.team = []; }
+  return state.team;
+}
 
 const confirm = createConfirm($("#confirm-modal"));
 
@@ -89,6 +109,8 @@ const contents = setupContents({ api, state, toast, confirm, navigate });
 setupAccess({ api, state, toast, confirm, onChanged: () => loadClients() });
 const importer = setupImport({ api, state, toast, navigate });
 const adsView = setupAds({ api, state, toast, confirm, navigate });
+const teamView = setupTeam({ api, state, toast, confirm, loadTeam });
+const tasksView = setupTasks({ api, state, toast, navigate, openContent: (id) => contents.openById(id) });
 const approvalsView = setupApprovals({ api, state, toast, confirm, navigate, openContentForm: (content, preset) => contents.openForm(content, preset) });
 
 /** Mostra a seção do endereço atual */
@@ -96,7 +118,9 @@ async function showRoute() {
   if (!state.signedIn) return;
   const [path, query = ""] = location.hash.replace(/^#\/?/, "").split("?");
   const previous = state.route;
-  state.route = ROUTES.includes(path) ? path : "conteudos";
+  state.route = ROUTES.includes(path) && allowed(path) ? path : (state.can.edit ? "conteudos" : "demandas");
+  // Endereço de uma seção sem permissão (ou inexistente): a barra de endereço mostra onde a pessoa está
+  if (path !== state.route) history.replaceState(null, "", `#/${state.route}`);
   // Trocou de seção: painéis e janelas da seção anterior fecham (não ficam por cima)
   if (previous && previous !== state.route) document.querySelectorAll("dialog[open]").forEach((d) => d.close());
   state.filters = state.route === "conteudos" ? validateContentFilters(Object.fromEntries(new URLSearchParams(query))) : {};
@@ -106,6 +130,8 @@ async function showRoute() {
     else link.removeAttribute("aria-current");
   });
   document.title = `${TITLES[state.route]} · Painel da agência`;
+  // "Mais" (celular) fica marcado quando a seção aberta está dentro dele
+  navMore.classList.toggle("is-current", Boolean(navSheet.querySelector(`[data-route="${state.route}"]`)));
   if (!state.clientsLoaded) {
     clients.renderLoading();
     if (state.route === "conteudos") contents.renderLoading();
@@ -115,6 +141,8 @@ async function showRoute() {
     if (!ok && state.route === "conteudos") { await contents.load(); return; }
   }
   if (state.route === "conteudos") await contents.load();
+  if (state.route === "demandas") await tasksView.load();
+  if (state.route === "equipe") await teamView.load();
   if (state.route === "importar") importer.show();
   if (state.route === "anuncios") await adsView.load(Object.fromEntries(new URLSearchParams(query)));
   if (state.route === "aprovacoes") await approvalsView.load(Object.fromEntries(new URLSearchParams(query)));
@@ -130,6 +158,9 @@ const app = $("#app");
 function showLogin(message = "", { info = false } = {}) {
   const wasSignedIn = state.signedIn;
   state.signedIn = false;
+  state.me = null;
+  state.team = [];
+  state.can = permissions(null);
   state.clients = [];
   state.clientsLoaded = false;
   document.querySelectorAll("dialog[open]").forEach((dialog) => dialog.close());
@@ -152,30 +183,42 @@ function showLogin(message = "", { info = false } = {}) {
 /** Confere se quem entrou faz parte da equipe e abre o painel */
 async function enterApp() {
   const user = auth.user;
-  let member = false;
+  let me = null;
   try {
-    member = await api.isAgencyMember(user.id);
+    me = await api.getProfile(user.id);
   } catch (error) {
     if (error.status === 401) return;          // sessão vencida: o login já foi mostrado
     showLogin(error.message);
     return;
   }
-  if (!member) {
+  if (!me || me.active === false) {
     await auth.signOut();
-    showLogin("Este usuário não tem acesso ao painel da agência.");
+    showLogin(me ? "Seu acesso ao painel foi desativado. Fale com um administrador." : "Este usuário não tem acesso ao painel da agência.");
     return;
   }
   state.signedIn = true;
-  $("#user-name").lastChild.textContent = user.name;
+  state.me = { ...me, user_id: user.id, role: me.role || "admin" };
+  state.can = permissions(state.me);
+  // Menu e botões conforme o perfil (o banco aplica as mesmas regras)
+  document.querySelectorAll("[data-needs]").forEach((el) => { el.hidden = !state.can[el.dataset.needs]; });
+  document.body.classList.toggle("is-admin", state.can.admin);
+  document.body.classList.toggle("can-edit", state.can.edit);
+  document.body.classList.toggle("can-send", state.can.send);
+  buildMobileNav();
+  $("#user-name").lastChild.textContent = me.name || user.name;
+  await loadTeam();
   loginScreen.hidden = true;
   app.hidden = false;
-  if (!location.hash) history.replaceState(null, "", "#/conteudos");
+  if (!location.hash) history.replaceState(null, "", state.can.edit ? "#/conteudos" : "#/demandas");
   await showRoute();
+  tasksView.refreshCount();
   // Contador do menu "Anúncios": quantos o cliente pediu para alterar
   if (state.route !== "anuncios") adsView.refreshAttention();
   // Avisos da central de aprovação (decisões dos clientes), a cada 30 s
-  if (state.route !== "aprovacoes") approvalsView.refreshAttention();
-  approvalsView.startPolling();
+  if (state.can.send) {
+    if (state.route !== "aprovacoes") approvalsView.refreshAttention();
+    approvalsView.startPolling();
+  }
 }
 
 loginForm.addEventListener("submit", async (event) => {
@@ -221,7 +264,58 @@ function hydrateIcons(root = document) {
   root.querySelectorAll('[data-slot="brand-mark"]').forEach((node) => { node.innerHTML = brandMark(); });
 }
 
+/* ---------- Celular: menu embaixo (até 4 seções + "Mais") e filtros recolhidos ---------- */
+const NAV_SLOTS = 4;
+const navMore = document.querySelector("[data-nav-more]");
+const navSheet = $("#nav-sheet");
+function buildMobileNav() {
+  const links = [...document.querySelectorAll(".admin-nav a.admin-nav__link")].filter((a) => !a.hidden);
+  const overflow = links.length > NAV_SLOTS + 1 ? links.slice(NAV_SLOTS) : [];
+  links.forEach((a) => a.classList.toggle("is-overflow", overflow.includes(a)));
+  navMore.hidden = !overflow.length;
+  navSheet.innerHTML = overflow.map((a) => `<a class="nav-sheet__link" href="${a.getAttribute("href")}" data-route="${a.dataset.route}">${a.innerHTML}</a>`).join("");
+  setNavSheet(false);
+}
+function setNavSheet(open) {
+  navSheet.hidden = !open;
+  navMore.setAttribute("aria-expanded", String(open));
+  document.body.classList.toggle("nav-sheet-open", open);
+}
+navMore.addEventListener("click", () => setNavSheet(navSheet.hidden));
+navSheet.addEventListener("click", (event) => { if (event.target.closest("a")) setNavSheet(false); });
+document.addEventListener("keydown", (event) => { if (event.key === "Escape" && !navSheet.hidden) { setNavSheet(false); navMore.focus(); } });
+document.addEventListener("click", (event) => { if (!navSheet.hidden && !event.target.closest("#nav-sheet, [data-nav-more]")) setNavSheet(false); });
+
+function wireFilterToggles() {
+  document.querySelectorAll("form.filters").forEach((form) => {
+    if (!form.id) return;
+    const toggle = document.createElement("button");
+    toggle.type = "button";
+    toggle.className = "btn btn--ghost btn--sm filters-toggle";
+    toggle.setAttribute("aria-expanded", "false");
+    toggle.setAttribute("aria-controls", form.id);
+    toggle.innerHTML = `${icon("list")}<span>Filtros</span><span class="filters-toggle__count" hidden></span>`;
+    form.before(toggle);
+    const sync = () => {
+      const active = [...form.elements].filter((el) => el.name && !el.closest("[hidden]") && el.value && el.type !== "checkbox").length;
+      const badge = toggle.querySelector(".filters-toggle__count");
+      badge.hidden = !active;
+      badge.textContent = String(active);
+    };
+    toggle.addEventListener("click", () => {
+      const open = !form.classList.contains("is-open");
+      form.classList.toggle("is-open", open);
+      toggle.setAttribute("aria-expanded", String(open));
+    });
+    form.addEventListener("change", sync);
+    form.addEventListener("reset", () => setTimeout(sync));
+    window.addEventListener("hashchange", () => setTimeout(sync, 50));
+    setTimeout(sync, 300);
+  });
+}
+
 hydrateIcons();
+wireFilterToggles();
 $("#user-name").append(document.createTextNode(""));
 window.addEventListener("hashchange", showRoute);
 on(document, "click", "[data-route]", (event, link) => {

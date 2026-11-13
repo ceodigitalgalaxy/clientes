@@ -12,7 +12,7 @@
      e a encerra no Supabase.
    ========================================================================== */
 
-import { parseUsername, loginEmail, usernameFromEmail, accountKind } from "../domain/accounts.js?v=d8b3be61ca";
+import { parseUsername, loginEmail, usernameFromEmail, accountKind } from "../domain/accounts.js?v=b28509c2bb";
 
 const STORAGE_KEYS = { equipe: "dg-painel-sessao", cliente: "dg-portal-sessao" };
 const RENEW_BEFORE_MS = 60_000;   // renova o token 1 minuto antes de vencer
@@ -23,6 +23,7 @@ export class AuthError extends Error {
 
 const MESSAGES = {
   invalid: "Usuário ou senha incorretos.",
+  banned: "Seu acesso foi desativado. Fale com o administrador da agência.",
   limited: "Muitas tentativas seguidas. Aguarde alguns minutos e tente de novo.",
   offline: "Não foi possível conectar. Verifique a internet e tente de novo.",
   expired: "Sua sessão expirou. Entre de novo.",
@@ -123,6 +124,8 @@ export function createAuth({ url, apiKey, kind = "equipe", storage = safeStorage
       if (response.ok && data?.access_token) { save(data); return this.user; }
       if (response.status === 429) throw new AuthError(MESSAGES.limited, "limited");
       if (response.status >= 500) throw new AuthError(MESSAGES.offline, "offline");
+      // Login bloqueado pela equipe (acesso desativado no painel)
+      if (data?.error_code === "user_banned") throw new AuthError(MESSAGES.banned, "banned");
       throw new AuthError(MESSAGES.invalid, "invalid");
     },
 

@@ -7,7 +7,7 @@
    Sem dependências: roda no navegador e no Node.
    ========================================================================== */
 
-import { APPROVAL_STATUS, PRODUCTION_STATUS, statusFromPair, pairFromStatus } from "../../../js/domain/approvals.js?v=d8b3be61ca";
+import { APPROVAL_STATUS, PRODUCTION_STATUS, statusFromPair, pairFromStatus } from "../../../js/domain/approvals.js?v=b28509c2bb";
 export { APPROVAL_STATUS, PRODUCTION_STATUS, statusFromPair, pairFromStatus };
 
 /** Situação no calendário (coluna antiga "status", calculada da aprovação + produção) */
@@ -142,6 +142,15 @@ export function validateContent(input = {}) {
     hashtags: clean(input.hashtags),
     status: clean(input.status) || "planejado"
   };
+  // Tarefa: prazo interno e prioridade (responsáveis vão à parte, em content_assignees)
+  if (input.due_date !== undefined) {
+    value.due_date = clean(input.due_date);
+    if (value.due_date && !isDate(value.due_date)) errors.due_date = "Use uma data válida.";
+  }
+  if (input.priority !== undefined) {
+    value.priority = clean(input.priority) || "media";
+    if (!PRIORITIES[value.priority]) errors.priority = "Escolha a prioridade.";
+  }
   // Aprovação final: separada da aprovação da ideia
   if (input.final_status !== undefined) {
     value.final_status = clean(input.final_status) || "rascunho";
@@ -194,15 +203,51 @@ export function validateContentFilters(input = {}) {
   if (input.from && isDate(input.from)) filters.from = input.from;
   if (input.to && isDate(input.to)) filters.to = input.to;
   if (input.status && CONTENT_STATUS[input.status]) filters.status = input.status;
+  if (input.assignee === "ninguem" || (input.assignee && isUuid(input.assignee))) filters.assignee = input.assignee;
   return filters;
 }
 
+/* ---------- Equipe e tarefas ---------- */
+export const PRIORITIES = {
+  baixa:   { label: "Baixa",   rank: 3 },
+  media:   { label: "Média",   rank: 2 },
+  alta:    { label: "Alta",    rank: 1 },
+  urgente: { label: "Urgente", rank: 0 }
+};
+export const ROLES = { admin: "Administrador", colaborador: "Colaborador" };
+export const EDIT_SCOPES = { todos: "Todos os conteúdos dos clientes liberados", atribuidos: "Só as próprias demandas" };
+
+/** Pessoa da equipe (as mesmas regras da função "equipe" e do banco) */
+export function validateMember(input = {}) {
+  const errors = {};
+  const role = input.role === "admin" ? "admin" : input.role === "colaborador" ? "colaborador" : null;
+  const value = {
+    name: clean(input.name),
+    email: clean(input.email) ? clean(input.email).toLowerCase() : null,
+    job_title: clean(input.job_title),
+    role,
+    all_clients: role === "admin" || input.all_clients === true || input.all_clients === "on",
+    edit_scope: role === "admin" ? "todos" : input.edit_scope === "todos" ? "todos" : input.edit_scope === "atribuidos" ? "atribuidos" : null,
+    can_send_approval: role === "admin" || input.can_send_approval === true || input.can_send_approval === "on"
+  };
+  const clientIds = value.all_clients ? [] : [...new Set((input.client_ids || []).filter(Boolean))];
+  if (!value.name) errors.name = "Informe o nome.";
+  else if (value.name.length > 80) errors.name = "Use até 80 caracteres.";
+  if (value.email && (value.email.length > 160 || !EMAIL.test(value.email))) errors.email = "Confira o e-mail.";
+  if (value.job_title && value.job_title.length > 60) errors.job_title = "Use até 60 caracteres.";
+  if (!role) errors.role = "Escolha o perfil.";
+  if (!value.edit_scope) errors.edit_scope = "Escolha o que a pessoa pode editar.";
+  if (role === "colaborador" && !value.all_clients && !clientIds.length) errors.client_ids = "Escolha pelo menos um cliente (ou todos).";
+  if (!clientIds.every(isUuid)) errors.client_ids = "Seleção de clientes inválida.";
+  return { value, clientIds, errors };
+}
+
 /* Regras de usuário e senha: as mesmas do portal do cliente (site/js/domain/accounts.js) */
-export { USERNAME_LIMITS, PASSWORD_LIMITS, normalizeUsername, parseUsername, loginEmail, usernameFromEmail, accountKind, passwordProblem } from "../../../js/domain/accounts.js?v=d8b3be61ca";
+export { USERNAME_LIMITS, PASSWORD_LIMITS, normalizeUsername, parseUsername, loginEmail, usernameFromEmail, accountKind, passwordProblem } from "../../../js/domain/accounts.js?v=b28509c2bb";
 
 /* ---------- Anúncios ---------- */
-export { AD_STAGES, AD_STATUS, AD_CLIENT_STATUS, AD_PLATFORMS, AD_OBJECTIVES, AD_FORMATS, AD_CTAS, AD_LIMITS, AD_EVENTS, platformLabel, adCanSend, adSendBlock } from "../../../js/domain/ads.js?v=d8b3be61ca";
-import { AD_STAGES as STAGES_OF_ADS, AD_STATUS as STATUS_OF_ADS, AD_PLATFORMS as PLATFORMS_OF_ADS, AD_OBJECTIVES as OBJECTIVES_OF_ADS, AD_FORMATS as FORMATS_OF_ADS, AD_LIMITS as L } from "../../../js/domain/ads.js?v=d8b3be61ca";
+export { AD_STAGES, AD_STATUS, AD_CLIENT_STATUS, AD_PLATFORMS, AD_OBJECTIVES, AD_FORMATS, AD_CTAS, AD_LIMITS, AD_EVENTS, platformLabel, adCanSend, adSendBlock } from "../../../js/domain/ads.js?v=b28509c2bb";
+import { AD_STAGES as STAGES_OF_ADS, AD_STATUS as STATUS_OF_ADS, AD_PLATFORMS as PLATFORMS_OF_ADS, AD_OBJECTIVES as OBJECTIVES_OF_ADS, AD_FORMATS as FORMATS_OF_ADS, AD_LIMITS as L } from "../../../js/domain/ads.js?v=b28509c2bb";
 
 const isHttpUrl = (value) => { try { return ["http:", "https:"].includes(new URL(value).protocol); } catch { return false; } };
 

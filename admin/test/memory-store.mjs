@@ -43,6 +43,8 @@ export function createMemoryStore() {
   const assetsOf = (contentId) => [...assets.values()].filter((a) => a.content_id === contentId)
     .sort((a, b) => a.position - b.position || a.created_at.localeCompare(b.created_at));
   const now = () => new Date().toISOString();
+  const assignees = new Map();  // content_id → Set(user_id)   (content_assignees)
+  const contentEvents = [];      // histórico da demanda          (content_events)
   const store = {
     kind: "memory",
     failNext: 0,       // quantos pedidos devem falhar (simula banco fora do ar)
@@ -87,8 +89,30 @@ export function createMemoryStore() {
       return [...contents.values()]
         .filter((c) => (!f.client_id || c.client_id === f.client_id) && (!f.status || c.status === f.status) && (!f.from || c.scheduled_date >= f.from) && (!f.to || c.scheduled_date <= f.to))
         .sort((a, b) => (a.scheduled_date + (a.scheduled_time || "99")).localeCompare(b.scheduled_date + (b.scheduled_time || "99")))
-        .map((c) => ({ ...c, assets_count: assetsOf(c.id).length }));
+        .map((c) => ({ ...c, assets_count: assetsOf(c.id).length, assignees: [...(assignees.get(c.id) || [])] }));
     },
+    /* ---- Tarefa: responsáveis e histórico (as permissões ficam no fake-supabase, como o RLS) ---- */
+    listAssignees(contentId) { return [...(assignees.get(contentId) || [])]; },
+    addAssignee(contentId, userId, actorName, name) {
+      if (!contents.has(contentId)) throw new StoreError(409, "Conteúdo não encontrado.", "23503");
+      const set = assignees.get(contentId) || new Set();
+      if (set.has(userId)) throw new StoreError(409, "duplicado", "23505");
+      set.add(userId); assignees.set(contentId, set);
+      this.logEvent(contentId, "responsavel_adicionado", actorName, null, userId, { name });
+    },
+    removeAssignee(contentId, userId, actorName, name) {
+      if (assignees.get(contentId)?.delete(userId)) this.logEvent(contentId, "responsavel_removido", actorName, userId, null, { name });
+    },
+    logEvent(contentId, type, actorName, from = null, to = null, metadata = {}) {
+      contentEvents.push({ id: randomUUID(), content_id: contentId, event_type: type, actor_name: actorName, from_value: from, to_value: to, metadata, created_at: now() });
+    },
+    /** Como o gatilho contents_log: registra o que mudou */
+    logChanges(before, after, actorName) {
+      if (!before) { this.logEvent(after.id, "criado", actorName); return; }
+      const pairs = [["production_status", "producao"], ["due_date", "prazo"], ["priority", "prioridade"], ["approval_status", "ideia"], ["final_status", "final"]];
+      for (const [field, type] of pairs) if ((before[field] ?? null) !== (after[field] ?? null)) this.logEvent(after.id, type, actorName, before[field] ?? null, after[field] ?? null);
+    },
+    listContentEvents(contentId) { return contentEvents.filter((e) => e.content_id === contentId).slice().reverse(); },
     /** Importação: todos ou nenhum */
     async createContents(values) {
       await this.tick();
@@ -101,6 +125,13 @@ export function createMemoryStore() {
       await this.tick();
       const c = contents.get(id); if (!c) throw new StoreError(404, "Registro não encontrado.", "PGRST116");
       Object.assign(c, syncStatus({ status }, c), { updated_at: now() });
+      return { ...c };
+    },
+    async moveContent(id, date) {
+      await this.tick();
+      const c = contents.get(id); if (!c) throw new StoreError(404, "Registro não encontrado.", "PGRST116");
+      const changed = c.scheduled_date !== date && VISIBLE_FIELDS.includes("scheduled_date");
+      Object.assign(c, { scheduled_date: date, version: c.version + (changed ? 1 : 0), updated_at: now() });
       return { ...c };
     },
     async setContentProduction(id, production) {
@@ -173,11 +204,13 @@ export function createMemoryStore() {
       return Boolean(m && c && c.client_id === m.clientId && clients.get(c.client_id)?.active && CLIENT_VISIBLE_STATUS.includes(c.status));
     },
     setFinalStatus(id, status) { const c = contents.get(id); if (c) c.final_status = status; },
+    /** Leitura sem atraso nem falha simulada (para as regras de permissão do emulador) */
+    peekContent(id) { const c = contents.get(id); return c ? { ...c } : null; },
     async getContent(id) { await this.tick(); const c = contents.get(id); if (!c) throw new StoreError(404, "Registro não encontrado.", "PGRST116"); return { ...c }; },
     async createContent(value) {
       await this.tick();
       if (!clients.has(value.client_id)) throw new StoreError(409, "Cliente não encontrado.", "23503");
-      const c = { id: randomUUID(), pillar: null, cta: null, planning_notes: null, hashtags: null, final_status: "rascunho", ...syncStatus(value), scheduled_time: value.scheduled_time ? `${value.scheduled_time}:00` : null, version: 1, created_at: now(), updated_at: now() };
+      const c = { id: randomUUID(), pillar: null, cta: null, planning_notes: null, hashtags: null, final_status: "rascunho", due_date: null, priority: "media", ...syncStatus(value), scheduled_time: value.scheduled_time ? `${value.scheduled_time}:00` : null, version: 1, created_at: now(), updated_at: now() };
       contents.set(c.id, c);
       return { ...c };
     },
@@ -189,7 +222,7 @@ export function createMemoryStore() {
       Object.assign(c, syncStatus(next, c), { version: c.version + (changed ? 1 : 0), updated_at: now() });
       return { ...c };
     },
-    async deleteContent(id) { await this.tick(); if (!contents.delete(id)) throw new StoreError(404, "Registro não encontrado.", "PGRST116"); },
+    async deleteContent(id) { await this.tick(); if (!contents.delete(id)) throw new StoreError(404, "Registro não encontrado.", "PGRST116"); assignees.delete(id); },
     /* Portal do cliente: o mesmo que as funções portal_profile() e portal_contents() */
     addMember(userId, clientId, username) {
       if ([...members.values()].some((m) => m.username === username)) throw new StoreError(409, "duplicado", "23505");

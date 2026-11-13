@@ -60,6 +60,8 @@ await step("Página do painel tem CSP, noindex e nenhuma chave secreta", async (
 /* ---------- Tela ---------- */
 const browser = await chromium.launch();
 const context = await browser.newContext({ viewport: { width: 1360, height: 900 } });
+// Estes testes usam a lista de conteúdos (o calendário tem o próprio teste: calendario-e2e)
+await context.addInitScript(() => { try { if (!localStorage.getItem("dg-painel-conteudos-modo")) localStorage.setItem("dg-painel-conteudos-modo", "lista"); } catch { /* sem armazenamento */ } });
 // Pedidos ao Supabase respondidos pelo Supabase de mentira (nada sai para a internet)
 await context.route(`${SUPABASE_URL}/**`, async (route) => {
   const req = route.request();

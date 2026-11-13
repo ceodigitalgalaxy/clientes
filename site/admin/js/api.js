@@ -2,11 +2,16 @@
    Valida os dados antes de enviar (domain/rules.js); o banco confere de novo
    com as próprias regras e só aceita membros da equipe (RLS). */
 
-import { validateClient, validateContent, validateContentFilters, parseUsername, passwordProblem, CONTENT_STATUS, PRODUCTION_STATUS, isUuid, validateAd, validateAdFilters, AD_LIMITS, validateBrandKit, validateBatch } from "./domain/rules.js?v=d8b3be61ca";
-import { UPLOAD_LIMITS, fileName, fileProblem, resizeImage } from "../../js/lib/storage.js?v=d8b3be61ca";
+import { validateClient, validateContent, validateContentFilters, parseUsername, passwordProblem, CONTENT_STATUS, PRODUCTION_STATUS, isUuid, validateAd, validateAdFilters, AD_LIMITS, validateBrandKit, validateBatch, validateMember } from "./domain/rules.js?v=b28509c2bb";
+import { UPLOAD_LIMITS, fileName, fileProblem, resizeImage } from "../../js/lib/storage.js?v=b28509c2bb";
 
 export class ApiError extends Error {
   constructor(status, message, fields) { super(message); this.status = status; this.fields = fields || {}; }
+}
+
+function requireValidMember(result) {
+  requireValid(result);
+  return result;
 }
 
 function requireValid({ value, errors }) {
@@ -25,7 +30,7 @@ function requireValid({ value, errors }) {
  * @param {() => Promise<unknown>} options.access.refresh
  * @param {ReturnType<import("../../js/lib/storage.js").createStorage>} [options.storage]  arquivos (foto e arte final)
  */
-export function createApi({ store, onSessionLost, access = null, storage = null }) {
+export function createApi({ store, onSessionLost, access = null, storage = null, team = null }) {
   /** Erros viram ApiError; sessão encerrada também leva de volta ao login */
   const guard = (fn) => async (...args) => {
     try {
@@ -40,8 +45,11 @@ export function createApi({ store, onSessionLost, access = null, storage = null 
   };
 
   /* Logins de cliente: pela função acesso-cliente (a chave secreta fica no servidor) */
-  async function callAccess(body, retry = true) {
-    if (!access) throw new ApiError(500, "Gerenciar acessos não está disponível aqui.");
+  const callAccess = (body) => callFunction(access, body);
+  /* Logins da equipe: pela função equipe (só administrador) */
+  const callTeam = (body) => callFunction(team, body);
+  async function callFunction(access, body, retry = true) {
+    if (!access) throw new ApiError(500, "Esta ação não está disponível aqui.");
     const token = await access.getToken();
     let response;
     try {
@@ -54,7 +62,7 @@ export function createApi({ store, onSessionLost, access = null, storage = null 
     } catch {
       throw new ApiError(503, "Não foi possível conectar. Verifique a internet e tente de novo.");
     }
-    if (response.status === 401 && retry) { await access.refresh(); return callAccess(body, false); }
+    if (response.status === 401 && retry) { await access.refresh(); return callFunction(access, body, false); }
     const data = await response.json().catch(() => null);
     if (response.status === 401) throw Object.assign(new Error(data?.error || "Sua sessão expirou. Entre de novo."), { status: 401 });
     if (!response.ok) throw new ApiError(response.status, data?.error || "Não foi possível concluir agora. Tente de novo.", data?.fields);
@@ -324,6 +332,10 @@ export function createApi({ store, onSessionLost, access = null, storage = null 
       const inHistory = await store.approvalRpc("media_in_history", { p_path: path }).catch(() => true);
       if (!inHistory) await storage.remove("content-media", [path]).catch(() => {});
     }),
+    moveContent: guard((contentId, date) => {
+      if (!/^\d{4}-\d{2}-\d{2}$/.test(String(date))) throw new ApiError(422, "Data inválida.");
+      return store.moveContent(contentId, date);
+    }),
     setContentProduction: guard((contentId, production) => {
       if (production !== null && !PRODUCTION_STATUS[production]) throw new ApiError(422, "Etapa de produção inválida.");
       return store.setContentProduction(contentId, production);
@@ -354,6 +366,42 @@ export function createApi({ store, onSessionLost, access = null, storage = null 
     setClientPassword: guard((username, password) => callAccess({ action: "senha", username: checkAccess({ username, password }), password })),
     removeClientAccess: guard((username) => callAccess({ action: "remover", username })),
     isAgencyMember: guard((userId) => store.isAgencyMember(userId)),
+    getProfile: guard((userId) => store.getProfile(userId)),
+
+    /* ---------- Equipe (só administrador; o banco e a função conferem) ---------- */
+    teamDirectory: guard(() => store.teamDirectory()),
+    createMember: guard((data) => {
+      const { value, clientIds, errors } = validateMember(data);
+      const username = parseUsername(data.username);
+      if (!username) errors.username = "Use de 3 a 32 caracteres: letras, números, ponto, hífen ou sublinhado.";
+      const problem = passwordProblem(data.password, username || "");
+      if (problem) errors.password = problem;
+      requireValid({ value, errors });
+      return callTeam({ action: "criar", username, password: data.password, ...value, client_ids: clientIds });
+    }),
+    updateMember: guard(async (userId, data, currentClientIds = []) => {
+      const { value, clientIds } = requireValidMember(validateMember(data));
+      const saved = await store.updateMember(userId, value);
+      await store.setMemberClients(userId, value.all_clients ? [] : clientIds, currentClientIds);
+      return saved;
+    }),
+    setMemberActive: guard((userId, active) => callTeam({ action: "acesso", user_id: userId, active: Boolean(active) })),
+    setMemberPassword: guard((userId, password) => {
+      const problem = passwordProblem(password, "");
+      if (problem) throw new ApiError(422, "Revise os campos destacados.", { password: problem });
+      return callTeam({ action: "senha", user_id: userId, password });
+    }),
+
+    /* ---------- Tarefa: responsáveis e histórico ---------- */
+    /** Grava só a diferença entre os responsáveis atuais e os escolhidos */
+    setAssignees: guard(async (contentId, next = [], current = []) => {
+      const wanted = [...new Set(next)].filter(isUuid);
+      await store.removeAssignees(contentId, current.filter((id) => !wanted.includes(id)));
+      await store.addAssignees(contentId, wanted.filter((id) => !current.includes(id)));
+      return wanted;
+    }),
+    listAssignees: guard((contentId) => store.listAssignees(contentId)),
+    contentEvents: guard((contentId) => store.listContentEvents(contentId)),
     listClients: guard(() => store.listClients()),
     createClient: guard((data) => store.createClient(requireValid(validateClient(data)))),
     updateClient: guard((id, data) => store.updateClient(id, requireValid(validateClient(data)))),

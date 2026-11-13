@@ -13,9 +13,9 @@
   <link rel="preload" href="../fonts/sora-latin-400-normal.woff2" as="font" type="font/woff2" crossorigin>
   <link rel="preload" href="../fonts/sora-latin-600-normal.woff2" as="font" type="font/woff2" crossorigin>
   <!-- Mesmos tokens e componentes do portal do cliente -->
-  <link rel="stylesheet" href="../css/style.css?v=d8b3be61ca">
-  <link rel="stylesheet" href="css/admin.css?v=d8b3be61ca">
-  <script type="module" src="js/main.js?v=d8b3be61ca"></script>
+  <link rel="stylesheet" href="../css/style.css?v=b28509c2bb">
+  <link rel="stylesheet" href="css/admin.css?v=b28509c2bb">
+  <script type="module" src="js/main.js?v=b28509c2bb"></script>
 </head>
 <body class="admin">
   <!-- Tela de entrada: aparece enquanto ninguém estiver logado -->
@@ -56,12 +56,16 @@
         <span class="admin-title">Painel da agência</span>
       </div>
       <nav class="admin-nav" aria-label="Seções do painel">
+        <a class="admin-nav__link" href="#/demandas" data-route="demandas" data-icon="list">Demandas<span class="nav-badge" data-my-tasks hidden></span></a>
         <a class="admin-nav__link" href="#/conteudos" data-route="conteudos" data-icon="calendar">Conteúdos</a>
-        <a class="admin-nav__link" href="#/aprovacoes" data-route="aprovacoes" data-icon="check">Aprovações<span class="nav-badge" data-approvals-attention hidden></span></a>
-        <a class="admin-nav__link" href="#/clientes" data-route="clientes" data-icon="users">Clientes</a>
+        <a class="admin-nav__link" href="#/aprovacoes" data-route="aprovacoes" data-icon="check" data-needs="send">Aprovações<span class="nav-badge" data-approvals-attention hidden></span></a>
         <a class="admin-nav__link" href="#/anuncios" data-route="anuncios" data-icon="megaphone">Anúncios<span class="nav-badge" data-ads-attention hidden></span></a>
-        <a class="admin-nav__link" href="#/importar" data-route="importar" data-icon="layers">Importar</a>
+        <a class="admin-nav__link" href="#/clientes" data-route="clientes" data-icon="users" data-needs="admin">Clientes</a>
+        <a class="admin-nav__link" href="#/importar" data-route="importar" data-icon="layers" data-needs="edit">Importar</a>
+        <a class="admin-nav__link" href="#/equipe" data-route="equipe" data-icon="user" data-needs="admin">Equipe</a>
+        <button class="admin-nav__link admin-nav__more" type="button" data-nav-more aria-expanded="false" aria-controls="nav-sheet" hidden data-icon="more">Mais</button>
       </nav>
+      <div class="nav-sheet" id="nav-sheet" hidden></div>
       <div class="user-menu">
         <span class="user-menu__name" id="user-name" data-icon="user"></span>
         <button class="link-btn user-menu__out" type="button" data-action="sign-out" data-icon="logout">Sair</button>
@@ -77,7 +81,7 @@
           <h1 class="view__title" id="conteudos-title">Conteúdos</h1>
           <p class="view__text">O que for cadastrado aqui aparece no calendário do cliente quando o status chegar a "Aguardando aprovação".</p>
         </div>
-        <button class="btn btn--primary" type="button" data-action="new-content" data-icon="sparkle">Novo conteúdo</button>
+        <button class="btn btn--primary" type="button" data-action="new-content" data-icon="sparkle" data-needs="edit">Novo conteúdo</button>
       </div>
 
       <form class="filters" id="filters" aria-label="Filtrar conteúdos">
@@ -85,11 +89,11 @@
           <span class="field__label">Cliente</span>
           <select class="field__input" name="client_id"><option value="">Todos os clientes</option></select>
         </label>
-        <label class="field">
+        <label class="field" data-list-only>
           <span class="field__label">De</span>
           <input class="field__input" type="date" name="from">
         </label>
-        <label class="field">
+        <label class="field" data-list-only>
           <span class="field__label">Até</span>
           <input class="field__input" type="date" name="to">
         </label>
@@ -97,14 +101,34 @@
           <span class="field__label">Status</span>
           <select class="field__input" name="status"><option value="">Todos os status</option></select>
         </label>
+        <label class="field">
+          <span class="field__label">Responsável</span>
+          <select class="field__input" name="assignee"><option value="">Todos</option></select>
+        </label>
         <button class="link-btn filters__clear" type="reset" data-icon="refresh">Limpar filtros</button>
       </form>
 
-      <div class="list-tools">
+      <div class="cal-bar">
+        <div class="seg" role="group" aria-label="Como ver os conteúdos" data-cal-modes>
+          <button type="button" data-cal-mode="mes" aria-pressed="true">Mês</button>
+          <button type="button" data-cal-mode="semana" aria-pressed="false">Semana</button>
+          <button type="button" data-cal-mode="dia" aria-pressed="false">Dia</button>
+          <button type="button" data-cal-mode="lista" aria-pressed="false">Lista</button>
+        </div>
+        <div class="cal-bar__nav" data-cal-nav>
+          <button class="icon-btn" type="button" data-cal-step="-1" aria-label="Anterior" data-icon="chevronLeft"></button>
+          <h2 class="cal-bar__title" id="cal-title" aria-live="polite"></h2>
+          <button class="icon-btn" type="button" data-cal-step="1" aria-label="Próximo" data-icon="chevronRight"></button>
+          <button class="btn btn--ghost btn--sm" type="button" data-cal-today>Hoje</button>
+        </div>
+      </div>
+      <div class="admin-cal" id="contents-calendar" aria-busy="true" hidden></div>
+
+      <div class="list-tools" data-list-only>
         <p class="list-count" id="contents-count" aria-live="polite"></p>
         <button class="link-btn" type="button" data-bulk-all hidden>Selecionar todos</button>
       </div>
-      <div class="list" id="contents-list" aria-busy="true"></div>
+      <div class="list" id="contents-list" aria-busy="true" data-list-only></div>
       <!-- Ações em massa: aparece quando há conteúdos marcados -->
       <div class="bulk" id="bulk-bar" role="region" aria-label="Mudar o status dos conteúdos marcados" hidden>
         <p class="bulk__count" aria-live="polite"><b data-bulk-count>0</b> <span data-bulk-word>selecionados</span></p>
@@ -115,6 +139,30 @@
         <button class="btn btn--primary btn--sm" type="button" data-bulk-apply>Aplicar</button>
         <button class="btn btn--ghost btn--sm" type="button" data-bulk-clear>Cancelar</button>
       </div>
+    </section>
+
+    <!-- Minhas demandas (js/views/tasks.js) -->
+    <section class="view" id="view-demandas" data-view="demandas" aria-labelledby="demandas-title" hidden>
+      <div class="view__head">
+        <div>
+          <h1 class="view__title" id="demandas-title">Minhas demandas</h1>
+          <p class="view__text">Os conteúdos em que você é responsável, do prazo mais apertado para o mais folgado.</p>
+        </div>
+      </div>
+      <div class="task-summary" id="task-summary" aria-live="polite"></div>
+      <div class="task-board" id="task-list" aria-busy="true"></div>
+    </section>
+
+    <!-- Equipe (js/views/team.js) -->
+    <section class="view" id="view-equipe" data-view="equipe" aria-labelledby="equipe-title" hidden>
+      <div class="view__head">
+        <div>
+          <h1 class="view__title" id="equipe-title">Equipe</h1>
+          <p class="view__text">Quem entra no painel, o que cada pessoa vê e pode fazer, e a carga de demandas de cada uma.</p>
+        </div>
+        <button class="btn btn--primary" type="button" data-action="new-member" data-icon="sparkle">Nova pessoa</button>
+      </div>
+      <div class="team-list" id="team-list" aria-busy="true"></div>
     </section>
 
     <!-- Anúncios (js/views/ads.js) -->
@@ -433,6 +481,24 @@
           <span class="field__label">Formato</span>
           <select class="field__input" name="format" required></select>
         </label>
+        <p class="form-section form-section--task form-grid__wide"><b>Tarefa</b> <span class="field__optional">· só a equipe vê</span></p>
+        <fieldset class="field form-grid__wide" data-assignees-field>
+          <legend class="field__label">Responsáveis <span class="field__optional">(um ou mais)</span></legend>
+          <div class="assignee-picks" data-assignees></div>
+        </fieldset>
+        <label class="field">
+          <span class="field__label">Prazo interno <span class="field__optional">(entrega da equipe)</span></span>
+          <input class="field__input" name="due_date" type="date">
+        </label>
+        <label class="field">
+          <span class="field__label">Prioridade</span>
+          <select class="field__input" name="priority">
+            <option value="baixa">Baixa</option>
+            <option value="media" selected>Média</option>
+            <option value="alta">Alta</option>
+            <option value="urgente">Urgente</option>
+          </select>
+        </label>
         <p class="form-section form-section--plan form-grid__wide"><b>1. Planejamento</b> <span class="field__optional">· o cliente vê no link de aprovação da ideia</span></p>
         <label class="field form-grid__wide">
           <span class="field__label">Descrição da ideia <span class="field__optional">(opcional)</span></span>
@@ -619,6 +685,53 @@
   </dialog>
 
   <!-- Detalhes do conteúdo -->
+  <!-- Pessoa da equipe: criar / editar -->
+  <dialog class="modal modal--wide" id="member-modal" aria-labelledby="member-modal-title">
+    <form class="modal__form" method="dialog" novalidate>
+      <div class="modal__head">
+        <span class="modal__icon modal__icon--brand" data-icon="user"></span>
+        <div>
+          <h2 class="modal__title" id="member-modal-title">Nova pessoa na equipe</h2>
+          <p class="modal__text">Ela entra no painel com usuário e senha. As permissões valem no banco, não só na tela.</p>
+        </div>
+        <button class="icon-btn modal__close" type="button" data-action="close-modal" aria-label="Fechar" data-icon="close"></button>
+      </div>
+      <div class="form-grid">
+        <label class="field"><span class="field__label">Nome</span><input class="field__input" name="name" maxlength="80" autocomplete="off" required placeholder="Ex.: João Silva"></label>
+        <label class="field"><span class="field__label">Função <span class="field__optional">(opcional)</span></span><input class="field__input" name="job_title" maxlength="60" autocomplete="off" placeholder="Ex.: Editor de vídeo"></label>
+        <label class="field"><span class="field__label">E-mail <span class="field__optional">(opcional · só contato)</span></span><input class="field__input" name="email" type="email" maxlength="160" autocomplete="off" placeholder="joao@exemplo.com"></label>
+        <label class="field" data-create-only><span class="field__label">Usuário de acesso</span><input class="field__input" name="username" maxlength="32" autocomplete="off" spellcheck="false" placeholder="joao.silva" aria-describedby="member-user-hint"><span class="field__hint" id="member-user-hint">Letras, números, ponto ou hífen. Não muda depois.</span></label>
+        <label class="field form-grid__wide" data-create-only><span class="field__label">Senha inicial</span>
+          <span class="input-row"><input class="field__input" name="password" type="text" maxlength="72" autocomplete="off" spellcheck="false" aria-describedby="member-pass-hint"><button class="btn btn--ghost btn--sm" type="button" data-action="new-password" data-icon="refresh">Gerar outra</button></span>
+          <span class="field__hint" id="member-pass-hint">Copiamos o usuário e a senha ao salvar, para você enviar à pessoa. A senha não fica guardada no painel.</span></label>
+        <fieldset class="field radio-row form-grid__wide">
+          <legend class="field__label">Perfil</legend>
+          <label class="check check--card"><input type="radio" name="role" value="colaborador" checked><span><b>Colaborador</b> · vê só os clientes liberados e as permissões abaixo</span></label>
+          <label class="check check--card"><input type="radio" name="role" value="admin"><span><b>Administrador</b> · acesso completo: clientes, equipe, aprovações e exclusões</span></label>
+        </fieldset>
+        <fieldset class="field form-grid__wide" data-collab-only>
+          <legend class="field__label">Clientes que pode ver</legend>
+          <label class="check"><input type="checkbox" name="all_clients"><span>Todos os clientes (inclusive os novos)</span></label>
+          <div class="member-clients" data-member-clients></div>
+        </fieldset>
+        <fieldset class="field radio-row form-grid__wide" data-collab-only>
+          <legend class="field__label">Pode editar</legend>
+          <label class="check check--card"><input type="radio" name="edit_scope" value="atribuidos" checked><span><b>Só as próprias demandas</b> · atualiza status, envia arquivos, legenda e anexos do que for atribuído a ele</span></label>
+          <label class="check check--card"><input type="radio" name="edit_scope" value="todos"><span><b>Todos os conteúdos desses clientes</b> · cria, edita e atribui demandas</span></label>
+        </fieldset>
+        <fieldset class="field form-grid__wide" data-collab-only>
+          <legend class="field__label">Aprovações</legend>
+          <label class="check"><input type="checkbox" name="can_send_approval"><span>Pode enviar para o cliente aprovar (montar lotes, gerar e copiar links)</span></label>
+        </fieldset>
+      </div>
+      <p class="form-error" role="alert" hidden></p>
+      <div class="modal__actions">
+        <button class="btn btn--ghost" type="button" data-action="close-modal">Cancelar</button>
+        <button class="btn btn--primary" type="submit"><span>Criar acesso</span></button>
+      </div>
+    </form>
+  </dialog>
+
   <dialog class="drawer" id="content-drawer" aria-labelledby="drawer-title">
     <div class="drawer__panel">
       <div class="drawer__header">
