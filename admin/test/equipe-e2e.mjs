@@ -167,12 +167,15 @@ const colabContext = await newContext();
 colab = await colabContext.newPage();
 watch(colab, "colaborador");
 
-await step("Colaborador entra direto em Minhas demandas, sem áreas de administrador", async () => {
+await step("Colaborador entra pelo Início e vê Minhas demandas, sem áreas de administrador", async () => {
   await colab.goto(`${ORIGIN}/admin/`);
   await signIn(colab, "ana.design", password);
   await colab.waitForSelector("#app:not([hidden])");
+  await colab.waitForSelector(".kpis .kpi__n");
+  assert.match(colab.url(), /#\/inicio/);
+  assert.match(await colab.textContent(".hcard:has(#h-mine)"), /Arte da promoção de pão/);
+  await colab.click('.admin-nav [data-route="demandas"]');
   await colab.waitForSelector("#task-list .task-card");
-  assert.match(colab.url(), /#\/demandas/);
   const nav = await visibleNav(colab);
   assert.ok(nav.includes("demandas") && nav.includes("conteudos"));
   for (const r of ["clientes", "equipe", "aprovacoes", "importar"]) assert.ok(!nav.includes(r), `menu sem ${r}`);
@@ -284,6 +287,8 @@ await step("Celular: Minhas demandas cabe na tela", async () => {
   watch(phone, "celular");
   await phone.goto(`${ORIGIN}/admin/`);
   await signIn(phone, "ana.design", password);
+  await phone.waitForSelector(".kpis .kpi__n");
+  await phone.click('.admin-nav [data-route="demandas"]');
   await phone.waitForSelector("#task-list .task-card");
   const overflow = await phone.evaluate(() => document.documentElement.scrollWidth - window.innerWidth);
   assert.ok(overflow <= 1, `sem rolagem lateral (${overflow}px)`);

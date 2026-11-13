@@ -26,6 +26,14 @@ Na seção **Clientes**, cada cartão tem o bloco **Acesso ao portal**:
 
 Isso passa pela função `supabase/functions/acesso-cliente` (Supabase Edge Function). Ela guarda a chave secreta no servidor, confere a cada pedido que quem chama é da equipe (`agency_members`) e só mexe em logins de **cliente**: nunca cria, altera ou remove usuários da equipe. Aceita pedidos só do site (`clientes.digitalgalaxy.com.br`) e da prévia local.
 
+### Início, comentários e avisos
+
+Ao entrar, o painel abre no **Início**, o centro de controle: indicadores no topo (atrasadas, vencem logo, com o cliente, em produção e publicados no mês; cada um leva para onde se resolve), **Precisam de atenção**, **Minhas demandas**, **Próximas publicações** (7 dias) e **Atividade recente**. Cada um vê só os clientes liberados para ele.
+
+No detalhe de cada conteúdo há **Comentários da equipe** (o cliente nunca vê): digite **@** para chamar alguém da equipe que enxerga aquele cliente. O **sininho** no topo avisa quando alguém te coloca como responsável, te menciona, comenta numa demanda sua ou quando o cliente pede ajuste (sem responsável, avisa os administradores); clicar abre o conteúdo e marca como lido. Os avisos nascem no banco (gatilhos da migração `20261115120000_comentarios_e_avisos.sql`) e cada pessoa só lê os próprios.
+
+Ações secundárias das linhas de conteúdo (lista) e dos cartões de lote (Aprovações) ficam no menu **⋯**; excluir sempre pede confirmação e diz o que some junto.
+
 ### Calendário de conteúdos e o painel no celular
 
 A aba **Conteúdos** abre no **calendário do mês** (também **Semana**, **Dia**, **Quadro** e **Lista**; a escolha fica guardada no navegador). Cada etiqueta tem a bolinha da cor do cliente, horário e título, e a cor do alerta: verde concluído, azul em produção, amarelo prazo em até 3 dias, vermelho até 1 dia sem aprovação ou atrasado, roxo com o cliente, cinza não iniciado (vale o prazo mais próximo entre o interno e a publicação; regra em `site/admin/js/domain/deadlines.js`). Clicar abre o conteúdo; arrastar para outro dia muda a data (só quem pode editar; o banco confere); o "+" do dia cria já com a data. A seleção em massa fica na Lista. O **Quadro** (Kanban) mostra o mês em colunas pelas etapas de produção (não iniciado, em produção, pronto para agendar, agendado, publicado): arrastar o cartão muda a etapa (no celular, pelo seletor do cartão). No topo, **Precisam de atenção** junta os atrasados e os que vencem logo (dos últimos 90 dias até o limite do amarelo), respeitando o filtro de cliente e de responsável. O administrador muda os dias do amarelo e do vermelho em **Ajustar prazos das cores** (abaixo do calendário); vale para toda a equipe (tabela `agency_settings`, migração `20261114120000_ajustes_de_alerta.sql`).
@@ -205,6 +213,7 @@ PLAYWRIGHT=$P node admin/test/e2e.mjs             # painel da agência, ponta a 
 PLAYWRIGHT=$P node admin/test/portal-e2e.mjs      # painel → calendário do cliente, ponta a ponta
 PLAYWRIGHT=$P node admin/test/review-e2e.mjs      # foto, arte final, aprovação/ajuste e importação, ponta a ponta
 PLAYWRIGHT=$P node admin/test/approvals-e2e.mjs    # central de aprovação: lote → link → cliente (computador e celular) → avisos → nova versão → aprovar todos → relatório → desativar
+PLAYWRIGHT=$P node admin/test/inicio-e2e.mjs      # Início, menu ⋯, comentários com @menção e avisos (computador e celular)
 PLAYWRIGHT=$P node admin/test/calendario-e2e.mjs   # calendário (mês, semana, dia, cores, arrastar) e o painel no celular
 PLAYWRIGHT=$P node admin/test/equipe-e2e.mjs      # equipe: criar colaborador, demanda com prazo, o que ele vê e o que o servidor recusa, desativar
 PLAYWRIGHT=$P node admin/test/ads-e2e.mjs         # aprovação de anúncios: rascunho → envio → alterações → nova versão → aprovação

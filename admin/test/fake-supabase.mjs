@@ -56,6 +56,9 @@ export function createFakeSupabase({ store, publishableKey }) {
     job_title: u.profile.job_title ?? null, all_clients: u.profile.all_clients, edit_scope: u.profile.edit_scope, can_send_approval: u.profile.can_send_approval });
   const rlsDenied = () => ({ error: json(403, { code: "42501", message: "new row violates row-level security policy" }) });
   const raise = (key) => ({ error: json(400, { code: "P0001", message: key }) });
+  // Avisos: só para quem está ativo e enxerga o cliente (como private.notify)
+  store.canReceive = (userId, clientId) => sees(userById(userId), clientId);
+  store.adminIds = () => teamMembers().filter((u) => isAdmin(u)).map((u) => u.id);
   const defaultProfile = (extra = {}) => ({ role: "admin", active: true, all_clients: true, client_ids: [], edit_scope: "todos", can_send_approval: true, name: null, email: null, job_title: null, ...extra });
   /** Como o gatilho agency_members_guard */
   function memberGuard(target, next, actorId) {
@@ -248,7 +251,7 @@ export function createFakeSupabase({ store, publishableKey }) {
           const target = userById(row.user_id);
           if (!c || !editsClient(user, c.client_id) || !target || !sees(target, c.client_id)) return rlsDenied();
         }
-        for (const row of [].concat(body)) store.addAssignee(row.content_id, row.user_id, memberName(user), memberName(userById(row.user_id)));
+        for (const row of [].concat(body)) store.addAssignee(row.content_id, row.user_id, memberName(user), memberName(userById(row.user_id)), user.id);
         return [];
       }
       if (method === "DELETE") {
@@ -260,8 +263,36 @@ export function createFakeSupabase({ store, publishableKey }) {
       }
     }
     if (table === "content_events" && method === "GET") {
-      const c = store.peekContent(eq(params, "content_id"));
+      const contentId = eq(params, "content_id");
+      if (!contentId) {
+        // Atividade recente: todos os conteúdos que a pessoa enxerga, com título e cliente
+        const limit = Number(params.get("limit")) || 10;
+        return store.allContentEvents().map((e) => ({ e, c: store.peekContent(e.content_id) })).filter(({ c }) => c && sees(user, c.client_id))
+          .slice(0, limit).map(({ e, c }) => ({ ...e, contents: { title: c.title, client_id: c.client_id } }));
+      }
+      const c = store.peekContent(contentId);
       return c && sees(user, c.client_id) ? store.listContentEvents(c.id) : [];
+    }
+    if (table === "content_comments") {
+      if (method === "GET") { const c = store.peekContent(eq(params, "content_id")); return c && sees(user, c.client_id) ? store.listComments(c.id) : []; }
+      if (method === "POST") {
+        const c = store.peekContent(body.content_id);
+        if (!c || !sees(user, c.client_id)) return rlsDenied();
+        return [store.addComment(body, { id: user.id, name: memberName(user) })];
+      }
+      if (method === "DELETE") {
+        const cid = eq(params, "id");
+        if (store.commentAuthor(cid) === user.id || isAdmin(user)) store.deleteComment(cid);
+        return [];
+      }
+    }
+    if (table === "notifications") {
+      if (method === "GET") return store.listNotifications(user.id).slice(0, Number(params.get("limit")) || 30);
+      if (method === "PATCH") {
+        const ids = params.get("id")?.match(/^in\.\((.*)\)$/)?.[1]?.split(",");
+        store.markNotificationsRead(user.id, ids || null);
+        return [];
+      }
     }
     if (table === "contents") {
       // Status de aprovação: só quem pode enviar para aprovação (gatilho contents_guard_approval)
@@ -288,7 +319,11 @@ export function createFakeSupabase({ store, publishableKey }) {
           if (targets.some((c) => c && !editsContent(user, c))) return [];
           if (targets.some((c) => c && approvalBlocked(c, body))) return raise("sem_permissao_aprovacao");
           const result = await patchContents(params, body, id);
-          for (const after of result) store.logChanges(targets.find((t) => t?.id === after.id), after, memberName(user));
+          for (const after of result) {
+            const before = targets.find((t) => t?.id === after.id);
+            store.logChanges(before, after, memberName(user));
+            if (before) store.notifyAdjustment(before, after, { id: user.id, name: memberName(user) });
+          }
           return result;
         }
       }

@@ -10,11 +10,11 @@
    A mídia passa pelas regras de ui/media.js (players oficiais, aviso + link).
    ========================================================================== */
 
-import { esc } from "../lib/dom.js?v=424169d0b1";
-import { icon } from "../lib/icons.js?v=424169d0b1";
-import { stampLabel } from "../lib/dates.js?v=424169d0b1";
-import { renderFinal } from "./preview.js?v=424169d0b1";
-import { AD_STATUS, AD_OBJECTIVES, AD_EVENTS, platformLabel } from "../domain/ads.js?v=424169d0b1";
+import { esc } from "../lib/dom.js?v=75a584518a";
+import { icon } from "../lib/icons.js?v=75a584518a";
+import { stampLabel } from "../lib/dates.js?v=75a584518a";
+import { renderFinal } from "./preview.js?v=75a584518a";
+import { AD_STATUS, AD_OBJECTIVES, AD_EVENTS, platformLabel } from "../domain/ads.js?v=75a584518a";
 
 export const adStatusBadge = (status) => {
   const s = AD_STATUS[status];

@@ -13,9 +13,9 @@
   <link rel="preload" href="../fonts/sora-latin-400-normal.woff2" as="font" type="font/woff2" crossorigin>
   <link rel="preload" href="../fonts/sora-latin-600-normal.woff2" as="font" type="font/woff2" crossorigin>
   <!-- Mesmos tokens e componentes do portal do cliente -->
-  <link rel="stylesheet" href="../css/style.css?v=424169d0b1">
-  <link rel="stylesheet" href="css/admin.css?v=424169d0b1">
-  <script type="module" src="js/main.js?v=424169d0b1"></script>
+  <link rel="stylesheet" href="../css/style.css?v=75a584518a">
+  <link rel="stylesheet" href="css/admin.css?v=75a584518a">
+  <script type="module" src="js/main.js?v=75a584518a"></script>
 </head>
 <body class="admin">
   <!-- Tela de entrada: aparece enquanto ninguém estiver logado -->
@@ -56,6 +56,7 @@
         <span class="admin-title">Painel da agência</span>
       </div>
       <nav class="admin-nav" aria-label="Seções do painel">
+        <a class="admin-nav__link" href="#/inicio" data-route="inicio" data-icon="target">Início</a>
         <a class="admin-nav__link" href="#/demandas" data-route="demandas" data-icon="list">Demandas<span class="nav-badge" data-my-tasks hidden></span></a>
         <a class="admin-nav__link" href="#/conteudos" data-route="conteudos" data-icon="calendar">Conteúdos</a>
         <a class="admin-nav__link" href="#/aprovacoes" data-route="aprovacoes" data-icon="check" data-needs="send">Aprovações<span class="nav-badge" data-approvals-attention hidden></span></a>
@@ -67,6 +68,10 @@
       </nav>
       <div class="nav-sheet" id="nav-sheet" hidden></div>
       <div class="user-menu">
+        <div class="inbox-wrap">
+          <button class="icon-btn inbox-toggle" type="button" data-action="toggle-inbox" aria-expanded="false" aria-controls="inbox" aria-label="Avisos" data-icon="bell"><span class="nav-badge inbox-badge" data-inbox-count hidden></span></button>
+          <div class="inbox" id="inbox" role="region" aria-label="Avisos" hidden></div>
+        </div>
         <span class="user-menu__name" id="user-name" data-icon="user"></span>
         <button class="link-btn user-menu__out" type="button" data-action="sign-out" data-icon="logout">Sair</button>
       </div>
@@ -141,6 +146,18 @@
         <button class="btn btn--primary btn--sm" type="button" data-bulk-apply>Aplicar</button>
         <button class="btn btn--ghost btn--sm" type="button" data-bulk-clear>Cancelar</button>
       </div>
+    </section>
+
+    <!-- Início: centro de controle (js/views/home.js) -->
+    <section class="view" id="view-inicio" data-view="inicio" aria-labelledby="inicio-title" hidden>
+      <div class="view__head">
+        <div>
+          <h1 class="view__title" id="inicio-title">Início</h1>
+          <p class="view__text home-date" id="inicio-date"></p>
+        </div>
+        <button class="btn btn--primary" type="button" data-action="home-new-content" data-icon="sparkle" data-needs="edit">Novo conteúdo</button>
+      </div>
+      <div class="home" id="home" aria-busy="true"></div>
     </section>
 
     <!-- Minhas demandas (js/views/tasks.js) -->

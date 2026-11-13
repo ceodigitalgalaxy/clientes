@@ -102,7 +102,8 @@ const signIn = async (username, password) => {
 const sessionStored = () => page.evaluate(() => localStorage.getItem("dg-painel-sessao"));
 
 await step("Sem login: só a tela de entrada, nenhum dado pedido ao banco", async () => {
-  await page.goto(BASE);
+  // Este teste é da aba Conteúdos (o Início tem o próprio teste: inicio-e2e)
+  await page.goto(`${BASE}#/conteudos`);
   await page.waitForSelector("#login:not([hidden])");
   assert.equal(await page.isVisible("#app"), false);
   assert.equal(await page.textContent("#login-title"), "Painel da agência");
@@ -317,9 +318,9 @@ await step("Filtros sobrevivem ao recarregar a página", async () => {
 });
 
 await step("Excluir pede confirmação (cancelar mantém)", async () => {
-  await page.click('.row:has-text("Post de Natal") [data-delete-content]');
+  await page.click('.row:has-text("Post de Natal") [data-menu-toggle]'); await page.click('.row:has-text("Post de Natal") .menu [data-delete-content]');
   await page.waitForSelector("#confirm-modal[open]");
-  assert.match(await page.textContent("#confirm-text"), /Post de Natal/);
+  assert.match(await page.textContent("#confirm-modal"), /Excluir "Post de Natal".*Não dá para desfazer/s);
   await shot("08-confirmar-exclusao");
   await page.click('#confirm-modal [data-confirm="cancel"]');
   await page.waitForSelector("#confirm-modal:not([open])", { state: "attached" });
@@ -327,7 +328,7 @@ await step("Excluir pede confirmação (cancelar mantém)", async () => {
 });
 
 await step("Excluir após confirmar", async () => {
-  await page.click('.row:has-text("Post de Natal") [data-delete-content]');
+  await page.click('.row:has-text("Post de Natal") [data-menu-toggle]'); await page.click('.row:has-text("Post de Natal") .menu [data-delete-content]');
   await page.click('#confirm-modal [data-confirm="ok"]');
   await page.waitForFunction(() => document.querySelectorAll(".row[data-row]").length === 2);
   assert.equal(await toastText(), "Conteúdo excluído");

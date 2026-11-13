@@ -443,7 +443,7 @@ await step("Excluir lote já enviado: confirma, some da lista, pendentes voltam 
   const target = '.batch-card:has(.batch-card__title:text-is("Arte final do mês"))';
   await admin.waitForSelector(target);
   const id = await admin.getAttribute(target, "data-batch");
-  await admin.click(`${target} [data-batch-delete]`);
+  await admin.click(`${target} [data-menu-toggle]`); await admin.click(`${target} .menu [data-batch-delete]`);
   await admin.waitForSelector("#confirm-modal[open]");
   assert.match(await admin.textContent("#confirm-modal"), /já foi enviado.*link para de funcionar.*histórico de decisões.*voltam para rascunho/s);
   await confirmOk();

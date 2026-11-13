@@ -9,33 +9,36 @@
    O banco aplica as mesmas regras (RLS): esconder a tela não é a proteção.
    ========================================================================== */
 
-import { $, on } from "../../js/lib/dom.js?v=424169d0b1";
-import { icon, brandMark } from "../../js/lib/icons.js?v=424169d0b1";
-import { toast } from "../../js/ui/toast.js?v=424169d0b1";
-import { SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY } from "../../js/config.js?v=424169d0b1";
-import { createAuth } from "../../js/lib/auth.js?v=424169d0b1";
-import { createStorage } from "../../js/lib/storage.js?v=424169d0b1";
-import { createSupabaseStore } from "./data/store.js?v=424169d0b1";
-import { createApi } from "./api.js?v=424169d0b1";
-import { validateContentFilters } from "./domain/rules.js?v=424169d0b1";
-import { createConfirm, showFieldErrors, setBusy } from "./ui/dialogs.js?v=424169d0b1";
-import { setupClients } from "./views/clients.js?v=424169d0b1";
-import { setupContents } from "./views/contents.js?v=424169d0b1";
-import { setupAccess } from "./views/access.js?v=424169d0b1";
-import { setupImport } from "./views/import.js?v=424169d0b1";
-import { setupAds } from "./views/ads.js?v=424169d0b1";
-import { setupBrand } from "./views/brand.js?v=424169d0b1";
-import { setupApprovals } from "./views/approvals.js?v=424169d0b1";
-import { setupTeam } from "./views/team.js?v=424169d0b1";
-import { setupTasks } from "./views/tasks.js?v=424169d0b1";
+import { $, on } from "../../js/lib/dom.js?v=75a584518a";
+import { icon, brandMark } from "../../js/lib/icons.js?v=75a584518a";
+import { toast } from "../../js/ui/toast.js?v=75a584518a";
+import { SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY } from "../../js/config.js?v=75a584518a";
+import { createAuth } from "../../js/lib/auth.js?v=75a584518a";
+import { createStorage } from "../../js/lib/storage.js?v=75a584518a";
+import { createSupabaseStore } from "./data/store.js?v=75a584518a";
+import { createApi } from "./api.js?v=75a584518a";
+import { validateContentFilters } from "./domain/rules.js?v=75a584518a";
+import { createConfirm, showFieldErrors, setBusy } from "./ui/dialogs.js?v=75a584518a";
+import { setupClients } from "./views/clients.js?v=75a584518a";
+import { setupContents } from "./views/contents.js?v=75a584518a";
+import { setupAccess } from "./views/access.js?v=75a584518a";
+import { setupImport } from "./views/import.js?v=75a584518a";
+import { setupAds } from "./views/ads.js?v=75a584518a";
+import { setupBrand } from "./views/brand.js?v=75a584518a";
+import { setupApprovals } from "./views/approvals.js?v=75a584518a";
+import { setupTeam } from "./views/team.js?v=75a584518a";
+import { setupTasks } from "./views/tasks.js?v=75a584518a";
+import { setupHome } from "./views/home.js?v=75a584518a";
+import { setupInbox } from "./views/inbox.js?v=75a584518a";
+import { wireMenus } from "./ui/menu.js?v=75a584518a";
 
 /* O painel não abre dentro de outro site (proteção contra clique disfarçado).
    A página fica invisível até esta checagem (veja .admin em admin.css). */
 if (window.top !== window.self) throw new Error("O painel não pode ser aberto dentro de outra página.");
 document.body.classList.add("is-ready");
 
-const ROUTES = ["demandas", "conteudos", "aprovacoes", "anuncios", "clientes", "importar", "equipe"];
-const TITLES = { demandas: "Minhas demandas", conteudos: "Conteúdos", aprovacoes: "Aprovações de Conteúdo", anuncios: "Aprovação de anúncios", clientes: "Clientes", importar: "Importar conteúdos", equipe: "Equipe" };
+const ROUTES = ["inicio", "demandas", "conteudos", "aprovacoes", "anuncios", "clientes", "importar", "equipe"];
+const TITLES = { inicio: "Início", demandas: "Minhas demandas", conteudos: "Conteúdos", aprovacoes: "Aprovações de Conteúdo", anuncios: "Aprovação de anúncios", clientes: "Clientes", importar: "Importar conteúdos", equipe: "Equipe" };
 // Seções que dependem do perfil (o banco recusa de qualquer jeito; aqui só não mostramos)
 const NEEDS = { clientes: "admin", equipe: "admin", importar: "edit", aprovacoes: "send" };
 
@@ -112,6 +115,9 @@ const importer = setupImport({ api, state, toast, navigate });
 const adsView = setupAds({ api, state, toast, confirm, navigate });
 const teamView = setupTeam({ api, state, toast, confirm, loadTeam });
 const tasksView = setupTasks({ api, state, toast, navigate, openContent: (id) => contents.openById(id) });
+const homeView = setupHome({ api, state, navigate, openContent: (id) => contents.openById(id), openForm: () => contents.openForm(), focusContents: (opts) => contents.focus(opts) });
+const inbox = setupInbox({ api, state, openContent: (id) => contents.openById(id) });
+wireMenus();
 const approvalsView = setupApprovals({ api, state, toast, confirm, navigate, openContentForm: (content, preset) => contents.openForm(content, preset) });
 
 /** Mostra a seção do endereço atual */
@@ -119,7 +125,7 @@ async function showRoute() {
   if (!state.signedIn) return;
   const [path, query = ""] = location.hash.replace(/^#\/?/, "").split("?");
   const previous = state.route;
-  state.route = ROUTES.includes(path) && allowed(path) ? path : (state.can.edit ? "conteudos" : "demandas");
+  state.route = ROUTES.includes(path) && allowed(path) ? path : "inicio";
   // Endereço de uma seção sem permissão (ou inexistente): a barra de endereço mostra onde a pessoa está
   if (path !== state.route) history.replaceState(null, "", `#/${state.route}`);
   // Trocou de seção: painéis e janelas da seção anterior fecham (não ficam por cima)
@@ -142,6 +148,7 @@ async function showRoute() {
     if (!ok && state.route === "conteudos") { await contents.load(); return; }
   }
   if (state.route === "conteudos") await contents.load();
+  if (state.route === "inicio") await homeView.load();
   if (state.route === "demandas") await tasksView.load();
   if (state.route === "equipe") await teamView.load();
   if (state.route === "importar") importer.show();
@@ -170,6 +177,12 @@ function showLogin(message = "", { info = false } = {}) {
   document.querySelector("[data-ads-attention]").hidden = true;
   approvalsView.stopPolling();
   approvalsView.reset();
+  inbox.stop();
+  homeView.reset();
+  tasksView.reset();
+  $("#home").innerHTML = "";
+  $("#contents-calendar").innerHTML = "";
+  $("#attention").innerHTML = "";
   $("#clients-list").innerHTML = "";
   $("#contents-count").textContent = "";
   $("#clients-count").textContent = "";
@@ -210,9 +223,10 @@ async function enterApp() {
   [, state.alerts] = await Promise.all([loadTeam(), api.alertSettings()]);
   loginScreen.hidden = true;
   app.hidden = false;
-  if (!location.hash) history.replaceState(null, "", state.can.edit ? "#/conteudos" : "#/demandas");
+  if (!location.hash) history.replaceState(null, "", "#/inicio");
   await showRoute();
   tasksView.refreshCount();
+  inbox.start();
   // Contador do menu "Anúncios": quantos o cliente pediu para alterar
   if (state.route !== "anuncios") adsView.refreshAttention();
   // Avisos da central de aprovação (decisões dos clientes), a cada 30 s

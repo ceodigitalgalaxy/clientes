@@ -281,7 +281,7 @@ await step("Título editado e conteúdo excluído no painel refletem no calendá
   // Excluir com o painel de detalhes aberto no portal
   await portal.click(`.cal__cell[data-day="${D(13)}"] .chip`);
   await portal.waitForSelector("#drawer[open]");
-  await admin.click('.row:has-text("Vídeo do forno") [data-delete-content]');
+  await admin.click('.row:has-text("Vídeo do forno") [data-menu-toggle]'); await admin.click('.row:has-text("Vídeo do forno") .menu [data-delete-content]');
   await admin.click('#confirm-modal [data-confirm="ok"]');
   await admin.waitForFunction(() => ![...document.querySelectorAll(".row__title")].some((n) => n.textContent === "Vídeo do forno"));
   await portalRefocus();

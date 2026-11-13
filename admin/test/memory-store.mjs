@@ -45,8 +45,19 @@ export function createMemoryStore() {
   const now = () => new Date().toISOString();
   const assignees = new Map();  // content_id → Set(user_id)   (content_assignees)
   const contentEvents = [];      // histórico da demanda          (content_events)
+  const comments = [];           // comentários internos          (content_comments)
+  const notifications = [];      // avisos de cada pessoa         (notifications)
   const settings = { alert_soon_days: 3, alert_urgent_days: 1 };
   const store = {
+    /** Decisão do cliente pelo link (como as funções approval_public_*): muda a etapa e dispara o aviso de ajuste */
+    setContentApproval(id, approval, mode = "planejamento") {
+      const c = contents.get(id);
+      if (!c) return;
+      const before = { ...c };
+      if (mode === "final") c.final_status = approval;
+      else Object.assign(c, syncStatus({ approval_status: approval }, c));
+      store.notifyAdjustment(before, c, {});
+    },
     /* Ajustes da agência (agency_settings: uma linha) */
     getSettings() { return { ...settings }; },
     updateSettings(value) {
@@ -102,12 +113,49 @@ export function createMemoryStore() {
     },
     /* ---- Tarefa: responsáveis e histórico (as permissões ficam no fake-supabase, como o RLS) ---- */
     listAssignees(contentId) { return [...(assignees.get(contentId) || [])]; },
-    addAssignee(contentId, userId, actorName, name) {
+    addAssignee(contentId, userId, actorName, name, actorId = null) {
       if (!contents.has(contentId)) throw new StoreError(409, "Conteúdo não encontrado.", "23503");
       const set = assignees.get(contentId) || new Set();
       if (set.has(userId)) throw new StoreError(409, "duplicado", "23505");
       set.add(userId); assignees.set(contentId, set);
       this.logEvent(contentId, "responsavel_adicionado", actorName, null, userId, { name });
+      this.notify(userId, "atribuicao", contentId, contents.get(contentId).title, { id: actorId, name: actorName });
+    },
+
+    /* ---- Comentários e avisos: as mesmas regras dos gatilhos do banco ---- */
+    canReceive: () => true,          // o emulador troca por "ativo e enxerga o cliente"
+    adminIds: () => [],              // administradores ativos (aviso de ajuste sem responsável)
+    notify(userId, kind, contentId, body, actor = {}) {
+      const c = contents.get(contentId);
+      if (!userId || !c || userId === actor.id || !this.canReceive(userId, c.client_id)) return;
+      notifications.push({ id: randomUUID(), user_id: userId, kind, content_id: contentId, actor_name: actor.name || "Cliente (pelo link)", body: String(body || "").slice(0, 280), read_at: null, created_at: now() });
+    },
+    listComments(contentId) { return comments.filter((x) => x.content_id === contentId); },
+    addComment({ content_id, body, mentions = [] }, actor) {
+      const c = contents.get(content_id);
+      if (!c) throw new StoreError(409, "Conteúdo não encontrado.", "23503");
+      const text = String(body || "").trim();
+      if (!text || text.length > 2000) throw new StoreError(400, "check", "23514");
+      const ok = [...new Set(mentions)].filter((m) => m !== actor.id && this.canReceive(m, c.client_id));
+      const row = { id: randomUUID(), content_id, author_id: actor.id, author_name: actor.name, body: text, mentions: ok, created_at: now() };
+      comments.push(row);
+      ok.forEach((m) => this.notify(m, "mencao", content_id, text, actor));
+      [...(assignees.get(content_id) || [])].filter((u) => !ok.includes(u)).forEach((u) => this.notify(u, "comentario", content_id, text, actor));
+      return { ...row };
+    },
+    deleteComment(id) { const i = comments.findIndex((x) => x.id === id); if (i >= 0) comments.splice(i, 1); },
+    commentAuthor(id) { return comments.find((x) => x.id === id)?.author_id ?? null; },
+    listNotifications(userId) { return notifications.filter((n) => n.user_id === userId).slice().reverse(); },
+    markNotificationsRead(userId, ids = null) {
+      notifications.forEach((n) => { if (n.user_id === userId && !n.read_at && (!ids || ids.includes(n.id))) n.read_at = now(); });
+    },
+    /** Como o gatilho notify_adjustment: ajuste pedido avisa responsáveis (ou administradores) */
+    notifyAdjustment(before, after, actor = {}) {
+      const stage = after.approval_status === "ajustes" && before.approval_status !== "ajustes" ? "na ideia"
+        : after.final_status === "ajustes" && before.final_status !== "ajustes" ? "no conteúdo final" : null;
+      if (!stage) return;
+      const people = [...(assignees.get(after.id) || [])];
+      (people.length ? people : this.adminIds()).forEach((u) => this.notify(u, "ajuste", after.id, `Ajuste pedido ${stage}: ${after.title}`, actor));
     },
     removeAssignee(contentId, userId, actorName, name) {
       if (assignees.get(contentId)?.delete(userId)) this.logEvent(contentId, "responsavel_removido", actorName, userId, null, { name });
@@ -121,6 +169,7 @@ export function createMemoryStore() {
       const pairs = [["production_status", "producao"], ["due_date", "prazo"], ["priority", "prioridade"], ["approval_status", "ideia"], ["final_status", "final"]];
       for (const [field, type] of pairs) if ((before[field] ?? null) !== (after[field] ?? null)) this.logEvent(after.id, type, actorName, before[field] ?? null, after[field] ?? null);
     },
+    allContentEvents() { return contentEvents.slice().reverse(); },
     listContentEvents(contentId) { return contentEvents.filter((e) => e.content_id === contentId).slice().reverse(); },
     /** Importação: todos ou nenhum */
     async createContents(values) {
@@ -288,12 +337,7 @@ export function createMemoryStore() {
   Object.assign(store, createAdsMemory({ clients, members, now, tick: () => store.tick() }));
   Object.assign(store, createApprovalsMemory({
     clients, contents, assetsOf, now, tick: () => store.tick(),
-    setContentApproval(id, approval, mode = "planejamento") {
-      const c = contents.get(id);
-      if (!c) return;
-      if (mode === "final") c.final_status = approval;
-      else Object.assign(c, syncStatus({ approval_status: approval }, c));
-    }
+    setContentApproval: (id, approval, mode) => store.setContentApproval(id, approval, mode)
   }));
   return store;
 }

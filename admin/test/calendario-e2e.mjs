@@ -234,7 +234,7 @@ await step("Celular: menu embaixo com 'Mais', topo enxuto e botão flutuante", a
   assert.equal(nav.pos, "fixed");
   assert.ok(nav.bottom <= 1, "menu colado embaixo");
   const visible = await page.$$eval(".admin-nav .admin-nav__link", (l) => l.filter((a) => a.offsetParent !== null).map((a) => a.textContent.trim()));
-  assert.deepEqual(visible.map((t) => t.replace(/\d+$/, "")), ["Demandas", "Conteúdos", "Aprovações", "Anúncios", "Mais"], JSON.stringify(visible));
+  assert.deepEqual(visible.map((t) => t.replace(/\d+$/, "")), ["Início", "Demandas", "Conteúdos", "Aprovações", "Mais"], JSON.stringify(visible));
   assert.equal(await page.isVisible(".admin-bar"), false);
   const fab = await page.$eval('#view-conteudos [data-action="new-content"]', (b) => getComputedStyle(b).position);
   assert.equal(fab, "fixed");
@@ -266,7 +266,7 @@ await step("Celular: filtros abrem pelo botão e mostram quantos estão ativos",
 await step("Celular: 'Mais' abre as outras seções", async () => {
   await page.click("[data-nav-more]");
   await page.waitForSelector("#nav-sheet:not([hidden])");
-  assert.match(await page.textContent("#nav-sheet"), /Clientes.*Importar.*Equipe/s);
+  assert.match(await page.textContent("#nav-sheet"), /Anúncios.*Clientes.*Importar.*Equipe/s);
   await shot("cal07-celular-mais", { fullPage: false });
   await page.click('#nav-sheet [data-route="equipe"]');
   await page.waitForSelector("#team-list .member-card");

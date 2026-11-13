@@ -3,10 +3,10 @@
    navegador). A senha aparece só uma vez, para a equipe copiar e enviar; ela
    não fica guardada no painel. */
 
-import { $, esc, on } from "../../../js/lib/dom.js?v=424169d0b1";
-import { icon } from "../../../js/lib/icons.js?v=424169d0b1";
-import { slugify, passwordProblem, USERNAME_LIMITS, PASSWORD_LIMITS } from "../domain/rules.js?v=424169d0b1";
-import { closeDialog, wireDialog, showFieldErrors, setBusy } from "../ui/dialogs.js?v=424169d0b1";
+import { $, esc, on } from "../../../js/lib/dom.js?v=75a584518a";
+import { icon } from "../../../js/lib/icons.js?v=75a584518a";
+import { slugify, passwordProblem, USERNAME_LIMITS, PASSWORD_LIMITS } from "../domain/rules.js?v=75a584518a";
+import { closeDialog, wireDialog, showFieldErrors, setBusy } from "../ui/dialogs.js?v=75a584518a";
 
 const PORTAL_URL = "https://clientes.digitalgalaxy.com.br";
 // Sem letras e números parecidos (l, I, 1, O, 0): mais fácil de digitar

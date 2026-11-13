@@ -379,6 +379,29 @@ export function createSupabaseStore({ url, apiKey, secretKey, getToken, onUnauth
       return request(`content_events?select=id,event_type,actor_name,from_value,to_value,metadata,created_at&content_id=eq.${enc(contentId)}&order=created_at.desc&limit=100`);
     },
 
+    /** Atividade recente (de todos os conteúdos que a pessoa enxerga) */
+    async recentEvents(limit = 10) {
+      return request(`content_events?select=id,content_id,event_type,actor_name,from_value,to_value,metadata,created_at,contents(title,client_id)&order=created_at.desc&limit=${Number(limit) || 10}`);
+    },
+
+    /* ---------- Comentários internos e avisos ---------- */
+    async listComments(contentId) {
+      return request(`content_comments?select=id,author_id,author_name,body,mentions,created_at&content_id=eq.${enc(contentId)}&order=created_at.asc&limit=200`);
+    },
+    async addComment(value) {
+      return request("content_comments?select=id,author_id,author_name,body,mentions,created_at", { method: "POST", body: value, single: true, prefer: "return=representation" });
+    },
+    async deleteComment(id) {
+      await request(`content_comments?id=eq.${enc(id)}`, { method: "DELETE", prefer: "return=minimal" });
+    },
+    async listNotifications(limit = 30) {
+      return request(`notifications?select=id,kind,content_id,actor_name,body,read_at,created_at&order=created_at.desc&limit=${Number(limit) || 30}`);
+    },
+    async markNotificationsRead(ids = null) {
+      const filter = ids ? `id=in.(${ids.map(enc).join(",")})` : "read_at=is.null";
+      await request(`notifications?${filter}`, { method: "PATCH", body: { read_at: new Date().toISOString() }, prefer: "return=minimal" });
+    },
+
     async ping() {
       await request("clients?select=id&limit=1");
       return true;

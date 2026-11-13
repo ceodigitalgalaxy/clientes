@@ -1,17 +1,18 @@
 /* Seção Conteúdos: filtros, lista, detalhes, cadastro, edição e exclusão */
 
-import { $, esc, on } from "../../../js/lib/dom.js?v=424169d0b1";
-import { icon } from "../../../js/lib/icons.js?v=424169d0b1";
-import { longDayLabel, timeLabel, todayISO, stampLabel, addDays } from "../../../js/lib/dates.js?v=424169d0b1";
-import { typeBadge } from "../../../js/ui/badges.js?v=424169d0b1";
-import { renderMedia, wireMediaFallbacks } from "../../../js/ui/media.js?v=424169d0b1";
-import { PRIORITIES } from "../domain/rules.js?v=424169d0b1";
-import { CONTENT_STATUS, CLIENT_VISIBLE_STATUS, APPROVAL_STATUS, PRODUCTION_STATUS, NETWORKS, FORMATS, LIMITS, validateContent, validateContentFilters } from "../domain/rules.js?v=424169d0b1";
-import { closeDialog, wireDialog, showFieldErrors, setBusy } from "../ui/dialogs.js?v=424169d0b1";
-import { stateBlock, loadingRows, button } from "../ui/states.js?v=424169d0b1";
-import { reviewSections, mountReview } from "./content-review.js?v=424169d0b1";
-import { describeMedia, mediaCover, coverHtml } from "../../../js/ui/media.js?v=424169d0b1";
-import { CAL_MODES, BOARD_COLUMNS, renderCalendar, calendarRange, stepCursor, calendarTitle, attentionItems, renderAttention } from "./contents-calendar.js?v=424169d0b1";
+import { $, esc, on } from "../../../js/lib/dom.js?v=75a584518a";
+import { icon } from "../../../js/lib/icons.js?v=75a584518a";
+import { longDayLabel, timeLabel, todayISO, stampLabel, addDays } from "../../../js/lib/dates.js?v=75a584518a";
+import { typeBadge } from "../../../js/ui/badges.js?v=75a584518a";
+import { renderMedia, wireMediaFallbacks } from "../../../js/ui/media.js?v=75a584518a";
+import { PRIORITIES } from "../domain/rules.js?v=75a584518a";
+import { CONTENT_STATUS, CLIENT_VISIBLE_STATUS, APPROVAL_STATUS, PRODUCTION_STATUS, NETWORKS, FORMATS, LIMITS, validateContent, validateContentFilters } from "../domain/rules.js?v=75a584518a";
+import { closeDialog, wireDialog, showFieldErrors, setBusy } from "../ui/dialogs.js?v=75a584518a";
+import { stateBlock, loadingRows, button } from "../ui/states.js?v=75a584518a";
+import { reviewSections, mountReview } from "./content-review.js?v=75a584518a";
+import { describeMedia, mediaCover, coverHtml } from "../../../js/ui/media.js?v=75a584518a";
+import { kebab } from "../ui/menu.js?v=75a584518a";
+import { CAL_MODES, BOARD_COLUMNS, renderCalendar, calendarRange, stepCursor, calendarTitle, attentionItems, renderAttention } from "./contents-calendar.js?v=75a584518a";
 
 const shortDate = (iso) => iso.split("-").reverse().join("/");
 const statusChip = (status) => `<span class="content-status cs--${esc(status)}">${esc(CONTENT_STATUS[status]?.label || status)}</span>`;
@@ -60,6 +61,19 @@ export const avatars = (team, ids = []) => ids.length
   : `<span class="avatars avatars--none">Sem responsável</span>`;
 
 const options = (entries, selected = "") => entries.map(([value, label]) => `<option value="${esc(value)}"${value === selected ? " selected" : ""}>${esc(label)}</option>`).join("");
+
+/** Histórico da demanda (quem criou, atribuiu, mudou prazo, produção e aprovação) */
+const EVENT_TEXT = {
+  criado: () => "Demanda criada",
+  responsavel_adicionado: (e) => `${e.metadata?.name || "Alguém"} virou responsável`,
+  responsavel_removido: (e) => `${e.metadata?.name || "Alguém"} saiu da demanda`,
+  producao: (e) => `Produção: ${PRODUCTION_STATUS[e.to_value]?.label || "não iniciada"}`,
+  prazo: (e) => (e.to_value ? `Prazo interno: ${e.to_value.split("-").reverse().join("/")}` : "Prazo interno removido"),
+  prioridade: (e) => `Prioridade: ${PRIORITIES[e.to_value]?.label || e.to_value}`,
+  ideia: (e) => `Aprovação da ideia: ${APPROVAL_STATUS[e.to_value]?.label || e.to_value}`,
+  final: (e) => `Aprovação final: ${APPROVAL_STATUS[e.to_value]?.label || e.to_value}`
+};
+export const eventText = (e) => (EVENT_TEXT[e.event_type] || (() => e.event_type))(e);
 
 export function setupContents({ api, state, toast, confirm, navigate }) {
   const list = $("#contents-list");
@@ -278,7 +292,11 @@ export function setupContents({ api, state, toast, confirm, navigate }) {
           <span class="row__status">${stageChips(c)}</span>
           <span class="row__actions">
             ${canEdit(c) ? `<button class="icon-btn" type="button" data-edit-content="${esc(c.id)}" aria-label="Editar ${esc(c.title)}" title="Editar">${icon("edit")}</button>` : ""}
-            ${state.can.admin ? `<button class="icon-btn icon-btn--danger" type="button" data-delete-content="${esc(c.id)}" aria-label="Excluir ${esc(c.title)}" title="Excluir">${icon("trash")}</button>` : ""}
+            ${kebab([
+              { label: "Ver detalhes", icon: "eye", attrs: `data-view-content="${esc(c.id)}"` },
+              canEdit(c) && { label: "Editar", icon: "edit", attrs: `data-edit-content="${esc(c.id)}"` },
+              state.can.admin && { label: "Excluir", icon: "trash", attrs: `data-delete-content="${esc(c.id)}"`, danger: true }
+            ], `Mais ações: ${c.title}`)}
           </span>
         </div>`).join("")}`;
   }
@@ -327,8 +345,21 @@ export function setupContents({ api, state, toast, confirm, navigate }) {
         ${canEdit(content) ? `<button class="btn btn--primary btn--sm" type="button" data-edit-content="${esc(content.id)}">${icon("edit")}<span>Editar</span></button>` : ""}
         ${state.can.admin ? `<button class="btn btn--ghost btn--sm" type="button" data-delete-content="${esc(content.id)}">${icon("trash")}<span>Excluir</span></button>` : ""}
       </div>
+      <section class="detail comments" aria-labelledby="comments-title">
+        <h3 class="detail__title" id="comments-title">Comentários da equipe <span class="field__optional">· o cliente não vê</span></h3>
+        <div data-comments><p class="field__hint">Carregando…</p></div>
+        <form class="comment-form" data-comment-form novalidate>
+          <div class="comment-form__box">
+            <textarea class="field__input" name="body" rows="2" maxlength="2000" placeholder="Escreva um comentário. Use @ para chamar alguém da equipe." aria-label="Novo comentário" aria-autocomplete="list" aria-controls="mention-list"></textarea>
+            <ul class="mention-list" id="mention-list" role="listbox" aria-label="Pessoas para mencionar" hidden></ul>
+          </div>
+          <p class="form-error" role="alert" hidden></p>
+          <div class="comment-form__actions"><span class="field__hint">Quem for mencionado recebe um aviso.</span><button class="btn btn--primary btn--sm" type="submit">${icon("send")}<span>Comentar</span></button></div>
+        </form>
+      </section>
       <section class="detail task-history"><h3 class="detail__title">Histórico da demanda</h3><div data-task-history><p class="field__hint">Carregando…</p></div></section>`;
     loadTaskHistory(content.id);
+    loadComments(content);
     // Arte final e aprovação: um bloco novo a cada abertura (os eventos ficam presos a ele)
     const review = document.createElement("div");
     review.className = "review";
@@ -446,7 +477,17 @@ export function setupContents({ api, state, toast, confirm, navigate }) {
 
   /* ---------- Exclusão ---------- */
   async function remove(content) {
-    const ok = await confirm({ title: "Excluir este conteúdo?", text: `"${content.title}" será apagado do calendário de ${clientName(content.client_id)}. Esta ação não pode ser desfeita.` });
+    // Deixa claro o que some junto (o banco apaga em cascata)
+    const parts = [];
+    if (content.assets_count) parts.push(`${content.assets_count} ${content.assets_count === 1 ? "arquivo da arte" : "arquivos da arte"}`);
+    if ((content.assignees || []).length) parts.push("os responsáveis");
+    parts.push("os comentários", "o histórico da demanda");
+    const sent = (content.approval_status && content.approval_status !== "rascunho") || (content.final_status && content.final_status !== "rascunho");
+    const ok = await confirm({
+      title: `Excluir "${content.title}"?`,
+      text: `Some do calendário de ${clientName(content.client_id)} junto com ${parts.join(", ").replace(/, ([^,]*)$/, " e $1")}.${sent ? " Ele já foi enviado ao cliente e sai também dos links de aprovação." : ""} Não dá para desfazer.`,
+      confirmLabel: "Excluir conteúdo"
+    });
     if (!ok) return;
     try {
       await api.deleteContent(content.id);
@@ -637,24 +678,124 @@ export function setupContents({ api, state, toast, confirm, navigate }) {
   on(document, "click", "[data-edit-content]", (event, btn) => { const c = findAny(btn.dataset.editContent); if (c) openForm(c); });
   on(document, "click", "[data-delete-content]", (event, btn) => { const c = find(btn.dataset.deleteContent); if (c) remove(c); });
 
-  /** Histórico da demanda (quem criou, atribuiu, mudou prazo, produção e aprovação) */
-  const EVENT_TEXT = {
-    criado: () => "Demanda criada",
-    responsavel_adicionado: (e) => `${e.metadata?.name || "Alguém"} virou responsável`,
-    responsavel_removido: (e) => `${e.metadata?.name || "Alguém"} saiu da demanda`,
-    producao: (e) => `Produção: ${PRODUCTION_STATUS[e.to_value]?.label || "não iniciada"}`,
-    prazo: (e) => (e.to_value ? `Prazo interno: ${e.to_value.split("-").reverse().join("/")}` : "Prazo interno removido"),
-    prioridade: (e) => `Prioridade: ${PRIORITIES[e.to_value]?.label || e.to_value}`,
-    ideia: (e) => `Aprovação da ideia: ${APPROVAL_STATUS[e.to_value]?.label || e.to_value}`,
-    final: (e) => `Aprovação final: ${APPROVAL_STATUS[e.to_value]?.label || e.to_value}`
-  };
+  /* ---------- Comentários da equipe (com @menção) ---------- */
+  let commentFor = null;               // conteúdo cujo comentário está sendo escrito
+  const mentioned = new Map();            // nome mencionado → id (vale o que continuar no texto)
+  let mentionOptions = [];
+  let mentionIndex = 0;
+  const fold = (t) => String(t || "").normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase();
+  const nameOf = (m) => m.name || m.username || "Sem nome";
+  const mentionable = (content) => state.team.filter((m) => m.user_id !== state.me?.user_id && seesClient(m, content.client_id));
+  function commentHtml(c, content) {
+    let body = esc(c.body).replace(/\n/g, "<br>");
+    (c.mentions || []).forEach((id) => {
+      const name = esc(personName(state.team, id));
+      body = body.split(`@${name}`).join(`<span class="mention">@${name}</span>`);
+    });
+    const mine = c.author_id === state.me?.user_id;
+    return `
+      <li class="comment${mine ? " comment--mine" : ""}">
+        <span class="avatar">${esc(initials(c.author_name || "?"))}</span>
+        <div class="comment__main">
+          <p class="comment__meta"><b>${esc(c.author_name || "Alguém")}</b> · ${esc(stampLabel(c.created_at))}${mine || state.can.admin ? ` <button class="link-btn comment__delete" type="button" data-comment-delete="${esc(c.id)}" data-content="${esc(content.id)}">Excluir</button>` : ""}</p>
+          <p class="comment__body">${body}</p>
+        </div>
+      </li>`;
+  }
+  async function loadComments(content) {
+    commentFor = content;
+    mentioned.clear();
+    const box = drawer.querySelector("[data-comments]");
+    try {
+      const rows = await api.listComments(content.id);
+      if (!box.isConnected || openId !== content.id) return;
+      box.innerHTML = rows.length ? `<ul class="comments__list">${rows.map((c) => commentHtml(c, content)).join("")}</ul>` : '<p class="field__hint">Nenhum comentário ainda. Combine aqui os detalhes com a equipe.</p>';
+    } catch {
+      if (box.isConnected) box.innerHTML = '<p class="field__hint">Não foi possível carregar os comentários.</p>';
+    }
+  }
+  function closeMentions() {
+    const list = drawer.querySelector(".mention-list");
+    if (list) list.hidden = true;
+    mentionOptions = [];
+  }
+  function renderMentions(list) {
+    list.innerHTML = mentionOptions.map((m, i) => `<li role="option" id="mention-${i}" class="mention-option${i === mentionIndex ? " is-active" : ""}" aria-selected="${i === mentionIndex}" data-mention-pick="${i}"><span class="avatar">${esc(initials(nameOf(m)))}</span><span><b>${esc(nameOf(m))}</b>${m.job_title ? ` <span class="field__optional">· ${esc(m.job_title)}</span>` : ""}</span></li>`).join("");
+    list.hidden = !mentionOptions.length;
+    drawer.querySelector("[data-comment-form] textarea")?.setAttribute("aria-activedescendant", mentionOptions.length ? `mention-${mentionIndex}` : "");
+  }
+  function pickMention(i) {
+    const area = drawer.querySelector("[data-comment-form] textarea");
+    const m = mentionOptions[i];
+    if (!area || !m) return;
+    const caret = area.selectionStart;
+    const before = area.value.slice(0, caret).replace(/@[^\s@]*$/, `@${nameOf(m)} `);
+    area.value = before + area.value.slice(caret);
+    area.setSelectionRange(before.length, before.length);
+    mentioned.set(nameOf(m), m.user_id);
+    closeMentions();
+    area.focus();
+  }
+  on(drawer, "input", "[data-comment-form] textarea", (event, area) => {
+    const match = area.value.slice(0, area.selectionStart).match(/(?:^|\s)@([^\s@]{0,30})$/);
+    const list = drawer.querySelector(".mention-list");
+    if (!match || !commentFor) { closeMentions(); return; }
+    const q = fold(match[1]);
+    mentionOptions = mentionable(commentFor).filter((m) => fold(nameOf(m)).split(/\s+/).some((w) => w.startsWith(q)) || fold(m.username).startsWith(q)).slice(0, 6);
+    mentionIndex = 0;
+    renderMentions(list);
+  });
+  on(drawer, "keydown", "[data-comment-form] textarea", (event, area) => {
+    const list = drawer.querySelector(".mention-list");
+    if (list.hidden || !mentionOptions.length) {
+      if (event.key === "Enter" && (event.ctrlKey || event.metaKey)) { event.preventDefault(); area.form.requestSubmit(); }
+      return;
+    }
+    if (event.key === "ArrowDown" || event.key === "ArrowUp") { event.preventDefault(); mentionIndex = (mentionIndex + (event.key === "ArrowDown" ? 1 : -1) + mentionOptions.length) % mentionOptions.length; renderMentions(list); }
+    else if (event.key === "Enter" || event.key === "Tab") { event.preventDefault(); pickMention(mentionIndex); }
+    else if (event.key === "Escape") { event.preventDefault(); event.stopPropagation(); closeMentions(); }
+  });
+  on(drawer, "mousedown", "[data-mention-pick]", (event, li) => { event.preventDefault(); pickMention(Number(li.dataset.mentionPick)); });
+  on(drawer, "submit", "[data-comment-form]", async (event, formEl) => {
+    event.preventDefault();
+    const content = commentFor;
+    const area = formEl.elements.body;
+    const text = area.value.trim();
+    const errorBox = formEl.querySelector(".form-error");
+    errorBox.hidden = true;
+    if (!content || !text) { errorBox.textContent = "Escreva o comentário."; errorBox.hidden = false; area.focus(); return; }
+    const mentions = [...mentioned].filter(([name]) => text.includes(`@${name}`)).map(([, id]) => id);
+    const button = formEl.querySelector("[type=submit]");
+    setBusy(button, true);
+    try {
+      await api.addComment(content.id, text, mentions);
+      area.value = "";
+      mentioned.clear();
+      closeMentions();
+      toast(mentions.length ? `Comentário enviado · ${mentions.length === 1 ? "1 pessoa avisada" : `${mentions.length} pessoas avisadas`}` : "Comentário enviado");
+      await loadComments(content);
+    } catch (error) {
+      errorBox.textContent = error.message;
+      errorBox.hidden = false;
+    } finally { setBusy(button, false); }
+  });
+  on(drawer, "click", "[data-comment-delete]", async (event, b) => {
+    const ok = await confirm({ title: "Excluir este comentário?", text: "Ele some para toda a equipe. Não dá para desfazer.", confirmLabel: "Excluir comentário" });
+    if (!ok) return;
+    try {
+      await api.deleteComment(b.dataset.commentDelete);
+      toast("Comentário excluído");
+      if (commentFor) await loadComments(commentFor);
+    } catch (error) { toast(error.message, "error"); }
+  });
+
   async function loadTaskHistory(contentId) {
     const box = drawer.querySelector("[data-task-history]");
     try {
       const events = await api.contentEvents(contentId);
       if (!box.isConnected || openId !== contentId) return;
       box.innerHTML = events.length
-        ? `<ul class="history">${events.map((e) => `<li class="history__item">${icon("dot")}<div><p class="history__title">${esc((EVENT_TEXT[e.event_type] || (() => e.event_type))(e))} <span class="history__meta">· ${esc(e.actor_name || "")} · ${esc(stampLabel(e.created_at))}</span></p></div></li>`).join("")}</ul>`
+        ? `<ul class="history">${events.map((e) => `<li class="history__item">${icon("dot")}<div><p class="history__title">${esc(eventText(e))} <span class="history__meta">· ${esc(e.actor_name || "")} · ${esc(stampLabel(e.created_at))}</span></p></div></li>`).join("")}</ul>`
         : '<p class="field__hint">Sem registros ainda.</p>';
     } catch {
       if (box.isConnected) box.innerHTML = '<p class="field__hint">Não foi possível carregar o histórico.</p>';
@@ -669,5 +810,16 @@ export function setupContents({ api, state, toast, confirm, navigate }) {
     } catch (error) { toast(error.message, "error"); }
   }
 
-  return { load, renderLoading, openForm, openById };
+  /** Vindo do Início: abre Conteúdos num modo (mes, semana, quadro…) e/ou com "Precisam de atenção" aberto */
+  function focus({ mode: next = null, attention: openAttention = false } = {}) {
+    if (next && CAL_MODES[next]) {
+      mode = next;
+      cursor = selected = todayISO();
+      try { localStorage.setItem(MODE_KEY, mode); } catch { /* só não lembra */ }
+    }
+    if (openAttention) attentionOpen = true;
+    navigate("conteudos");
+  }
+
+  return { load, renderLoading, openForm, openById, focus };
 }

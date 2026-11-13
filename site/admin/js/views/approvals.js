@@ -13,15 +13,16 @@
    O banco confere tudo de novo (funções approval_* e RLS).
    ========================================================================== */
 
-import { $, esc, on } from "../../../js/lib/dom.js?v=424169d0b1";
-import { icon } from "../../../js/lib/icons.js?v=424169d0b1";
-import { monthLabel, timeLabel, stampLabel, todayISO, longDayLabel } from "../../../js/lib/dates.js?v=424169d0b1";
-import { typeBadge } from "../../../js/ui/badges.js?v=424169d0b1";
-import { APPROVAL_STATUS, APPROVAL_MODES, BATCH_STATUS, APPROVAL_EVENTS, isPending, approvalUrl, whatsappMessage } from "../../../js/domain/approvals.js?v=424169d0b1";
-import { NETWORKS, validateBatch } from "../domain/rules.js?v=424169d0b1";
-import { closeDialog, wireDialog, showFieldErrors, setBusy } from "../ui/dialogs.js?v=424169d0b1";
-import { stateBlock, loadingCards, button } from "../ui/states.js?v=424169d0b1";
-import { buildApprovalReport, reportFileName } from "../ui/approval-report.js?v=424169d0b1";
+import { $, esc, on } from "../../../js/lib/dom.js?v=75a584518a";
+import { icon } from "../../../js/lib/icons.js?v=75a584518a";
+import { monthLabel, timeLabel, stampLabel, todayISO, longDayLabel } from "../../../js/lib/dates.js?v=75a584518a";
+import { typeBadge } from "../../../js/ui/badges.js?v=75a584518a";
+import { APPROVAL_STATUS, APPROVAL_MODES, BATCH_STATUS, APPROVAL_EVENTS, isPending, approvalUrl, whatsappMessage } from "../../../js/domain/approvals.js?v=75a584518a";
+import { NETWORKS, validateBatch } from "../domain/rules.js?v=75a584518a";
+import { closeDialog, wireDialog, showFieldErrors, setBusy } from "../ui/dialogs.js?v=75a584518a";
+import { stateBlock, loadingCards, button } from "../ui/states.js?v=75a584518a";
+import { buildApprovalReport, reportFileName } from "../ui/approval-report.js?v=75a584518a";
+import { kebab } from "../ui/menu.js?v=75a584518a";
 
 const POLL_MS = 30000;
 const options = (entries, placeholder) => `${placeholder !== undefined ? `<option value="">${esc(placeholder)}</option>` : ""}${entries.map(([v, l]) => `<option value="${esc(v)}">${esc(l)}</option>`).join("")}`;
@@ -109,13 +110,15 @@ export function setupApprovals({ api, state, toast, confirm, navigate, openConte
         <p class="batch-link">${linkLine(b)}</p>
         <div class="batch-card__actions">
           <button class="btn btn--primary btn--sm" type="button" data-batch-open="${esc(b.id)}">${icon("layers")}<span>Gerenciar conteúdos</span></button>
-          <button class="btn btn--ghost btn--sm" type="button" data-batch-preview="${esc(b.id)}">${icon("eye")}<span>Visualizar como cliente</span></button>
-          ${b.archived_at ? "" : b.link_id ? `
-            <button class="btn btn--ghost btn--sm" type="button" data-batch-copy="${esc(b.id)}">${icon("copy")}<span>Copiar link</span></button>
-            <button class="btn btn--ghost btn--sm" type="button" data-batch-whatsapp="${esc(b.id)}">${icon("message")}<span>Mensagem WhatsApp</span></button>
-            <button class="btn btn--ghost btn--sm btn--danger-text" type="button" data-batch-revoke="${esc(b.id)}">${icon("lock")}<span>Desativar link</span></button>`
+          ${b.archived_at ? "" : b.link_id
+            ? `<button class="btn btn--ghost btn--sm" type="button" data-batch-copy="${esc(b.id)}">${icon("copy")}<span>Copiar link</span></button>`
             : `<button class="btn btn--ghost btn--sm" type="button" data-batch-publish="${esc(b.id)}">${icon("link")}<span>Gerar link</span></button>`}
-          <button class="btn btn--ghost btn--sm btn--danger-text" type="button" data-batch-delete="${esc(b.id)}">${icon("trash")}<span>Excluir</span></button>
+          ${kebab([
+            { label: "Visualizar como cliente", icon: "eye", attrs: `data-batch-preview="${esc(b.id)}"` },
+            !b.archived_at && b.link_id && { label: "Mensagem WhatsApp", icon: "message", attrs: `data-batch-whatsapp="${esc(b.id)}"` },
+            !b.archived_at && b.link_id && { label: "Desativar link", icon: "lock", attrs: `data-batch-revoke="${esc(b.id)}"`, danger: true },
+            state.can.admin && { label: "Excluir lote", icon: "trash", attrs: `data-batch-delete="${esc(b.id)}"`, danger: true }
+          ], `Mais ações: ${b.title}`)}
         </div>
       </article>`;
   }
@@ -446,7 +449,7 @@ export function setupApprovals({ api, state, toast, confirm, navigate, openConte
         <button class="btn btn--ghost btn--sm" type="button" data-batch-preview="${esc(b.id)}">${icon("eye")}<span>Visualizar como cliente</span></button>
         <button class="btn btn--ghost btn--sm" type="button" data-batch-report="${esc(b.id)}">${icon("download")}<span>Relatório PDF</span></button>
         <button class="btn btn--ghost btn--sm" type="button" data-batch-archive="${esc(b.id)}">${icon("box")}<span>${b.archived_at ? "Reativar lote" : "Arquivar lote"}</span></button>
-        <button class="btn btn--ghost btn--sm btn--danger-text" type="button" data-batch-delete="${esc(b.id)}">${icon("trash")}<span>Excluir lote</span></button>
+        ${state.can.admin ? `<button class="btn btn--ghost btn--sm btn--danger-text" type="button" data-batch-delete="${esc(b.id)}">${icon("trash")}<span>Excluir lote</span></button>` : ""}
       </div>
       <section class="detail"><div class="detail__head"><h3 class="detail__title">Link de aprovação</h3></div>${linkBox()}</section>
       <section class="detail">

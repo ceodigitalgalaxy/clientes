@@ -64,7 +64,7 @@ const shot = async (name, { full = true } = {}) => {
   await page.screenshot({ path: `${OUT}/${name}.png`, fullPage: full });
 };
 
-await page.goto(`http://localhost:${PORT}/admin/`);
+await page.goto(`http://localhost:${PORT}/admin/#/conteudos`);
 await shot("m00-entrar");
 await page.fill('#login-form [name="username"]', "admdg-teste");
 await page.fill('#login-form [name="password"]', "Senha-de-teste-123");

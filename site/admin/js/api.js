@@ -2,9 +2,9 @@
    Valida os dados antes de enviar (domain/rules.js); o banco confere de novo
    com as próprias regras e só aceita membros da equipe (RLS). */
 
-import { validateClient, validateContent, validateContentFilters, parseUsername, passwordProblem, CONTENT_STATUS, PRODUCTION_STATUS, isUuid, validateAd, validateAdFilters, AD_LIMITS, validateBrandKit, validateBatch, validateMember } from "./domain/rules.js?v=424169d0b1";
-import { ALERT_DEFAULTS, validateAlertSettings } from "./domain/deadlines.js?v=424169d0b1";
-import { UPLOAD_LIMITS, fileName, fileProblem, resizeImage } from "../../js/lib/storage.js?v=424169d0b1";
+import { validateClient, validateContent, validateContentFilters, parseUsername, passwordProblem, CONTENT_STATUS, PRODUCTION_STATUS, isUuid, validateAd, validateAdFilters, AD_LIMITS, validateBrandKit, validateBatch, validateMember } from "./domain/rules.js?v=75a584518a";
+import { ALERT_DEFAULTS, validateAlertSettings } from "./domain/deadlines.js?v=75a584518a";
+import { UPLOAD_LIMITS, fileName, fileProblem, resizeImage } from "../../js/lib/storage.js?v=75a584518a";
 
 export class ApiError extends Error {
   constructor(status, message, fields) { super(message); this.status = status; this.fields = fields || {}; }
@@ -31,6 +31,12 @@ function requireValid({ value, errors }) {
  * @param {() => Promise<unknown>} options.access.refresh
  * @param {ReturnType<import("../../js/lib/storage.js").createStorage>} [options.storage]  arquivos (foto e arte final)
  */
+/** Id obrigatório (uuid): pedido com id torto nem sai do navegador */
+function requireId(id) {
+  if (!isUuid(id)) throw new ApiError(422, "Registro inválido.");
+  return id;
+}
+
 export function createApi({ store, onSessionLost, access = null, storage = null, team = null }) {
   /** Erros viram ApiError; sessão encerrada também leva de volta ao login */
   const guard = (fn) => async (...args) => {
@@ -416,6 +422,17 @@ export function createApi({ store, onSessionLost, access = null, storage = null,
     }),
     listAssignees: guard((contentId) => store.listAssignees(contentId)),
     contentEvents: guard((contentId) => store.listContentEvents(contentId)),
+    recentEvents: guard((limit) => store.recentEvents(limit)),
+    listComments: guard((contentId) => store.listComments(requireId(contentId))),
+    addComment: guard((contentId, body, mentions = []) => {
+      const text = String(body || "").trim();
+      if (!text) throw new ApiError(422, "Escreva o comentário.", { body: "Escreva o comentário." });
+      if (text.length > 2000) throw new ApiError(422, "Comentário longo demais (até 2.000 caracteres).", { body: "Até 2.000 caracteres." });
+      return store.addComment({ content_id: requireId(contentId), body: text, mentions: [...new Set(mentions)].filter(isUuid) });
+    }),
+    deleteComment: guard((id) => store.deleteComment(requireId(id))),
+    listNotifications: guard((limit) => store.listNotifications(limit)),
+    markNotificationsRead: guard((ids = null) => store.markNotificationsRead(ids ? ids.filter(isUuid) : null)),
     listClients: guard(() => store.listClients()),
     createClient: guard((data) => store.createClient(requireValid(validateClient(data)))),
     updateClient: guard((id, data) => store.updateClient(id, requireValid(validateClient(data)))),
