@@ -12,11 +12,11 @@
    Embaixo, os números do mês, pequenos.
    ========================================================================== */
 
-import { esc, reduceMotion } from "../lib/dom.js?v=d8b3be61ca";
-import { icon } from "../lib/icons.js?v=d8b3be61ca";
-import { addDays, longDayLabel, dayLabel, timeLabel, monthName } from "../lib/dates.js?v=d8b3be61ca";
-import { ACTIVITY_TYPES, PLATFORMS } from "../domain/model.js?v=d8b3be61ca";
-import { mediaCover, coverHtml, embedCover } from "./media.js?v=d8b3be61ca";
+import { esc, reduceMotion } from "../lib/dom.js?v=b28509c2bb";
+import { icon } from "../lib/icons.js?v=b28509c2bb";
+import { addDays, longDayLabel, dayLabel, timeLabel, monthName } from "../lib/dates.js?v=b28509c2bb";
+import { ACTIVITY_TYPES, PLATFORMS } from "../domain/model.js?v=b28509c2bb";
+import { mediaCover, coverHtml, embedCover } from "./media.js?v=b28509c2bb";
 
 const AUTOPLAY_MS = 6000;
 const MAX_PUBLISHED = 4;

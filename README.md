@@ -26,6 +26,25 @@ Na seção **Clientes**, cada cartão tem o bloco **Acesso ao portal**:
 
 Isso passa pela função `supabase/functions/acesso-cliente` (Supabase Edge Function). Ela guarda a chave secreta no servidor, confere a cada pedido que quem chama é da equipe (`agency_members`) e só mexe em logins de **cliente**: nunca cria, altera ou remove usuários da equipe. Aceita pedidos só do site (`clientes.digitalgalaxy.com.br`) e da prévia local.
 
+### Calendário de conteúdos e o painel no celular
+
+A aba **Conteúdos** abre no **calendário do mês** (também **Semana**, **Dia** e **Lista**; a escolha fica guardada no navegador). Cada etiqueta tem a bolinha da cor do cliente, horário e título, e a cor do alerta: verde concluído, azul em produção, amarelo prazo em até 3 dias, vermelho até 1 dia sem aprovação ou atrasado, roxo com o cliente, cinza não iniciado (vale o prazo mais próximo entre o interno e a publicação; regra em `site/admin/js/domain/deadlines.js`). Clicar abre o conteúdo; arrastar para outro dia muda a data (só quem pode editar; o banco confere); o "+" do dia cria já com a data. A seleção em massa fica na Lista.
+
+No celular o painel vira aplicativo: menu fixo embaixo (até 4 seções + **Mais**), botão flutuante para a ação principal, filtros recolhidos em **Filtros**, janelas que sobem de baixo com os botões sempre visíveis, e o mês com pontinhos: tocar no dia mostra a agenda dele.
+
+### Equipe, perfis e demandas (pelo painel)
+
+Na seção **Equipe** (só administradores), **Nova pessoa** cria o acesso de um colaborador: nome, função, e-mail de contato (opcional), usuário e uma senha gerada (mostrada e copiada uma única vez). Perfis:
+
+- **Administrador:** acesso completo (clientes, equipe, aprovações, exclusões).
+- **Colaborador:** vê só os clientes liberados (ou todos), edita **só as próprias demandas** ou **todos os conteúdos** desses clientes, e só envia para aprovação se tiver essa permissão. Não cria nem exclui clientes, não exclui conteúdos e não vê a área Equipe.
+
+Cada cartão mostra a carga (em aberto e atrasadas), **Ver demandas**, **Editar**, **Nova senha** e **Desativar/Reativar** (a pessoa sai na hora e não entra mais; histórico e demandas ficam). Ninguém desativa ou rebaixa a si mesmo e sempre sobra um administrador.
+
+No conteúdo, o bloco **Tarefa** tem responsáveis (um ou mais), **prazo interno** e **prioridade**; a lista mostra quem é o responsável, o prazo e a prioridade, e o filtro **Responsável** separa a carga de cada um. **Demandas** reúne o que é seu (atrasadas, hoje e amanhã, próximos 7 dias, mais adiante), com a etapa de produção mudável ali mesmo; o número no menu conta as atrasadas e as de hoje/amanhã. O detalhe do conteúdo traz o **histórico** (quem criou, atribuiu, mudou prazo, prioridade, produção e aprovação).
+
+Tudo isso é conferido pelo banco (RLS, funções e gatilhos), não só escondido na tela.
+
 ### Criar usuários da equipe (e, se preferir, de clientes) pelo computador
 
 Só pelo computador da agência, com a chave secreta em `admin/.env`. Requer Node 22.12 ou mais novo, sem dependências para instalar.
@@ -161,7 +180,9 @@ Para publicar uma mudança na função: `supabase functions deploy acesso-client
 |---|---|
 | `clients` | Nome, identificador (`slug`), segmento, contato, observações, ativo |
 | `contents` | Conteúdos de cada cliente (campos acima) e `version`, que sobe quando muda algo que o cliente vê |
-| `agency_members` | Quem da equipe pode entrar no painel (preenchida pelo `equipe.mjs`) |
+| `agency_members` | Quem da equipe pode entrar no painel: perfil (admin ou colaborador), nome, função, e-mail de contato, ativo e permissões (preenchida pela seção Equipe ou pelo `equipe.mjs`, que cria administradores) |
+| `agency_member_clients` | Clientes liberados para cada colaborador |
+| `content_assignees`, `content_events` | Responsáveis de cada conteúdo e o histórico de mudanças (quem fez e quando) |
 | `client_members` | Login de cada cliente no portal, ligado a **um** cliente (preenchida pelo `equipe.mjs criar-cliente`) |
 | `ads`, `ad_assets` | Anúncios pagos e o criativo de cada um (bucket privado `ad-media` ou links). Status e versão só mudam pela função `ad_transition` (equipe) e `portal_ad_decide` (cliente); um gatilho recusa mudanças diretas e edição enquanto o cliente avalia |
 | `ad_versions`, `ad_events` | Cópia de cada versão enviada e o histórico completo (envios, decisões com comentário, recolher, reabrir, arquivar). Nunca apagados por um novo envio. `ad_events.notified_at` fica pronto para um futuro aviso por e-mail |
@@ -184,6 +205,8 @@ PLAYWRIGHT=$P node admin/test/e2e.mjs             # painel da agência, ponta a 
 PLAYWRIGHT=$P node admin/test/portal-e2e.mjs      # painel → calendário do cliente, ponta a ponta
 PLAYWRIGHT=$P node admin/test/review-e2e.mjs      # foto, arte final, aprovação/ajuste e importação, ponta a ponta
 PLAYWRIGHT=$P node admin/test/approvals-e2e.mjs    # central de aprovação: lote → link → cliente (computador e celular) → avisos → nova versão → aprovar todos → relatório → desativar
+PLAYWRIGHT=$P node admin/test/calendario-e2e.mjs   # calendário (mês, semana, dia, cores, arrastar) e o painel no celular
+PLAYWRIGHT=$P node admin/test/equipe-e2e.mjs      # equipe: criar colaborador, demanda com prazo, o que ele vê e o que o servidor recusa, desativar
 PLAYWRIGHT=$P node admin/test/ads-e2e.mjs         # aprovação de anúncios: rascunho → envio → alterações → nova versão → aprovação
 PLAYWRIGHT=$P UX_SHOTS=pasta node admin/test/ux-shots.mjs   # só capturas do portal (computador e celular) para revisão visual
 PLAYWRIGHT=$P UX_SHOTS=pasta node admin/test/ux-approval-shots.mjs   # só capturas da página pública de aprovação (lista, detalhe, calendário)

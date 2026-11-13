@@ -5,7 +5,7 @@
    painel da agência, sem a chave secreta sair do servidor.
 
    Regras:
-   - Só atende quem está logado como membro da equipe (agency_members). O
+   - Só atende ADMINISTRADOR ativo da equipe (agency_members.role = 'admin'). O
      token de quem chama é conferido no Supabase Auth a cada pedido.
    - Só mexe em contas de cliente (cliente+<usuario>@...), ligadas a um
      cliente em client_members. Nunca cria, altera ou remove contas da equipe.
@@ -67,9 +67,11 @@ export function createHandler(keys, fetchImpl = globalThis.fetch.bind(globalThis
     if (!/^Bearer\s+\S+$/.test(authorization) || /^Bearer\s+sb_/.test(authorization)) throw new HttpError(401, "Entre no painel de novo.");
     const { response, data } = await call("/auth/v1/user", { headers: { apikey: keys.publishable, Authorization: authorization } });
     if (!response.ok || !data?.id) throw new HttpError(401, "Sua sessão expirou. Entre de novo.");
-    const member = await call(`/rest/v1/agency_members?select=user_id&user_id=eq.${encodeURIComponent(data.id)}`);
+    const member = await call(`/rest/v1/agency_members?select=user_id,role,active&user_id=eq.${encodeURIComponent(data.id)}`);
     if (!member.response.ok) throw new HttpError(502, "Não foi possível conferir o seu acesso. Tente de novo.");
-    if (!Array.isArray(member.data) || member.data.length !== 1) throw new HttpError(403, "Só a equipe da agência pode gerenciar acessos.");
+    const row = Array.isArray(member.data) && member.data.length === 1 ? member.data[0] : null;
+    // Linha sem "role" = banco antes da migração da equipe (todos eram administradores)
+    if (!row || (row.role && row.role !== "admin") || row.active === false) throw new HttpError(403, "Só administradores podem gerenciar os acessos dos clientes.");
     return data;
   }
 

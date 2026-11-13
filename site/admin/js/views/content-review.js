@@ -5,12 +5,12 @@
    - Aprovação e produção: status separados; o cliente aprova pelo link do lote
      (seção Aprovações). O histórico mostra cada versão enviada e a resposta. */
 
-import { esc, on } from "../../../js/lib/dom.js?v=d8b3be61ca";
-import { icon } from "../../../js/lib/icons.js?v=d8b3be61ca";
-import { stampLabel } from "../../../js/lib/dates.js?v=d8b3be61ca";
-import { renderMedia, mediaFallback } from "../../../js/ui/media.js?v=d8b3be61ca";
-import { UPLOAD_LIMITS } from "../../../js/lib/storage.js?v=d8b3be61ca";
-import { APPROVAL_STATUS, PRODUCTION_STATUS } from "../../../js/domain/approvals.js?v=d8b3be61ca";
+import { esc, on } from "../../../js/lib/dom.js?v=b28509c2bb";
+import { icon } from "../../../js/lib/icons.js?v=b28509c2bb";
+import { stampLabel } from "../../../js/lib/dates.js?v=b28509c2bb";
+import { renderMedia, mediaFallback } from "../../../js/ui/media.js?v=b28509c2bb";
+import { UPLOAD_LIMITS } from "../../../js/lib/storage.js?v=b28509c2bb";
+import { APPROVAL_STATUS, PRODUCTION_STATUS } from "../../../js/domain/approvals.js?v=b28509c2bb";
 
 const ACCEPT = UPLOAD_LIMITS.contentTypes.join(",");
 const ROLES = { midia: "Galeria / carrossel", capa: "Capa", thumbnail: "Thumbnail do vídeo" };
@@ -57,7 +57,7 @@ export const reviewSections = () => `
  * @param {object} options.content     conteúdo (linha da tabela contents)
  * @param {(updated?: object) => Promise<void>} options.onChanged  conteúdo mudou (versão/status)
  */
-export function mountReview({ root, content, api, toast, confirm, onChanged }) {
+export function mountReview({ root, content, api, toast, confirm, onChanged , canSend = true }) {
   const listBox = root.querySelector("[data-final-list]");
   const uploads = root.querySelector("[data-final-uploads]");
   const fileInput = root.querySelector("[data-final-files]");
@@ -231,9 +231,9 @@ export function mountReview({ root, content, api, toast, confirm, onChanged }) {
         <div class="approval-box__stage"><span class="approval-box__stage-label">Produção</span><span class="prod-chip">${icon(p?.icon || "edit")}${esc(p ? p.label : "Não iniciada")}</span></div>
       </div>
       <div class="approval-box__buttons">
-        ${["rascunho", "ajustes"].includes(content.approval_status) || staleIn("planejamento") ? `<button class="btn ${ideaOk ? "btn--ghost" : "btn--primary"} btn--sm" type="button" data-send-stage="planejamento">${icon("lightbulb")}<span>Enviar para aprovação da ideia</span></button>` : ""}
-        ${["rascunho", "ajustes"].includes(content.final_status || "rascunho") || staleIn("final") ? `<button class="btn ${ideaOk ? "btn--primary" : "btn--ghost"} btn--sm" type="button" data-send-stage="final">${icon("send")}<span>Enviar para aprovação final</span></button>` : ""}
-        <button class="btn btn--ghost btn--sm" type="button" data-go-approvals>${icon("layers")}<span>Abrir aprovações do cliente</span></button>
+        ${canSend && (["rascunho", "ajustes"].includes(content.approval_status) || staleIn("planejamento")) ? `<button class="btn ${ideaOk ? "btn--ghost" : "btn--primary"} btn--sm" type="button" data-send-stage="planejamento">${icon("lightbulb")}<span>Enviar para aprovação da ideia</span></button>` : ""}
+        ${canSend && (["rascunho", "ajustes"].includes(content.final_status || "rascunho") || staleIn("final")) ? `<button class="btn ${ideaOk ? "btn--primary" : "btn--ghost"} btn--sm" type="button" data-send-stage="final">${icon("send")}<span>Enviar para aprovação final</span></button>` : ""}
+        ${canSend ? `<button class="btn btn--ghost btn--sm" type="button" data-go-approvals>${icon("layers")}<span>Abrir aprovações do cliente</span></button>` : ""}
         ${content.production_status !== "publicado" ? `<button class="btn btn--ghost btn--sm" type="button" data-mark-published>${icon("check")}<span>Marcar como publicado</span></button>` : ""}
       </div>`;
   }

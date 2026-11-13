@@ -52,6 +52,8 @@ const browser = await chromium.launch();
 const consoleErrors = [];
 async function newContext(options = {}) {
   const context = await browser.newContext({ viewport: { width: 1360, height: 900 }, ...options });
+  // Estes testes usam a lista de conteúdos (o calendário tem o próprio teste: calendario-e2e)
+  await context.addInitScript(() => { try { if (!localStorage.getItem("dg-painel-conteudos-modo")) localStorage.setItem("dg-painel-conteudos-modo", "lista"); } catch { /* sem armazenamento */ } });
   await context.route(`${SUPABASE_URL}/**`, async (route) => {
     const req = route.request();
     const answer = await fake.handle({ method: req.method(), url: req.url(), headers: await req.allHeaders(), body: req.postData(), bodyBuffer: req.postDataBuffer() });

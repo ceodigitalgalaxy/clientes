@@ -22,6 +22,7 @@ export class StoreError extends Error {
 
 const CLIENT_FIELDS = "id,name,slug,segment,contact_name,contact_email,notes,active,logo_path,created_at,updated_at";
 const AD_FIELDS = "id,client_id,title,campaign_context,objective,platform,platform_other,format,creative_stage,primary_text,headline,description,cta,destination_url,client_notes,internal_notes,status,version,submitted_at,submitted_by,first_submitted_at,created_by,created_at,updated_at";
+const MEMBER_FIELDS = "user_id,role,active,name,email,job_title,all_clients,edit_scope,can_send_approval";
 const AD_ASSET_FIELDS = "id,ad_id,kind,storage_path,url,position,created_at";
 
 /** Recusas das funções do fluxo de anúncios (raise exception) em português */
@@ -35,6 +36,9 @@ export const AD_ERRORS = {
   transicao_invalida: "Esta ação não vale para o status atual do anúncio. Atualize a página.",
   anuncio_nao_encontrado: "Anúncio não encontrado. Ele pode ter sido excluído.",
   sem_permissao: "Seu usuário não tem permissão para fazer isso.",
+  sem_permissao_aprovacao: "Seu usuário não pode mudar o status de aprovação. Peça a um administrador.",
+  nao_pode_proprio_acesso: "Você não pode tirar o seu próprio acesso de administrador.",
+  ultimo_admin: "A agência precisa de pelo menos um administrador ativo.",
   mensagem_longa: "A mensagem passou do limite de 1000 caracteres.",
   // Central de aprovação
   lote_nao_encontrado: "Lote não encontrado. Ele pode ter sido apagado.",
@@ -46,7 +50,7 @@ export const AD_ERRORS = {
   conteudos_demais: "Use até 200 conteúdos por lote.",
   expiracao_no_passado: "A data de expiração precisa ser no futuro."
 };
-const CONTENT_FIELDS = "id,client_id,title,scheduled_date,scheduled_time,network,format,media_url,media_kind,pillar,idea,content_plan,art_text,objective,caption,hashtags,cta,internal_notes,client_notes,planning_notes,status,approval_status,final_status,production_status,version,created_at,updated_at";
+const CONTENT_FIELDS = "id,client_id,title,scheduled_date,scheduled_time,network,format,media_url,media_kind,pillar,idea,content_plan,art_text,objective,caption,hashtags,cta,internal_notes,client_notes,planning_notes,status,approval_status,final_status,production_status,due_date,priority,version,created_at,updated_at";
 const ASSET_FIELDS = "id,content_id,kind,role,name,storage_path,url,position,created_at";
 
 /** Traduz erros do PostgREST/PostgreSQL para mensagens do painel */
@@ -143,13 +147,13 @@ export function createSupabaseStore({ url, apiKey, secretKey, getToken, onUnauth
 
     async listContents(filters = {}) {
       // content_assets(count): quantos itens de arte final cada conteúdo tem
-      const query = [`select=${CONTENT_FIELDS},content_assets(count)`, "order=scheduled_date.asc,scheduled_time.asc.nullslast,created_at.asc"];
+      const query = [`select=${CONTENT_FIELDS},content_assets(count),content_assignees(user_id)`, "order=scheduled_date.asc,scheduled_time.asc.nullslast,created_at.asc"];
       if (filters.client_id) query.push(`client_id=eq.${enc(filters.client_id)}`);
       if (filters.status) query.push(`status=eq.${enc(filters.status)}`);
       if (filters.from) query.push(`scheduled_date=gte.${enc(filters.from)}`);
       if (filters.to) query.push(`scheduled_date=lte.${enc(filters.to)}`);
       const rows = await request(`contents?${query.join("&")}`);
-      return rows.map(({ content_assets: assets, ...row }) => ({ ...row, assets_count: assets?.[0]?.count ?? 0 }));
+      return rows.map(({ content_assets: assets, content_assignees: people, ...row }) => ({ ...row, assets_count: assets?.[0]?.count ?? 0, assignees: (people || []).map((p) => p.user_id) }));
     },
 
     /** Vários conteúdos de uma vez (importação): tudo ou nada, numa única gravação */
@@ -193,6 +197,10 @@ export function createSupabaseStore({ url, apiKey, secretKey, getToken, onUnauth
     },
     async setContentProduction(id, production) {
       return request(`contents?select=${CONTENT_FIELDS}&id=eq.${enc(id)}`, { method: "PATCH", body: { production_status: production }, single: true, prefer: "return=representation" });
+    },
+    /** Só a data (arrastar no calendário): o resto do conteúdo não muda */
+    async moveContent(id, date) {
+      return request(`contents?select=${CONTENT_FIELDS}&id=eq.${enc(id)}`, { method: "PATCH", body: { scheduled_date: date }, single: true, prefer: "return=representation" });
     },
     async moveAsset(id, position) {
       return request(`content_assets?select=id,position&id=eq.${enc(id)}`, { method: "PATCH", body: { position }, single: true, prefer: "return=representation" });
@@ -322,10 +330,44 @@ export function createSupabaseStore({ url, apiKey, secretKey, getToken, onUnauth
       return request(`rpc/${name}`, { method: "POST", body });
     },
 
-    /** A pessoa logada faz parte da equipe? (ela só enxerga o próprio cadastro) */
+    /** Cadastro da pessoa logada na equipe (perfil e permissões) ou null */
+    async getProfile(userId) {
+      const rows = await request(`agency_members?select=${MEMBER_FIELDS}&user_id=eq.${enc(userId)}`);
+      return Array.isArray(rows) && rows.length === 1 ? rows[0] : null;
+    },
     async isAgencyMember(userId) {
-      const rows = await request(`agency_members?select=user_id&user_id=eq.${enc(userId)}`);
-      return Array.isArray(rows) && rows.length === 1;
+      const profile = await this.getProfile(userId);
+      return Boolean(profile && profile.active !== false);
+    },
+
+    /* ---------- Equipe e tarefas ---------- */
+    async teamDirectory() {
+      return request("rpc/team_directory", { method: "POST", body: {} });
+    },
+    async updateMember(userId, value) {
+      return request(`agency_members?select=${MEMBER_FIELDS}&user_id=eq.${enc(userId)}`, { method: "PATCH", body: value, single: true, prefer: "return=representation" });
+    },
+    /** Troca os clientes liberados (apaga os que saíram e grava os novos) */
+    async setMemberClients(userId, clientIds, current = []) {
+      const remove = current.filter((id) => !clientIds.includes(id));
+      const add = clientIds.filter((id) => !current.includes(id));
+      if (remove.length) await request(`agency_member_clients?user_id=eq.${enc(userId)}&client_id=in.(${remove.map(enc).join(",")})`, { method: "DELETE", prefer: "return=minimal" });
+      if (add.length) await request("agency_member_clients", { method: "POST", body: add.map((client_id) => ({ user_id: userId, client_id })), prefer: "return=minimal" });
+    },
+    async listAssignees(contentId) {
+      const rows = await request(`content_assignees?select=user_id&content_id=eq.${enc(contentId)}`);
+      return rows.map((r) => r.user_id);
+    },
+    async addAssignees(contentId, userIds) {
+      if (!userIds.length) return;
+      await request("content_assignees", { method: "POST", body: userIds.map((user_id) => ({ content_id: contentId, user_id })), prefer: "return=minimal" });
+    },
+    async removeAssignees(contentId, userIds) {
+      if (!userIds.length) return;
+      await request(`content_assignees?content_id=eq.${enc(contentId)}&user_id=in.(${userIds.map(enc).join(",")})`, { method: "DELETE", prefer: "return=minimal" });
+    },
+    async listContentEvents(contentId) {
+      return request(`content_events?select=id,event_type,actor_name,from_value,to_value,metadata,created_at&content_id=eq.${enc(contentId)}&order=created_at.desc&limit=100`);
     },
 
     async ping() {

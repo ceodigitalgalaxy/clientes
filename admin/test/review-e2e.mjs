@@ -59,6 +59,8 @@ const browser = await chromium.launch();
 const consoleErrors = [];
 async function newContext(options = {}) {
   const context = await browser.newContext({ viewport: { width: 1360, height: 900 }, ...options });
+  // Estes testes usam a lista de conteúdos (o calendário tem o próprio teste: calendario-e2e)
+  await context.addInitScript(() => { try { if (!localStorage.getItem("dg-painel-conteudos-modo")) localStorage.setItem("dg-painel-conteudos-modo", "lista"); } catch { /* sem armazenamento */ } });
   // A aprovação pelo portal está desligada (config.js: aprovação combinada no grupo);
   // este teste liga de novo só aqui, para o fluxo guardado continuar funcionando
   await context.route(/\/js\/config\.js/, async (route) => {
