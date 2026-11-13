@@ -342,7 +342,9 @@ await step("Tirar a foto do cliente", async () => {
 });
 
 await step("Importar: modelo para baixar e escolha do cliente", async () => {
-  await admin.click('[data-route="importar"]');
+  await admin.click('.admin-nav [data-route="conteudos"]');
+  await admin.click('#view-conteudos a[href="#/importar"]');
+  await admin.waitForSelector("#view-importar:not([hidden])");
   await admin.waitForSelector("#view-importar:not([hidden])");
   const template = await admin.evaluate(async () => { const r = await fetch("modelo-importacao-conteudos.xlsx"); const b = new Uint8Array(await r.arrayBuffer()); return { status: r.status, zip: b[0] === 0x50 && b[1] === 0x4b }; });
   assert.deepEqual(template, { status: 200, zip: true });
@@ -391,7 +393,9 @@ await step("Importar: grava os marcados e leva aos conteúdos do cliente", async
 });
 
 await step("Importar: CSV com ponto e vírgula e arquivo inválido", async () => {
-  await admin.click('[data-route="importar"]');
+  await admin.click('.admin-nav [data-route="conteudos"]');
+  await admin.click('#view-conteudos a[href="#/importar"]');
+  await admin.waitForSelector("#view-importar:not([hidden])");
   await admin.selectOption('#import-form [name="client_id"]', { label: "Estúdio Luz" });
   const csv = "Título;Data;Rede social;Formato;Legenda\n\"Ensaio; parte 1\";20/04/2027;Instagram;Reels;\"Texto com \"\"aspas\"\"\"\n";
   await admin.setInputFiles('#import-form [name="file"]', { name: "estudio.csv", mimeType: "text/csv", buffer: Buffer.from(`\uFEFF${csv}`) });

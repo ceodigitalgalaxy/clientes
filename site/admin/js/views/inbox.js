@@ -3,9 +3,9 @@
    (gatilhos); aqui só lemos os da própria pessoa e marcamos como lidos.
    Abrir um aviso abre o conteúdo e marca aquele aviso como lido. */
 
-import { $, esc, on } from "../../../js/lib/dom.js?v=75a584518a";
-import { icon } from "../../../js/lib/icons.js?v=75a584518a";
-import { stampLabel } from "../../../js/lib/dates.js?v=75a584518a";
+import { $, esc, on } from "../../../js/lib/dom.js?v=8083d4a8ab";
+import { icon } from "../../../js/lib/icons.js?v=8083d4a8ab";
+import { stampLabel } from "../../../js/lib/dates.js?v=8083d4a8ab";
 
 const KINDS = {
   atribuicao: { icon: "user", text: (n) => `${n.actor_name} te colocou como responsável` },

@@ -16,14 +16,14 @@
    Tudo o que vem do banco passa por esc(): nada vira HTML.
    ========================================================================== */
 
-import { esc, on } from "../lib/dom.js?v=75a584518a";
-import { icon, brandMark } from "../lib/icons.js?v=75a584518a";
-import { monthLabel, monthName, longDayLabel, timeLabel, monthGrid, WEEKDAYS_SHORT, stampLabel, fromISO } from "../lib/dates.js?v=75a584518a";
-import { ACTIVITY_TYPES, PLATFORMS } from "../domain/model.js?v=75a584518a";
-import { APPROVAL_STATUS, APPROVAL_MODES, isPending } from "../domain/approvals.js?v=75a584518a";
-import { renderFinal, wireCarousel } from "./preview.js?v=75a584518a";
-import { wireMediaFallbacks } from "./media.js?v=75a584518a";
-import { toast } from "./toast.js?v=75a584518a";
+import { esc, on } from "../lib/dom.js?v=8083d4a8ab";
+import { icon, brandMark } from "../lib/icons.js?v=8083d4a8ab";
+import { monthLabel, monthName, longDayLabel, timeLabel, monthGrid, WEEKDAYS_SHORT, stampLabel, fromISO } from "../lib/dates.js?v=8083d4a8ab";
+import { ACTIVITY_TYPES, PLATFORMS } from "../domain/model.js?v=8083d4a8ab";
+import { APPROVAL_STATUS, APPROVAL_MODES, isPending } from "../domain/approvals.js?v=8083d4a8ab";
+import { renderFinal, wireCarousel } from "./preview.js?v=8083d4a8ab";
+import { wireMediaFallbacks } from "./media.js?v=8083d4a8ab";
+import { toast } from "./toast.js?v=8083d4a8ab";
 
 const NAME_KEY = "dg-aprovacao-nome";
 const SESSION_KEY = "dg-aprovacao-sessao";

@@ -11,16 +11,16 @@
    Endereço: #/anuncios?status=...&client_id=...
    ========================================================================== */
 
-import { $, esc, on } from "../../../js/lib/dom.js?v=75a584518a";
-import { icon } from "../../../js/lib/icons.js?v=75a584518a";
-import { stampLabel } from "../../../js/lib/dates.js?v=75a584518a";
-import { renderMedia, mediaFallback, mediaCover, coverHtml, embedCoverHtml, wireMediaFallbacks } from "../../../js/ui/media.js?v=75a584518a";
-import { wireCarousel } from "../../../js/ui/preview.js?v=75a584518a";
-import { renderAdMock, renderAdTexts, renderAdHistory, adStatusBadge } from "../../../js/ui/ad-preview.js?v=75a584518a";
-import { UPLOAD_LIMITS } from "../../../js/lib/storage.js?v=75a584518a";
-import { AD_STAGES, AD_STATUS, AD_PLATFORMS, AD_OBJECTIVES, AD_FORMATS, AD_CTAS, platformLabel, adCanSend, adSendBlock, validateAdFilters } from "../domain/rules.js?v=75a584518a";
-import { closeDialog, wireDialog, showFieldErrors, setBusy } from "../ui/dialogs.js?v=75a584518a";
-import { stateBlock, loadingCards, button } from "../ui/states.js?v=75a584518a";
+import { $, esc, on } from "../../../js/lib/dom.js?v=8083d4a8ab";
+import { icon } from "../../../js/lib/icons.js?v=8083d4a8ab";
+import { stampLabel } from "../../../js/lib/dates.js?v=8083d4a8ab";
+import { renderMedia, mediaFallback, mediaCover, coverHtml, embedCoverHtml, wireMediaFallbacks } from "../../../js/ui/media.js?v=8083d4a8ab";
+import { wireCarousel } from "../../../js/ui/preview.js?v=8083d4a8ab";
+import { renderAdMock, renderAdTexts, renderAdHistory, adStatusBadge } from "../../../js/ui/ad-preview.js?v=8083d4a8ab";
+import { UPLOAD_LIMITS } from "../../../js/lib/storage.js?v=8083d4a8ab";
+import { AD_STAGES, AD_STATUS, AD_PLATFORMS, AD_OBJECTIVES, AD_FORMATS, AD_CTAS, platformLabel, adCanSend, adSendBlock, validateAdFilters } from "../domain/rules.js?v=8083d4a8ab";
+import { closeDialog, wireDialog, showFieldErrors, setBusy } from "../ui/dialogs.js?v=8083d4a8ab";
+import { stateBlock, loadingCards, button } from "../ui/states.js?v=8083d4a8ab";
 
 const ACCEPT = UPLOAD_LIMITS.mediaTypes.join(",");
 const EDITABLE = ["rascunho", "alteracoes_solicitadas"];

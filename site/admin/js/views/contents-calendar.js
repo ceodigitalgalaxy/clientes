@@ -8,12 +8,13 @@
      a etapa (no celular, um seletor no cartão faz o mesmo).
    Só monta o HTML; os cliques e o arrastar ficam em contents.js. */
 
-import { esc } from "../../../js/lib/dom.js?v=75a584518a";
-import { icon } from "../../../js/lib/icons.js?v=75a584518a";
-import { monthGrid, weekDays, weekLabel, monthLabel, longDayLabel, timeLabel, WEEKDAYS_SHORT, addDays, fromISO, toISO } from "../../../js/lib/dates.js?v=75a584518a";
-import { typeBadge } from "../../../js/ui/badges.js?v=75a584518a";
-import { TONES, alertTone, nearestDeadline, daysFrom } from "../domain/deadlines.js?v=75a584518a";
-import { PRODUCTION_STATUS } from "../domain/rules.js?v=75a584518a";
+import { esc } from "../../../js/lib/dom.js?v=8083d4a8ab";
+import { icon } from "../../../js/lib/icons.js?v=8083d4a8ab";
+import { monthGrid, weekDays, weekLabel, monthLabel, longDayLabel, timeLabel, WEEKDAYS_SHORT, addDays, fromISO, toISO } from "../../../js/lib/dates.js?v=8083d4a8ab";
+import { typeBadge } from "../../../js/ui/badges.js?v=8083d4a8ab";
+import { TONES, alertTone, nearestDeadline, daysFrom } from "../domain/deadlines.js?v=8083d4a8ab";
+import { kebab } from "../ui/menu.js?v=8083d4a8ab";
+import { PRODUCTION_STATUS } from "../domain/rules.js?v=8083d4a8ab";
 
 export const CAL_MODES = { mes: "Mês", semana: "Semana", dia: "Dia", quadro: "Quadro", lista: "Lista" };
 /** Colunas do quadro: "" = ainda não começou */
@@ -57,6 +58,12 @@ export function renderCalendar(ctx) {
 }
 
 const toneOf = (ctx, c) => alertTone(c, ctx.today, ctx.limits);
+/** Ver, editar e excluir num menu ⋯ (as mesmas ações da lista) */
+const cardMenu = (ctx, c) => kebab([
+  { label: "Ver detalhes", icon: "eye", attrs: `data-view-content="${esc(c.id)}"` },
+  ctx.canEdit(c) && { label: "Editar", icon: "edit", attrs: `data-edit-content="${esc(c.id)}"` },
+  ctx.canDelete && { label: "Excluir", icon: "trash", attrs: `data-delete-content="${esc(c.id)}"`, danger: true }
+], `Mais ações: ${c.title}`);
 const cli = (ctx, c) => `cli-${ctx.clientIndex(c.client_id) % CLIENT_COLORS}`;
 
 function chip(ctx, c, { detailed = false } = {}) {
@@ -78,6 +85,7 @@ function agendaCard(ctx, c) {
   return `
     <article class="agenda-card tone--${tone}">
       <button class="agenda-card__open" type="button" data-view-content="${esc(c.id)}" aria-label="Abrir ${esc(c.title)}"></button>
+      <div class="card-menu">${cardMenu(ctx, c)}</div>
       <div class="agenda-card__time">${c.scheduled_time ? esc(timeLabel(c.scheduled_time.slice(0, 5))) : "—"}</div>
       <div class="agenda-card__main">
         <p class="agenda-card__client"><span class="cli-dot ${cli(ctx, c)}" aria-hidden="true"></span>${esc(ctx.clientName(c.client_id))}</p>
@@ -185,6 +193,7 @@ function boardCard(ctx, c) {
   return `
     <article class="kcard tone--${tone}"${editable ? ` draggable="true" data-kdrag="${esc(c.id)}"` : ""} data-kcard="${esc(c.id)}">
       <button class="kcard__open" type="button" data-view-content="${esc(c.id)}" aria-label="Abrir ${esc(c.title)}"></button>
+      <div class="card-menu">${cardMenu(ctx, c)}</div>
       <p class="kcard__client"><span class="cli-dot ${cli(ctx, c)}" aria-hidden="true"></span>${esc(ctx.clientName(c.client_id))}</p>
       <p class="kcard__title">${esc(c.title)}</p>
       <p class="kcard__meta">${typeBadge(c.format)}<span class="kcard__date">${icon("calendar")}${esc(shortDay(c.scheduled_date))}${c.scheduled_time ? ` · ${esc(timeLabel(c.scheduled_time.slice(0, 5)))}` : ""}</span>${due}</p>

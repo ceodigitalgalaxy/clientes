@@ -198,7 +198,7 @@ await step("Celular: Início cabe na tela, indicadores deslizam e o sininho abre
   const overflow = await page.evaluate(() => document.documentElement.scrollWidth - innerWidth);
   assert.ok(overflow <= 1, `sem rolagem lateral (${overflow}px)`);
   const visible = await page.$$eval(".admin-nav .admin-nav__link", (l) => l.filter((a) => a.offsetParent !== null).map((a) => a.textContent.trim().replace(/\d+$/, "")));
-  assert.deepEqual(visible, ["Início", "Demandas", "Conteúdos", "Aprovações", "Mais"]);
+  assert.deepEqual(visible, ["Início", "Minhas", "Demandas", "Conteúdos", "Mais"]);
   await shot("in05-celular-inicio", { fullPage: true });
   await page.click('[data-action="toggle-inbox"]');
   await page.waitForSelector("#inbox:not([hidden])");

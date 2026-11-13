@@ -15,6 +15,7 @@ import { createHandler } from "../../supabase/functions/acesso-cliente/handler.j
 import { createHandler as createTeamHandler } from "../../supabase/functions/equipe/handler.js";
 import { pairFromStatus } from "../../site/js/domain/approvals.js";
 import { createHandler as createApprovalHandler } from "../../supabase/functions/aprovacao/handler.js";
+import { createFakeTasks } from "./fake-tasks.mjs";
 
 /** Chave secreta de mentira: só o "servidor" (a função) conhece */
 export const FAKE_SECRET = "sb_secret_FAKE_SERVIDOR";
@@ -72,6 +73,11 @@ export function createFakeSupabase({ store, publishableKey }) {
   function eq(params, column, op = "eq") {
     const value = params.get(column);
     return value && value.startsWith(`${op}.`) ? decodeURIComponent(value.slice(op.length + 1)) : undefined;
+  }
+  const tasks = createFakeTasks({ store, h: { sees, editsClient, isAdmin, active, memberName, userById, json, raise, rlsDenied, eq } });
+  {
+    const notify = store.notifyAdjustment.bind(store);
+    store.notifyAdjustment = (before, after, actor) => { tasks.syncFromContent(before, after); return notify(before, after, actor); };
   }
   function range(params, column) {
     const out = {};
@@ -141,6 +147,10 @@ export function createFakeSupabase({ store, publishableKey }) {
 
   async function rest(method, table, params, body, user, single) {
     if (table.startsWith("rpc/") && method === "POST") return rpc(table.slice(4), body, user);
+    if (["tasks", "board_columns", "labels", "projects", "task_assignees", "task_labels", "task_events"].includes(table)) {
+      if (!active(user)) return method === "GET" ? [] : rlsDenied();
+      return tasks.route(method, table, params, body, user);
+    }
     if (table === "agency_members") {
       const id = eq(params, "user_id");
       if (method === "GET") {
@@ -349,6 +359,11 @@ export function createFakeSupabase({ store, publishableKey }) {
       if (method === "PATCH" && Object.keys(body).join() === "scheduled_date") return [await store.moveContent(id, body.scheduled_date)];
       if (method === "PATCH" && Object.keys(body).join() === "production_status") return [await store.setContentProduction(id, body.production_status)];
       if (method === "PATCH") return [await store.updateContent(id, body)];
+      if (method === "DELETE" && inIds !== undefined) {
+        const gone = [];
+        for (const one of inIds.split(",").filter(Boolean)) { if (store.peekContent(one)) { await store.deleteContent(one); gone.push({ id: one }); } }
+        return gone;
+      }
       if (method === "DELETE") { await store.deleteContent(id); return [{ id }]; }
     }
     return [];
@@ -619,5 +634,6 @@ export function createFakeSupabase({ store, publishableKey }) {
     const response = await functionHandler(new Request(url, { method, headers, body: method === "GET" || method === "HEAD" ? undefined : body }));
     return { status: response.status, headers: Object.fromEntries(response.headers), body: response.status === 204 ? "" : await response.text() };
   };
+  fake.tasks = tasks;
   return fake;
 }

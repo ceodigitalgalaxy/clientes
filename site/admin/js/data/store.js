@@ -22,6 +22,7 @@ export class StoreError extends Error {
 
 const CLIENT_FIELDS = "id,name,slug,segment,contact_name,contact_email,notes,active,logo_path,created_at,updated_at";
 const AD_FIELDS = "id,client_id,title,campaign_context,objective,platform,platform_other,format,creative_stage,primary_text,headline,description,cta,destination_url,client_notes,internal_notes,status,version,submitted_at,submitted_by,first_submitted_at,created_by,created_at,updated_at";
+const TASK_FIELDS = "id,parent_id,client_id,project_id,content_id,title,description,status,column_id,priority,due_at,position,created_by,completed_at,completed_by,archived_at,version,created_at,updated_at";
 const MEMBER_FIELDS = "user_id,role,active,name,email,job_title,all_clients,edit_scope,can_send_approval";
 const AD_ASSET_FIELDS = "id,ad_id,kind,storage_path,url,position,created_at";
 
@@ -37,6 +38,8 @@ export const AD_ERRORS = {
   anuncio_nao_encontrado: "Anúncio não encontrado. Ele pode ter sido excluído.",
   sem_permissao: "Seu usuário não tem permissão para fazer isso.",
   sem_permissao_aprovacao: "Seu usuário não pode mudar o status de aprovação. Peça a um administrador.",
+  sem_permissao_arquivar: "Só quem criou a demanda ou um administrador pode arquivá-la.",
+  subtarefa_de_subtarefa: "Uma subtarefa não pode ter outra subtarefa dentro.",
   nao_pode_proprio_acesso: "Você não pode tirar o seu próprio acesso de administrador.",
   ultimo_admin: "A agência precisa de pelo menos um administrador ativo.",
   mensagem_longa: "A mensagem passou do limite de 1000 caracteres.",
@@ -226,6 +229,10 @@ export function createSupabaseStore({ url, apiKey, secretKey, getToken, onUnauth
       return request(`contents?select=${CONTENT_FIELDS}&id=eq.${enc(id)}`, { method: "PATCH", body: value, single: true, prefer: "return=representation" });
     },
 
+    /** Exclusão em lote: devolve o que o banco realmente apagou (o RLS só deixa o administrador) */
+    async deleteContents(ids) {
+      return request(`contents?select=id&id=in.(${ids.map(enc).join(",")})`, { method: "DELETE", prefer: "return=representation" });
+    },
     async deleteContent(id) {
       await request(`contents?select=id&id=eq.${enc(id)}`, { method: "DELETE", single: true, prefer: "return=representation" });
     },
@@ -382,6 +389,70 @@ export function createSupabaseStore({ url, apiKey, secretKey, getToken, onUnauth
     /** Atividade recente (de todos os conteúdos que a pessoa enxerga) */
     async recentEvents(limit = 10) {
       return request(`content_events?select=id,content_id,event_type,actor_name,from_value,to_value,metadata,created_at,contents(title,client_id)&order=created_at.desc&limit=${Number(limit) || 10}`);
+    },
+
+    /* ---------- Gestão de demandas (tarefas e subtarefas) ---------- */
+    async listTasks({ archived = false } = {}) {
+      const query = [`select=${TASK_FIELDS},task_assignees(user_id),task_labels(label_id)`, archived ? "archived_at=not.is.null" : "archived_at=is.null", "order=position.asc", "limit=2000"];
+      return request(`tasks?${query.join("&")}`);
+    },
+    async getTask(id) {
+      return request(`tasks?select=${TASK_FIELDS},task_assignees(user_id),task_labels(label_id)&id=eq.${enc(id)}`, { single: true });
+    },
+    async createTask(value) {
+      return request(`tasks?select=${TASK_FIELDS}`, { method: "POST", body: value, single: true, prefer: "return=representation" });
+    },
+    /** Grava só se ninguém salvou antes (version); se outra pessoa salvou, avisa */
+    async updateTask(id, version, value) {
+      const rows = await request(`tasks?select=${TASK_FIELDS}&id=eq.${enc(id)}&version=eq.${Number(version)}`, { method: "PATCH", body: value, prefer: "return=representation" });
+      if (!Array.isArray(rows) || !rows.length) throw new StoreError(409, "Outra pessoa alterou esta demanda agora há pouco. Recarregamos a versão mais nova.", "conflito");
+      return rows[0];
+    },
+    async deleteTask(id) {
+      await request(`tasks?id=eq.${enc(id)}`, { method: "DELETE", prefer: "return=minimal" });
+    },
+    async addTaskAssignees(taskId, ids) {
+      if (!ids.length) return;
+      await request("task_assignees", { method: "POST", body: ids.map((user_id) => ({ task_id: taskId, user_id })), prefer: "return=minimal" });
+    },
+    async removeTaskAssignees(taskId, ids) {
+      if (!ids.length) return;
+      await request(`task_assignees?task_id=eq.${enc(taskId)}&user_id=in.(${ids.map(enc).join(",")})`, { method: "DELETE", prefer: "return=minimal" });
+    },
+    async addTaskLabels(taskId, ids) {
+      if (!ids.length) return;
+      await request("task_labels", { method: "POST", body: ids.map((label_id) => ({ task_id: taskId, label_id })), prefer: "return=minimal" });
+    },
+    async removeTaskLabels(taskId, ids) {
+      if (!ids.length) return;
+      await request(`task_labels?task_id=eq.${enc(taskId)}&label_id=in.(${ids.map(enc).join(",")})`, { method: "DELETE", prefer: "return=minimal" });
+    },
+    async listTaskEvents(taskId) {
+      return request(`task_events?select=id,event_type,actor_name,from_value,to_value,metadata,created_at&task_id=eq.${enc(taskId)}&order=created_at.desc&limit=200`);
+    },
+    async listColumns() {
+      return request("board_columns?select=id,name,status,color,position,hidden&order=position.asc");
+    },
+    async createColumn(value) {
+      return request("board_columns?select=id,name,status,color,position,hidden", { method: "POST", body: value, single: true, prefer: "return=representation" });
+    },
+    async updateColumn(id, value) {
+      return request(`board_columns?select=id,name,status,color,position,hidden&id=eq.${enc(id)}`, { method: "PATCH", body: value, single: true, prefer: "return=representation" });
+    },
+    async deleteColumn(id) {
+      await request(`board_columns?id=eq.${enc(id)}`, { method: "DELETE", prefer: "return=minimal" });
+    },
+    async listLabels() {
+      return request("labels?select=id,name,color,archived_at&order=name.asc");
+    },
+    async createLabel(value) {
+      return request("labels?select=id,name,color,archived_at", { method: "POST", body: value, single: true, prefer: "return=representation" });
+    },
+    async listProjects() {
+      return request("projects?select=id,client_id,name,status,archived_at&order=name.asc");
+    },
+    async createProject(value) {
+      return request("projects?select=id,client_id,name,status,archived_at", { method: "POST", body: value, single: true, prefer: "return=representation" });
     },
 
     /* ---------- Comentários internos e avisos ---------- */

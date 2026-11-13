@@ -1,18 +1,18 @@
 /* Seção Conteúdos: filtros, lista, detalhes, cadastro, edição e exclusão */
 
-import { $, esc, on } from "../../../js/lib/dom.js?v=75a584518a";
-import { icon } from "../../../js/lib/icons.js?v=75a584518a";
-import { longDayLabel, timeLabel, todayISO, stampLabel, addDays } from "../../../js/lib/dates.js?v=75a584518a";
-import { typeBadge } from "../../../js/ui/badges.js?v=75a584518a";
-import { renderMedia, wireMediaFallbacks } from "../../../js/ui/media.js?v=75a584518a";
-import { PRIORITIES } from "../domain/rules.js?v=75a584518a";
-import { CONTENT_STATUS, CLIENT_VISIBLE_STATUS, APPROVAL_STATUS, PRODUCTION_STATUS, NETWORKS, FORMATS, LIMITS, validateContent, validateContentFilters } from "../domain/rules.js?v=75a584518a";
-import { closeDialog, wireDialog, showFieldErrors, setBusy } from "../ui/dialogs.js?v=75a584518a";
-import { stateBlock, loadingRows, button } from "../ui/states.js?v=75a584518a";
-import { reviewSections, mountReview } from "./content-review.js?v=75a584518a";
-import { describeMedia, mediaCover, coverHtml } from "../../../js/ui/media.js?v=75a584518a";
-import { kebab } from "../ui/menu.js?v=75a584518a";
-import { CAL_MODES, BOARD_COLUMNS, renderCalendar, calendarRange, stepCursor, calendarTitle, attentionItems, renderAttention } from "./contents-calendar.js?v=75a584518a";
+import { $, esc, on } from "../../../js/lib/dom.js?v=8083d4a8ab";
+import { icon } from "../../../js/lib/icons.js?v=8083d4a8ab";
+import { longDayLabel, timeLabel, todayISO, stampLabel, addDays } from "../../../js/lib/dates.js?v=8083d4a8ab";
+import { typeBadge } from "../../../js/ui/badges.js?v=8083d4a8ab";
+import { renderMedia, wireMediaFallbacks } from "../../../js/ui/media.js?v=8083d4a8ab";
+import { PRIORITIES } from "../domain/rules.js?v=8083d4a8ab";
+import { CONTENT_STATUS, CLIENT_VISIBLE_STATUS, APPROVAL_STATUS, PRODUCTION_STATUS, NETWORKS, FORMATS, LIMITS, validateContent, validateContentFilters } from "../domain/rules.js?v=8083d4a8ab";
+import { closeDialog, wireDialog, showFieldErrors, setBusy } from "../ui/dialogs.js?v=8083d4a8ab";
+import { stateBlock, loadingRows, button } from "../ui/states.js?v=8083d4a8ab";
+import { reviewSections, mountReview } from "./content-review.js?v=8083d4a8ab";
+import { describeMedia, mediaCover, coverHtml } from "../../../js/ui/media.js?v=8083d4a8ab";
+import { kebab } from "../ui/menu.js?v=8083d4a8ab";
+import { CAL_MODES, BOARD_COLUMNS, renderCalendar, calendarRange, stepCursor, calendarTitle, attentionItems, renderAttention } from "./contents-calendar.js?v=8083d4a8ab";
 
 const shortDate = (iso) => iso.split("-").reverse().join("/");
 const statusChip = (status) => `<span class="content-status cs--${esc(status)}">${esc(CONTENT_STATUS[status]?.label || status)}</span>`;
@@ -39,6 +39,17 @@ export const stageChips = (c) => `${stageChip("Ideia", c.approval_status)}${c.fi
 const initials = (name) => String(name || "?").trim().split(/\s+/).slice(0, 2).map((w) => w[0]).join("").toUpperCase();
 export const personName = (team, id) => { const p = team.find((m) => m.user_id === id); return p ? (p.name || p.username || "Sem nome") : "Pessoa removida"; };
 /** Quem da equipe enxerga o cliente (só essas pessoas podem ser responsáveis) */
+/** Cor de cada cliente pela ordem de cadastro: clientes diferentes têm cores diferentes (até 8) e a mesma cor em todas as telas */
+const colorOrder = new WeakMap();
+export function clientColorIndex(clients, id) {
+  let order = colorOrder.get(clients);
+  if (!order) {
+    order = new Map([...clients].sort((a, b) => String(a.created_at || "").localeCompare(String(b.created_at || "")) || String(a.id).localeCompare(String(b.id))).map((c, i) => [c.id, i]));
+    colorOrder.set(clients, order);
+  }
+  return order.get(id) ?? [...String(id)].reduce((h, ch) => (h * 31 + ch.charCodeAt(0)) >>> 0, 7);
+}
+export const clientDotClass = (clients, id) => (id ? `cli-${clientColorIndex(clients, id) % 8}` : "cli-int");
 export const seesClient = (member, clientId) => member.active !== false && (member.role === "admin" || member.all_clients || (member.client_ids || []).includes(clientId));
 /** Dias até a data (negativo = atrasado) */
 export const daysUntil = (iso) => {
@@ -116,7 +127,7 @@ export function setupContents({ api, state, toast, confirm, navigate }) {
   const phone = matchMedia("(max-width: 768px)");
   const box = () => (mode === "lista" ? list : calendar);
   // Cor do cliente: sempre a mesma para o mesmo cliente (não muda quando entra um cliente novo)
-  const clientIndex = (id) => [...String(id)].reduce((h, ch) => (h * 31 + ch.charCodeAt(0)) >>> 0, 7);
+  const clientIndex = (id) => clientColorIndex(state.clients, id);
 
   wireDialog(dialog, { canClose: () => !saving });
   wireDialog(drawer);
@@ -234,7 +245,7 @@ export function setupContents({ api, state, toast, confirm, navigate }) {
   const calCtx = () => ({
     contents, mode, cursor, today: todayISO(), limits: state.alerts,
     selected: mode === "mes" && phone.matches ? selected : null,
-    clientIndex, clientName, canEdit, canCreate: Boolean(state.can.edit), canConfigure: Boolean(state.can.admin),
+    clientIndex, clientName, canEdit, canCreate: Boolean(state.can.edit), canConfigure: Boolean(state.can.admin), canDelete: Boolean(state.can.admin),
     people: (c) => ((c.assignees || []).length ? avatars(state.team, c.assignees) : ""),
     stages: stageChips
   });
@@ -400,6 +411,7 @@ export function setupContents({ api, state, toast, confirm, navigate }) {
     dialog.querySelector(".modal__title").textContent = content ? "Editar conteúdo" : "Novo conteúdo";
     submit.querySelector("span").textContent = content ? "Salvar alterações" : "Cadastrar conteúdo";
     form.elements.client_id.innerHTML = `<option value="">Escolha o cliente</option>${options(active.map((c) => [c.id, c.name]))}`;
+    form.querySelector("[data-make-task]").hidden = Boolean(content);   // só ao cadastrar
     if (content) {
       ["client_id", "title", "scheduled_date", "network", "format", "media_url", "pillar", "idea", "content_plan", "art_text", "objective", "caption", "hashtags", "cta", "client_notes", "planning_notes", "internal_notes", "approval_status", "final_status", "production_status", "due_date"].forEach((name) => { form.elements[name].value = content[name] || ""; });
       form.elements.priority.value = content.priority || "media";
@@ -452,6 +464,8 @@ export function setupContents({ api, state, toast, confirm, navigate }) {
     const data = Object.fromEntries(new FormData(form));
     const chosen = [...form.querySelectorAll("[name=assignee]:checked")].map((b) => b.value);
     delete data.assignee;
+    const makeTask = !editing && form.elements.make_task.checked;
+    delete data.make_task;
     // Campos travados não vão no formulário: mantém o que já estava
     if (form.elements.client_id.disabled) data.client_id = editing.client_id;
     if (!state.can.send) { data.approval_status = editing?.approval_status || "rascunho"; data.final_status = editing?.final_status || "rascunho"; }
@@ -462,8 +476,16 @@ export function setupContents({ api, state, toast, confirm, navigate }) {
     try {
       const saved = editing ? await api.updateContent(editing.id, data) : await api.createContent(data);
       if (state.can.edit) saved.assignees = await api.setAssignees(saved.id, chosen, editing?.assignees || []);
+      // Demanda de produção ligada ao conteúdo (vira um card na Gestão de demandas)
+      let taskNote = "";
+      if (makeTask) {
+        try {
+          await api.createTask({ title: saved.title, client_id: saved.client_id, content_id: saved.id, priority: saved.priority || "media", due_date: saved.due_date || saved.scheduled_date, due_time: "18:00" }, { assignees: chosen });
+          taskNote = " · demanda criada no quadro";
+        } catch (error) { toast(`Conteúdo salvo, mas a demanda não foi criada: ${error.message}`, "info"); }
+      }
       closeDialog(dialog);
-      toast(editing ? "Conteúdo atualizado" : "Conteúdo cadastrado");
+      toast(editing ? "Conteúdo atualizado" : `Conteúdo cadastrado${taskNote}`);
       document.dispatchEvent(new CustomEvent("content-saved", { detail: saved }));
       const callback = afterSave; afterSave = null;
       if (callback) await callback(saved); else await load();
@@ -624,6 +646,64 @@ export function setupContents({ api, state, toast, confirm, navigate }) {
     } catch (error) {
       showFieldErrors(alertForm, error.fields || {}, Object.keys(error.fields || {}).length ? "" : error.message);
     } finally { setBusy(button, false); }
+  });
+
+  /* ---------- Exclusão em lote (só administrador): duas confirmações ---------- */
+  on(view, "click", '[data-action="go-select"]', () => setMode("lista"));
+  const bulkDeleteModal = $("#bulk-delete-modal");
+  const bulkDeleteForm = bulkDeleteModal.querySelector("form");
+  const bulkDeleteOk = bulkDeleteModal.querySelector("[data-bulk-delete-ok]");
+  wireDialog(bulkDeleteModal);
+  bulkDeleteForm.elements.word.addEventListener("input", () => { bulkDeleteOk.disabled = bulkDeleteForm.elements.word.value.trim().toUpperCase() !== "EXCLUIR"; });
+  /** Segunda confirmação: só libera ao digitar EXCLUIR */
+  function typedConfirm(text) {
+    return new Promise((resolve) => {
+      bulkDeleteModal.querySelector("#bulk-delete-text").textContent = text;
+      bulkDeleteForm.reset();
+      bulkDeleteOk.disabled = true;
+      let answered = false;
+      const finish = (value) => { if (answered) return; answered = true; closeDialog(bulkDeleteModal); resolve(value); };
+      bulkDeleteForm.onsubmit = (event) => { event.preventDefault(); if (!bulkDeleteOk.disabled) finish(true); };
+      bulkDeleteModal.querySelector("[data-bulk-delete-cancel]").onclick = () => finish(false);
+      bulkDeleteModal.addEventListener("close", () => finish(false), { once: true });
+      bulkDeleteModal.showModal();
+      bulkDeleteForm.elements.word.focus();
+    });
+  }
+  bulk.querySelector("[data-bulk-delete]").addEventListener("click", async (event) => {
+    const button = event.currentTarget;   // depois de um await o evento já não tem currentTarget
+    if (bulkBusy || !picked.size || !state.can.admin) return;
+    const chosen = contents.filter((c) => picked.has(c.id));
+    const n = chosen.length;
+    const sent = chosen.filter((c) => (c.approval_status && c.approval_status !== "rascunho") || (c.final_status && c.final_status !== "rascunho")).length;
+    const files = chosen.reduce((sum, c) => sum + (Number(c.assets_count) || 0), 0);
+    const names = chosen.slice(0, 4).map((c) => `"${c.title}"`).join(", ") + (n > 4 ? ` e mais ${n - 4}` : "");
+    // 1ª confirmação: o que vai sumir
+    const first = await confirm({
+      title: `Excluir ${n} ${n === 1 ? "conteúdo" : "conteúdos"}?`,
+      text: `${names}. Somem do calendário junto com responsáveis, comentários e histórico${files ? `, e ${files} ${files === 1 ? "arquivo da arte" : "arquivos da arte"}` : ""}.${sent ? ` ${sent} já ${sent === 1 ? "foi enviado" : "foram enviados"} ao cliente e ${sent === 1 ? "sai" : "saem"} também dos links de aprovação.` : ""}`,
+      confirmLabel: "Continuar"
+    });
+    if (!first) return;
+    // 2ª confirmação: digitar EXCLUIR
+    const second = await typedConfirm(`Você vai excluir ${n} ${n === 1 ? "conteúdo" : "conteúdos"} de uma vez. Não dá para desfazer.`);
+    if (!second) return;
+    bulkBusy = true;
+    setBusy(button, true);
+    try {
+      const gone = await api.deleteContents(chosen.map((c) => c.id));
+      const removed = Array.isArray(gone) ? gone.length : n;
+      toast(removed === n ? `${n} ${n === 1 ? "conteúdo excluído" : "conteúdos excluídos"}` : `${removed} de ${n} excluídos (os outros você não tem permissão para excluir)`, removed === n ? "success" : "info");
+      picked.clear();
+      document.dispatchEvent(new CustomEvent("content-saved", { detail: {} }));
+      await load();
+    } catch (error) {
+      toast(error.message, "error");
+    } finally {
+      bulkBusy = false;
+      setBusy(button, false);
+      syncBulk();
+    }
   });
 
   /* ---------- Status em massa ---------- */

@@ -229,7 +229,7 @@ await step("Cadastro de conteúdo valida e cria", async () => {
   await shot("04-form-conteudo");
   await page.click("#content-modal [type=submit]");
   await page.waitForSelector(".row[data-row]");
-  assert.equal(await toastText(), "Conteúdo cadastrado");
+  assert.equal(await toastText(), "Conteúdo cadastrado · demanda criada no quadro", "com \"Criar demanda de produção\" marcado (padrão)");
 });
 
 await step("Mais conteúdos para testar filtros", async () => {

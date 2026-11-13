@@ -5,13 +5,13 @@
      recente, em cartões compactos (clicar abre o conteúdo).
    Tudo vem do banco já recortado pelas permissões (cada um vê os clientes dele). */
 
-import { $, esc, on } from "../../../js/lib/dom.js?v=75a584518a";
-import { icon } from "../../../js/lib/icons.js?v=75a584518a";
-import { todayISO, addDays, longDayLabel, monthLabel, stampLabel, timeLabel } from "../../../js/lib/dates.js?v=75a584518a";
-import { alertTone, nearestDeadline, daysFrom } from "../domain/deadlines.js?v=75a584518a";
-import { stateBlock } from "../ui/states.js?v=75a584518a";
-import { avatars, eventText } from "./contents.js?v=75a584518a";
-import { toneLabels, attentionItems } from "./contents-calendar.js?v=75a584518a";
+import { $, esc, on } from "../../../js/lib/dom.js?v=8083d4a8ab";
+import { icon } from "../../../js/lib/icons.js?v=8083d4a8ab";
+import { todayISO, addDays, longDayLabel, monthLabel, stampLabel, timeLabel } from "../../../js/lib/dates.js?v=8083d4a8ab";
+import { alertTone, nearestDeadline, daysFrom } from "../domain/deadlines.js?v=8083d4a8ab";
+import { stateBlock } from "../ui/states.js?v=8083d4a8ab";
+import { avatars, eventText, clientDotClass } from "./contents.js?v=8083d4a8ab";
+import { toneLabels, attentionItems } from "./contents-calendar.js?v=8083d4a8ab";
 
 const WITH_CLIENT = ["aguardando_aprovacao", "reenviado"];
 const DONE = ["agendado", "publicado"];
@@ -25,7 +25,7 @@ export function setupHome({ api, state, navigate, openContent, openForm, focusCo
   let events = [];
 
   const clientName = (id) => state.clients.find((c) => c.id === id)?.name || "Cliente";
-  const clientDot = (id) => `cli-${[...String(id)].reduce((h, ch) => (h * 31 + ch.charCodeAt(0)) >>> 0, 7) % 8}`;
+  const clientDot = (id) => clientDotClass(state.clients, id);
   const people = (c) => ((c.assignees || []).length ? avatars(state.team, c.assignees) : "");
 
   /** Cartão compacto: faixa da cor do alerta, título, cliente, quando e quem */

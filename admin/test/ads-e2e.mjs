@@ -424,7 +424,9 @@ await step("Erro ao carregar mostra aviso e 'Tentar de novo'", async () => {
 });
 
 await step("Importar anúncios por planilha: prévia, rascunhos, envio dos marcados e criativo por link", async () => {
-  await admin.click('[data-route="importar"]');
+  await admin.click('.admin-nav [data-route="conteudos"]');
+  await admin.click('#view-conteudos a[href="#/importar"]');
+  await admin.waitForSelector("#view-importar:not([hidden])");
   await admin.waitForSelector("#view-importar:not([hidden])");
   await admin.click('.import-kind__opt:has-text("Anúncios")');
   assert.ok(await admin.isChecked('#import-form [name="kind"][value="ads"]'));

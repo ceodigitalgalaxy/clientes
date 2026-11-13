@@ -53,6 +53,21 @@ No conteúdo, o bloco **Tarefa** tem responsáveis (um ou mais), **prazo interno
 
 Tudo isso é conferido pelo banco (RLS, funções e gatilhos), não só escondido na tela.
 
+### Gestão de demandas (quadro Kanban)
+
+A seção **Demandas** é o quadro de trabalho da equipe, separado do calendário de conteúdos. Colunas padrão: **A fazer, Em andamento, Em revisão, Aguardando outra pessoa, Aguardando cliente, Ajustes solicitados e Concluído**. O administrador renomeia, muda a cor, a ordem, esconde e cria colunas em **Colunas**, mas cada coluna fica ligada a uma das 7 etapas oficiais (o relatório e as regras usam a etapa, não o nome), e não dá para apagar a única coluna de uma etapa.
+
+- **Card compacto:** etiquetas, título, cliente (ou "Interno"), entrega, prioridade alta/urgente, subtarefas concluídas e responsáveis. Clicar abre o painel lateral.
+- **Arrastar** o card entre colunas grava a etapa; dentro da coluna, a ordem.
+- **+ Nova demanda** (ou a tecla **N**) abre a criação rápida: título, cliente, entrega (dia e hora), responsáveis (só aparece quem enxerga aquele cliente), descrição e etiquetas. **+ Adicionar demanda** no pé de cada coluna cria já naquela etapa.
+- **Painel da demanda:** tudo editável ali mesmo e salvo sozinho ("Salvo ✓"): etapa, responsáveis, entrega, prioridade, etiquetas, cliente, projeto, descrição; mostra o histórico (quem criou, mudou etapa, prazo, prioridade, responsáveis). Menu **⋯**: duplicar, arquivar/restaurar (quem criou ou o administrador) e excluir de vez (só administrador, com confirmação).
+- **Filtros:** cliente (ou só internas), pessoa ("Só as minhas"), projeto, etiqueta e busca; ficam guardados no navegador.
+- **Demanda interna** (sem cliente): só quem criou, os responsáveis e os administradores enxergam.
+- **Ligada ao conteúdo:** ao cadastrar um conteúdo, **Criar demanda de produção** (marcado) cria a demanda junto, com o mesmo cliente, responsáveis e prazo. Quando o cliente pede ajuste, a demanda vai sozinha para **Ajustes solicitados**; quando aguarda o cliente, para **Aguardando cliente**; com o conteúdo final aprovado, para **Concluído**. Conteúdos antigos não ganham demanda automaticamente.
+- **Edição ao mesmo tempo:** cada demanda tem versão; se outra pessoa salvou antes, o painel avisa e recarrega a versão nova, sem gravar por cima.
+
+Tudo conferido no banco (migração `20261116120000_gestao_de_demandas.sql`): colaborador só vê e cria demandas dos clientes liberados, só coloca como responsável quem enxerga o cliente, e não mexe em colunas nem etiquetas oficiais.
+
 ### Criar usuários da equipe (e, se preferir, de clientes) pelo computador
 
 Só pelo computador da agência, com a chave secreta em `admin/.env`. Requer Node 22.12 ou mais novo, sem dependências para instalar.
@@ -191,6 +206,8 @@ Para publicar uma mudança na função: `supabase functions deploy acesso-client
 | `agency_members` | Quem da equipe pode entrar no painel: perfil (admin ou colaborador), nome, função, e-mail de contato, ativo e permissões (preenchida pela seção Equipe ou pelo `equipe.mjs`, que cria administradores) |
 | `agency_member_clients` | Clientes liberados para cada colaborador |
 | `content_assignees`, `content_events` | Responsáveis de cada conteúdo e o histórico de mudanças (quem fez e quando) |
+| `tasks`, `task_assignees`, `task_labels`, `task_events` | Demandas do quadro (subtarefa por `parent_id`, cliente opcional = interna, ligação opcional a um conteúdo, etapa oficial + coluna, prioridade, entrega com hora, posição, arquivamento e `version`), responsáveis, etiquetas e histórico |
+| `board_columns`, `labels`, `projects` | Colunas do quadro (cada uma ligada a uma etapa oficial), etiquetas coloridas e projetos de cada cliente |
 | `client_members` | Login de cada cliente no portal, ligado a **um** cliente (preenchida pelo `equipe.mjs criar-cliente`) |
 | `ads`, `ad_assets` | Anúncios pagos e o criativo de cada um (bucket privado `ad-media` ou links). Status e versão só mudam pela função `ad_transition` (equipe) e `portal_ad_decide` (cliente); um gatilho recusa mudanças diretas e edição enquanto o cliente avalia |
 | `ad_versions`, `ad_events` | Cópia de cada versão enviada e o histórico completo (envios, decisões com comentário, recolher, reabrir, arquivar). Nunca apagados por um novo envio. `ad_events.notified_at` fica pronto para um futuro aviso por e-mail |
@@ -215,6 +232,7 @@ PLAYWRIGHT=$P node admin/test/review-e2e.mjs      # foto, arte final, aprovaçã
 PLAYWRIGHT=$P node admin/test/approvals-e2e.mjs    # central de aprovação: lote → link → cliente (computador e celular) → avisos → nova versão → aprovar todos → relatório → desativar
 PLAYWRIGHT=$P node admin/test/inicio-e2e.mjs      # Início, menu ⋯, comentários com @menção e avisos (computador e celular)
 PLAYWRIGHT=$P node admin/test/calendario-e2e.mjs   # calendário (mês, semana, dia, cores, arrastar) e o painel no celular
+PLAYWRIGHT=$P node admin/test/demandas-e2e.mjs    # gestão de demandas: quadro, criar, arrastar, painel, edição simultânea, colunas, conteúdo → demanda, permissões, celular
 PLAYWRIGHT=$P node admin/test/equipe-e2e.mjs      # equipe: criar colaborador, demanda com prazo, o que ele vê e o que o servidor recusa, desativar
 PLAYWRIGHT=$P node admin/test/ads-e2e.mjs         # aprovação de anúncios: rascunho → envio → alterações → nova versão → aprovação
 PLAYWRIGHT=$P UX_SHOTS=pasta node admin/test/ux-shots.mjs   # só capturas do portal (computador e celular) para revisão visual

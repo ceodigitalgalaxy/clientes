@@ -2,9 +2,10 @@
    Valida os dados antes de enviar (domain/rules.js); o banco confere de novo
    com as próprias regras e só aceita membros da equipe (RLS). */
 
-import { validateClient, validateContent, validateContentFilters, parseUsername, passwordProblem, CONTENT_STATUS, PRODUCTION_STATUS, isUuid, validateAd, validateAdFilters, AD_LIMITS, validateBrandKit, validateBatch, validateMember } from "./domain/rules.js?v=75a584518a";
-import { ALERT_DEFAULTS, validateAlertSettings } from "./domain/deadlines.js?v=75a584518a";
-import { UPLOAD_LIMITS, fileName, fileProblem, resizeImage } from "../../js/lib/storage.js?v=75a584518a";
+import { validateClient, validateContent, validateContentFilters, parseUsername, passwordProblem, CONTENT_STATUS, PRODUCTION_STATUS, isUuid, validateAd, validateAdFilters, AD_LIMITS, validateBrandKit, validateBatch, validateMember } from "./domain/rules.js?v=8083d4a8ab";
+import { validateTask, isId, TASK_STATUS, COLORS } from "./domain/tasks.js?v=8083d4a8ab";
+import { ALERT_DEFAULTS, validateAlertSettings } from "./domain/deadlines.js?v=8083d4a8ab";
+import { UPLOAD_LIMITS, fileName, fileProblem, resizeImage } from "../../js/lib/storage.js?v=8083d4a8ab";
 
 export class ApiError extends Error {
   constructor(status, message, fields) { super(message); this.status = status; this.fields = fields || {}; }
@@ -423,6 +424,62 @@ export function createApi({ store, onSessionLost, access = null, storage = null,
     listAssignees: guard((contentId) => store.listAssignees(contentId)),
     contentEvents: guard((contentId) => store.listContentEvents(contentId)),
     recentEvents: guard((limit) => store.recentEvents(limit)),
+
+    /* ---------- Gestão de demandas ---------- */
+    listTasks: guard((opts) => store.listTasks(opts)),
+    getTask: guard((id) => store.getTask(requireId(id))),
+    /** Cria a demanda (ou subtarefa) e já põe responsáveis e etiquetas */
+    createTask: guard(async (data, { assignees = [], labels = [] } = {}) => {
+      const { value, errors } = validateTask(data, { creating: true });
+      if (Object.keys(errors).length) throw new ApiError(422, "Confira os campos destacados.", errors);
+      const task = await store.createTask(value);
+      await store.addTaskAssignees(task.id, [...new Set(assignees)].filter(isId));
+      await store.addTaskLabels(task.id, [...new Set(labels)].filter(isId));
+      return { ...task, task_assignees: assignees.filter(isId).map((user_id) => ({ user_id })), task_labels: labels.filter(isId).map((label_id) => ({ label_id })) };
+    }),
+    /** Altera só o que veio; recusa se outra pessoa salvou antes (version) */
+    updateTask: guard((id, version, data) => {
+      const { value, errors } = validateTask(data);
+      if (Object.keys(errors).length) throw new ApiError(422, "Confira os campos destacados.", errors);
+      return store.updateTask(requireId(id), version, value);
+    }),
+    deleteTask: guard((id) => store.deleteTask(requireId(id))),
+    /** Troca os responsáveis pela lista nova (só a diferença vai ao banco) */
+    setTaskAssignees: guard(async (taskId, next, current = []) => {
+      const want = [...new Set(next)].filter(isId);
+      await store.removeTaskAssignees(requireId(taskId), current.filter((id) => !want.includes(id)));
+      await store.addTaskAssignees(taskId, want.filter((id) => !current.includes(id)));
+    }),
+    setTaskLabels: guard(async (taskId, next, current = []) => {
+      const want = [...new Set(next)].filter(isId);
+      await store.removeTaskLabels(requireId(taskId), current.filter((id) => !want.includes(id)));
+      await store.addTaskLabels(taskId, want.filter((id) => !current.includes(id)));
+    }),
+    taskEvents: guard((taskId) => store.listTaskEvents(requireId(taskId))),
+    listColumns: guard(() => store.listColumns()),
+    saveColumn: guard((id, data) => {
+      const value = {};
+      if ("name" in data) { value.name = String(data.name || "").trim(); if (!value.name || value.name.length > 40) throw new ApiError(422, "Nome da coluna: de 1 a 40 caracteres.", { name: "De 1 a 40 caracteres." }); }
+      if ("status" in data) { value.status = data.status; if (!TASK_STATUS[value.status]) throw new ApiError(422, "Escolha a etapa oficial da coluna."); }
+      if ("color" in data) { value.color = data.color; if (!COLORS[value.color]) throw new ApiError(422, "Cor inválida."); }
+      if ("position" in data) value.position = Math.round(Number(data.position) || 0);
+      if ("hidden" in data) value.hidden = Boolean(data.hidden);
+      return id ? store.updateColumn(requireId(id), value) : store.createColumn(value);
+    }),
+    deleteColumn: guard((id) => store.deleteColumn(requireId(id))),
+    listLabels: guard(() => store.listLabels()),
+    createLabel: guard((data) => {
+      const name = String(data.name || "").trim();
+      if (!name || name.length > 30) throw new ApiError(422, "Nome da etiqueta: de 1 a 30 caracteres.", { name: "De 1 a 30 caracteres." });
+      if (!COLORS[data.color]) throw new ApiError(422, "Escolha a cor.");
+      return store.createLabel({ name, color: data.color });
+    }),
+    listProjects: guard(() => store.listProjects()),
+    createProject: guard((clientId, name) => {
+      const text = String(name || "").trim();
+      if (!text || text.length > 120) throw new ApiError(422, "Nome do projeto: de 1 a 120 caracteres.");
+      return store.createProject({ client_id: requireId(clientId), name: text });
+    }),
     listComments: guard((contentId) => store.listComments(requireId(contentId))),
     addComment: guard((contentId, body, mentions = []) => {
       const text = String(body || "").trim();
@@ -441,6 +498,12 @@ export function createApi({ store, onSessionLost, access = null, storage = null,
     getContent: guard((id) => store.getContent(id)),
     createContent: guard((data) => store.createContent(requireValid(validateContent(data)))),
     updateContent: guard((id, data) => store.updateContent(id, requireValid(validateContent(data)))),
-    deleteContent: guard((id) => store.deleteContent(id))
+    deleteContent: guard((id) => store.deleteContent(id)),
+    deleteContents: guard(async (ids = []) => {
+      const valid = [...new Set(ids)].filter(isUuid);
+      if (!valid.length) throw new ApiError(422, "Nenhum conteúdo selecionado.");
+      if (valid.length > 200) throw new ApiError(422, "Exclua no máximo 200 de cada vez.");
+      return store.deleteContents(valid);
+    })
   };
 }

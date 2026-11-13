@@ -263,7 +263,8 @@ await step("Painel: avisos internos, contagens e status geral sem recarregar", a
   assert.equal(await admin.textContent("[data-approvals-attention]"), "2");
   assert.match(await admin.textContent(".batch-card"), /Com ajustes pendentes/);
   assert.deepEqual(await admin.$$eval(".batch-counts b", (n) => n.map((x) => x.textContent)), ["3", "1", "1", "1"]);
-  assert.match(await admin.textContent(".appr-overview"), /Padaria Central Ltda.*1 ajuste/s);
+  assert.match(await admin.textContent(".appr-overview"), /Todos\s*1.*Com ajustes\s*1/s);
+  assert.match(await admin.textContent(".batch-card .next-step"), /1 ajuste pedido pelo cliente/);
   await admin.click('[data-action="toggle-notifications"]');
   assert.match(await admin.textContent("#approval-notifications"), /Maria pediu ajuste.*café especial/s);
   await shot(admin, "ap04-painel-avisos");
@@ -315,7 +316,8 @@ await step("Painel: histórico legível e relatório em PDF", async () => {
   assert.match(history, /Planejamento totalmente aprovado/);
   assert.match(history, /Ajuste solicitado.*Maria \(pelo link\)/s);
   assert.match(await admin.textContent("#batch-drawer"), /identifica a sessão, não comprova a identidade/);
-  const [download] = await Promise.all([admin.waitForEvent("download"), admin.click("#batch-drawer [data-batch-report]")]);
+  await admin.click("#batch-drawer .batch-drawer__tools [data-menu-toggle]");
+  const [download] = await Promise.all([admin.waitForEvent("download"), admin.click("#batch-drawer .menu [data-batch-report]")]);
   assert.match(download.suggestedFilename(), /^aprovacao-padaria-central-ltda-planejamento-do-mes\.pdf$/);
   const pdf = readFileSync(await download.path()).toString("latin1");
   assert.ok(pdf.startsWith("%PDF-") && pdf.includes("Planejamento do m") && pdf.includes("Primeira fornada") && pdf.includes("Maria"));
@@ -440,7 +442,7 @@ await step("Painel no celular: lista de lotes e gerenciar sem rolagem lateral", 
 
 await step("Excluir lote já enviado: confirma, some da lista, pendentes voltam a rascunho", async () => {
   await admin.reload();
-  const target = '.batch-card:has(.batch-card__title:text-is("Arte final do mês"))';
+  const target = '.batch-card:has(.batch-card__open:text-is("Arte final do mês"))';
   await admin.waitForSelector(target);
   const id = await admin.getAttribute(target, "data-batch");
   await admin.click(`${target} [data-menu-toggle]`); await admin.click(`${target} .menu [data-batch-delete]`);
@@ -457,8 +459,9 @@ await step("Excluir lote já enviado: confirma, some da lista, pendentes voltam 
   assert.ok(await store.getContent(c3.id), "conteúdo continua no calendário");
   // O outro lote continua e também pode ser excluído pelo painel de gerenciar
   await admin.click(".batch-card [data-batch-open]");
-  await admin.waitForSelector("#batch-drawer [data-batch-delete]");
-  await admin.click("#batch-drawer [data-batch-delete]");
+  await admin.waitForSelector("#batch-drawer .batch-drawer__tools [data-menu-toggle]");
+  await admin.click("#batch-drawer .batch-drawer__tools [data-menu-toggle]");
+  await admin.click("#batch-drawer .menu [data-batch-delete]");
   await confirmOk();
   await toastSays(admin, /Lote excluído/);
   await admin.waitForSelector(".batch-card", { state: "detached" });

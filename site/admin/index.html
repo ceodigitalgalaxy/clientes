@@ -13,9 +13,9 @@
   <link rel="preload" href="../fonts/sora-latin-400-normal.woff2" as="font" type="font/woff2" crossorigin>
   <link rel="preload" href="../fonts/sora-latin-600-normal.woff2" as="font" type="font/woff2" crossorigin>
   <!-- Mesmos tokens e componentes do portal do cliente -->
-  <link rel="stylesheet" href="../css/style.css?v=75a584518a">
-  <link rel="stylesheet" href="css/admin.css?v=75a584518a">
-  <script type="module" src="js/main.js?v=75a584518a"></script>
+  <link rel="stylesheet" href="../css/style.css?v=8083d4a8ab">
+  <link rel="stylesheet" href="css/admin.css?v=8083d4a8ab">
+  <script type="module" src="js/main.js?v=8083d4a8ab"></script>
 </head>
 <body class="admin">
   <!-- Tela de entrada: aparece enquanto ninguém estiver logado -->
@@ -57,12 +57,12 @@
       </div>
       <nav class="admin-nav" aria-label="Seções do painel">
         <a class="admin-nav__link" href="#/inicio" data-route="inicio" data-icon="target">Início</a>
-        <a class="admin-nav__link" href="#/demandas" data-route="demandas" data-icon="list">Demandas<span class="nav-badge" data-my-tasks hidden></span></a>
+        <a class="admin-nav__link" href="#/demandas" data-route="demandas" data-icon="list">Minhas<span class="nav-badge" data-my-tasks hidden></span></a>
+        <a class="admin-nav__link" href="#/gestao" data-route="gestao" data-icon="layers">Demandas</a>
         <a class="admin-nav__link" href="#/conteudos" data-route="conteudos" data-icon="calendar">Conteúdos</a>
         <a class="admin-nav__link" href="#/aprovacoes" data-route="aprovacoes" data-icon="check" data-needs="send">Aprovações<span class="nav-badge" data-approvals-attention hidden></span></a>
         <a class="admin-nav__link" href="#/anuncios" data-route="anuncios" data-icon="megaphone">Anúncios<span class="nav-badge" data-ads-attention hidden></span></a>
         <a class="admin-nav__link" href="#/clientes" data-route="clientes" data-icon="users" data-needs="admin">Clientes</a>
-        <a class="admin-nav__link" href="#/importar" data-route="importar" data-icon="layers" data-needs="edit">Importar</a>
         <a class="admin-nav__link" href="#/equipe" data-route="equipe" data-icon="user" data-needs="admin">Equipe</a>
         <button class="admin-nav__link admin-nav__more" type="button" data-nav-more aria-expanded="false" aria-controls="nav-sheet" hidden data-icon="more">Mais</button>
       </nav>
@@ -86,7 +86,10 @@
           <h1 class="view__title" id="conteudos-title">Conteúdos</h1>
           <p class="view__text">O que for cadastrado aqui aparece no calendário do cliente quando o status chegar a "Aguardando aprovação".</p>
         </div>
-        <button class="btn btn--primary" type="button" data-action="new-content" data-icon="sparkle" data-needs="edit">Novo conteúdo</button>
+        <div class="view__buttons">
+          <a class="btn btn--ghost" href="#/importar" data-needs="edit" data-icon="download">Importar planilha</a>
+          <button class="btn btn--primary" type="button" data-action="new-content" data-icon="sparkle" data-needs="edit">Novo conteúdo</button>
+        </div>
       </div>
 
       <form class="filters" id="filters" aria-label="Filtrar conteúdos">
@@ -127,6 +130,7 @@
           <h2 class="cal-bar__title" id="cal-title" aria-live="polite"></h2>
           <button class="icon-btn" type="button" data-cal-step="1" aria-label="Próximo" data-icon="chevronRight"></button>
           <button class="btn btn--ghost btn--sm" type="button" data-cal-today>Hoje</button>
+          <button class="link-btn cal-bar__select" type="button" data-action="go-select" data-needs="send" data-icon="check">Selecionar vários</button>
         </div>
       </div>
       <div class="admin-cal" id="contents-calendar" aria-busy="true" hidden></div>
@@ -144,8 +148,25 @@
           <select class="field__input" data-bulk-status></select>
         </label>
         <button class="btn btn--primary btn--sm" type="button" data-bulk-apply>Aplicar</button>
+        <button class="btn btn--danger-text btn--ghost btn--sm" type="button" data-bulk-delete data-needs="admin" data-icon="trash">Excluir selecionados</button>
         <button class="btn btn--ghost btn--sm" type="button" data-bulk-clear>Cancelar</button>
       </div>
+    </section>
+
+    <!-- Gestão de demandas: quadro Kanban (js/views/board.js) -->
+    <section class="view view--wide" id="view-gestao" data-view="gestao" aria-labelledby="gestao-title" hidden>
+      <div class="view__head">
+        <div>
+          <h1 class="view__title" id="gestao-title">Gestão de demandas</h1>
+          <p class="view__text"><span data-board-count></span> · arraste os cards entre as colunas, clique para ver tudo. Atalho: N cria uma demanda.</p>
+        </div>
+        <div class="view__buttons">
+          <button class="btn btn--ghost" type="button" data-action="board-columns" data-needs="admin" data-icon="layers">Colunas</button>
+          <button class="btn btn--primary" type="button" data-action="new-task" data-icon="sparkle">Nova demanda</button>
+        </div>
+      </div>
+      <div class="board-bar" id="board-bar"></div>
+      <div class="tboard" id="tboard" aria-busy="true"></div>
     </section>
 
     <!-- Início: centro de controle (js/views/home.js) -->
@@ -239,7 +260,7 @@
       <form class="filters appr-filters" id="batch-filters" novalidate>
         <label class="field"><span class="field__label">Cliente</span><select class="field__input" name="client_id"><option value="">Todos os clientes</option></select></label>
         <label class="field"><span class="field__label">Mês</span><input class="field__input" name="month" type="month"></label>
-        <label class="field"><span class="field__label">Status</span><select class="field__input" name="status"><option value="">Todos</option></select></label>
+        <label class="field" hidden><span class="field__label">Status</span><select class="field__input" name="status"><option value="">Todos</option></select></label>
         <label class="field"><span class="field__label">Enviado a partir de</span><input class="field__input" name="sent_from" type="date"></label>
         <button class="link-btn filters__clear" type="reset" data-icon="refresh">Limpar filtros</button>
       </form>
@@ -518,6 +539,7 @@
             <option value="urgente">Urgente</option>
           </select>
         </label>
+        <label class="check form-grid__wide" data-make-task><input type="checkbox" name="make_task" checked><span><b>Criar demanda de produção</b> · vira um card na Gestão de demandas, com os mesmos responsáveis e prazo</span></label>
         <p class="form-section form-section--plan form-grid__wide"><b>1. Planejamento</b> <span class="field__optional">· o cliente vê no link de aprovação da ideia</span></p>
         <label class="field form-grid__wide">
           <span class="field__label">Descrição da ideia <span class="field__optional">(opcional)</span></span>
@@ -884,6 +906,57 @@
       <div class="modal__actions">
         <button class="btn btn--ghost" type="button" data-action="close-modal">Cancelar</button>
         <button class="btn btn--primary" type="submit"><span>Salvar</span></button>
+      </div>
+    </form>
+  </dialog>
+
+  <!-- Demanda: criar (rápido) e ver/editar (js/views/task-panel.js) -->
+  <dialog class="drawer drawer--task" id="task-drawer" aria-label="Demanda">
+    <div class="drawer__panel">
+      <div class="drawer__header">
+        <div class="drawer__badges" id="task-badges"></div>
+        <div class="task-head-tools"><span id="task-tools"></span><button class="icon-btn" type="button" data-action="close-drawer" aria-label="Fechar" data-icon="close"></button></div>
+      </div>
+      <div class="drawer__body" id="task-body"></div>
+    </div>
+  </dialog>
+
+  <!-- Colunas do quadro (só administrador) -->
+  <dialog class="modal modal--wide" id="columns-modal" aria-labelledby="columns-modal-title">
+    <div class="modal__form">
+      <div class="modal__head">
+        <span class="modal__icon modal__icon--brand" data-icon="layers"></span>
+        <div>
+          <h2 class="modal__title" id="columns-modal-title">Colunas do quadro</h2>
+          <p class="modal__text">Nome, cor e ordem são livres. Cada coluna grava uma etapa oficial (é ela que vale nos relatórios e na sincronia com as aprovações). Salva sozinho.</p>
+        </div>
+        <button class="icon-btn modal__close" type="button" data-action="close-modal" aria-label="Fechar" data-icon="close"></button>
+      </div>
+      <p class="colrow colrow--head" aria-hidden="true"><span></span><span>Nome</span><span>Etapa oficial</span><span>Cor</span></p>
+      <ol class="colrows" data-columns></ol>
+      <div class="modal__actions">
+        <button class="btn btn--ghost" type="button" data-col-add data-icon="sparkle">Nova coluna</button>
+        <button class="btn btn--primary" type="button" data-action="close-modal">Pronto</button>
+      </div>
+    </div>
+  </dialog>
+
+  <!-- Segunda confirmação da exclusão em lote: digitar EXCLUIR -->
+  <dialog class="modal" id="bulk-delete-modal" role="alertdialog" aria-labelledby="bulk-delete-title" aria-describedby="bulk-delete-text">
+    <form class="modal__form" method="dialog" novalidate>
+      <div class="modal__head">
+        <span class="modal__icon modal__icon--danger" data-icon="trash"></span>
+        <div>
+          <h2 class="modal__title" id="bulk-delete-title">Confirmação final</h2>
+          <p class="modal__text" id="bulk-delete-text"></p>
+        </div>
+      </div>
+      <label class="field"><span class="field__label">Digite <b>EXCLUIR</b> para confirmar</span>
+        <input class="field__input" name="word" autocomplete="off" spellcheck="false" autocapitalize="characters" inputmode="text">
+      </label>
+      <div class="modal__actions">
+        <button class="btn btn--ghost" type="button" data-bulk-delete-cancel>Cancelar</button>
+        <button class="btn btn--danger" type="submit" disabled data-bulk-delete-ok>Excluir de vez</button>
       </div>
     </form>
   </dialog>

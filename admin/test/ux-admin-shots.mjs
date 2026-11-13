@@ -106,7 +106,7 @@ await page.waitForSelector("#client-modal[open]");
 await shot("m09-editar-cliente", { full: false });
 await page.click('#client-modal [data-action="close-modal"]');
 await page.waitForTimeout(400);
-await page.click("[data-nav-more]"); await page.click('#nav-sheet [data-route="importar"]');
+await page.click('.admin-nav [data-route="conteudos"]'); await page.click('#view-conteudos a[href="#/importar"]');
 await page.waitForSelector("#view-importar:not([hidden])");
 await page.selectOption('#import-form [name="client_id"]', client.id);
 await page.setInputFiles('#import-form [name="file"]', { name: "importacao.xlsx", mimeType: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", buffer: FIX("importacao.xlsx") });

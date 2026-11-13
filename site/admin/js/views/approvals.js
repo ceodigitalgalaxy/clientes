@@ -13,16 +13,16 @@
    O banco confere tudo de novo (funções approval_* e RLS).
    ========================================================================== */
 
-import { $, esc, on } from "../../../js/lib/dom.js?v=75a584518a";
-import { icon } from "../../../js/lib/icons.js?v=75a584518a";
-import { monthLabel, timeLabel, stampLabel, todayISO, longDayLabel } from "../../../js/lib/dates.js?v=75a584518a";
-import { typeBadge } from "../../../js/ui/badges.js?v=75a584518a";
-import { APPROVAL_STATUS, APPROVAL_MODES, BATCH_STATUS, APPROVAL_EVENTS, isPending, approvalUrl, whatsappMessage } from "../../../js/domain/approvals.js?v=75a584518a";
-import { NETWORKS, validateBatch } from "../domain/rules.js?v=75a584518a";
-import { closeDialog, wireDialog, showFieldErrors, setBusy } from "../ui/dialogs.js?v=75a584518a";
-import { stateBlock, loadingCards, button } from "../ui/states.js?v=75a584518a";
-import { buildApprovalReport, reportFileName } from "../ui/approval-report.js?v=75a584518a";
-import { kebab } from "../ui/menu.js?v=75a584518a";
+import { $, esc, on } from "../../../js/lib/dom.js?v=8083d4a8ab";
+import { icon } from "../../../js/lib/icons.js?v=8083d4a8ab";
+import { monthLabel, timeLabel, stampLabel, todayISO, longDayLabel } from "../../../js/lib/dates.js?v=8083d4a8ab";
+import { typeBadge } from "../../../js/ui/badges.js?v=8083d4a8ab";
+import { APPROVAL_STATUS, APPROVAL_MODES, BATCH_STATUS, APPROVAL_EVENTS, isPending, approvalUrl, whatsappMessage } from "../../../js/domain/approvals.js?v=8083d4a8ab";
+import { NETWORKS, validateBatch } from "../domain/rules.js?v=8083d4a8ab";
+import { closeDialog, wireDialog, showFieldErrors, setBusy } from "../ui/dialogs.js?v=8083d4a8ab";
+import { stateBlock, loadingCards, button } from "../ui/states.js?v=8083d4a8ab";
+import { buildApprovalReport, reportFileName } from "../ui/approval-report.js?v=8083d4a8ab";
+import { kebab } from "../ui/menu.js?v=8083d4a8ab";
 
 const POLL_MS = 30000;
 const options = (entries, placeholder) => `${placeholder !== undefined ? `<option value="">${esc(placeholder)}</option>` : ""}${entries.map(([v, l]) => `<option value="${esc(v)}">${esc(l)}</option>`).join("")}`;
@@ -73,6 +73,7 @@ export function setupApprovals({ api, state, toast, confirm, navigate, openConte
   };
 
   /* ---------- Lista ---------- */
+  on(overview, "click", "[data-appr-tab]", (event, tab) => { filtersForm.elements.status.value = tab.dataset.apprTab; render(); });
   function renderLoading() { list.setAttribute("aria-busy", "true"); list.innerHTML = loadingCards(3); }
 
   function linkLine(b) {
@@ -82,40 +83,94 @@ export function setupApprovals({ api, state, toast, confirm, navigate, openConte
     return `${icon("link")}Link ativo desde ${esc(dateTime(b.link_created_at))}${b.link_expires_at ? ` · expira ${esc(dateTime(b.link_expires_at))}` : ""}`;
   }
 
+  /** "há 2 dias", "hoje", "ontem" */
+  function ago(iso) {
+    if (!iso) return "";
+    const days = Math.floor((Date.now() - new Date(iso).getTime()) / 86400000);
+    return days <= 0 ? "hoje" : days === 1 ? "ontem" : `há ${days} dias`;
+  }
+
+  /** O que fazer agora com o lote: texto, tom e o botão principal */
+  function nextStep(b, where = "card") {
+    const n = (k) => Number(b[k]) || 0;
+    const id = esc(b.id);
+    if (b.archived_at) return { tone: "neutral", icon: "box", title: "Lote arquivado", text: "O link não funciona. Reative para voltar a usar.", action: where === "drawer" ? `<button class="btn btn--ghost btn--sm" type="button" data-batch-archive="${id}">${icon("refresh")}<span>Reativar lote</span></button>` : "" };
+    if (!n("total")) return { tone: "draft", icon: "sparkle", title: "Escolha os conteúdos", text: "Comece escolhendo o que o cliente vai aprovar neste lote.", action: where === "drawer" ? `<button class="btn btn--primary btn--sm" type="button" data-action="pick-contents">${icon("sparkle")}<span>Escolher conteúdos</span></button>` : `<button class="btn btn--primary btn--sm" type="button" data-batch-open="${id}">${icon("sparkle")}<span>Escolher conteúdos</span></button>` };
+    if (n("aprovados") === n("total")) return { tone: "ok", icon: "check", title: "Tudo aprovado", text: `${n("aprovados")} de ${n("total")} aprovados${b.last_client_action_at ? ` · ${ago(b.last_client_action_at)}` : ""}.`, action: where === "drawer" ? `<button class="btn btn--ghost btn--sm" type="button" data-batch-report="${id}">${icon("download")}<span>Relatório PDF</span></button>` : "" };
+    if (!b.link_id && b.sent_at) return { tone: "adjust", icon: "lock", title: "Link desativado", text: "O cliente não consegue abrir. Gere um novo link para ele voltar a responder.", action: `<button class="btn btn--primary btn--sm" type="button" data-batch-publish="${id}">${icon("link")}<span>Gerar novo link</span></button>` };
+    if (!b.link_id) return { tone: "draft", icon: "link", title: "Pronto para enviar", text: `${n("total")} ${n("total") === 1 ? "conteúdo escolhido" : "conteúdos escolhidos"}. Gere o link e mande para o cliente.`, action: `<button class="btn btn--primary btn--sm" type="button" data-batch-publish="${id}">${icon("link")}<span>Gerar link</span></button>` };
+    if (n("rascunhos")) return { tone: "draft", icon: "send", title: `${n("rascunhos")} ${n("rascunhos") === 1 ? "conteúdo novo ainda não enviado" : "conteúdos novos ainda não enviados"}`, text: "Envie para aparecerem no link do cliente.", action: `<button class="btn btn--primary btn--sm" type="button" data-batch-publish="${id}">${icon("send")}<span>Enviar novos</span></button>` };
+    if (n("ajustes")) return { tone: "adjust", icon: "message", title: `${n("ajustes")} ${n("ajustes") === 1 ? "ajuste pedido" : "ajustes pedidos"} pelo cliente`, text: "Ajuste o conteúdo e reenvie a nova versão.", action: where === "drawer" ? "" : `<button class="btn btn--primary btn--sm" type="button" data-batch-open="${id}">${icon("edit")}<span>Ver ajustes</span></button>` };
+    if (n("aguardando")) return { tone: "wait", icon: "clock", title: `Aguardando o cliente · ${n("aguardando")} para aprovar`, text: `${b.sent_at ? `Enviado ${ago(b.sent_at)}` : "Enviado"}${b.last_client_action_at ? ` · última resposta ${ago(b.last_client_action_at)}` : " · ainda sem resposta"}.`, action: `<button class="btn btn--primary btn--sm" type="button" data-batch-whatsapp="${id}">${icon("message")}<span>Lembrar no WhatsApp</span></button>` };
+    return { tone: "ok", icon: "check", title: "Tudo aprovado", text: `${n("aprovados")} de ${n("total")} aprovados${b.last_client_action_at ? ` · ${ago(b.last_client_action_at)}` : ""}.`, action: where === "drawer" ? `<button class="btn btn--ghost btn--sm" type="button" data-batch-report="${id}">${icon("download")}<span>Relatório PDF</span></button>` : "" };
+  }
+  const stepBox = (b, where) => {
+    const st = nextStep(b, where);
+    return `
+      <div class="next-step next-step--${st.tone}">
+        <span class="next-step__icon">${icon(st.icon)}</span>
+        <div class="next-step__body"><p class="next-step__title">${esc(st.title)}</p><p class="next-step__text">${esc(st.text)}</p></div>
+        ${st.action ? `<div class="next-step__action">${st.action}</div>` : ""}
+      </div>`;
+  };
+
+  /** Etapas do lote: escolher conteúdos → enviar o link → respostas do cliente */
+  function stepper(b, items) {
+    const n = (k) => Number(b[k]) || 0;
+    const answered = n("aprovados") + n("ajustes");
+    const steps = [
+      { label: "Conteúdos", done: items.length > 0, hint: items.length ? `${items.length} no lote` : "escolher" },
+      { label: "Link enviado", done: Boolean(b.link_id) && !n("rascunhos"), hint: b.link_id ? (n("rascunhos") ? `${n("rascunhos")} a enviar` : "com o cliente") : "gerar" },
+      { label: "Respostas", done: items.length > 0 && n("aprovados") === items.length, hint: `${answered} de ${Math.max(items.length - n("rascunhos"), 0)}` }
+    ];
+    const currentIndex = steps.findIndex((st) => !st.done);
+    return `
+      <ol class="stepper" aria-label="Etapas do lote">
+        ${steps.map((st, i) => `<li class="stepper__step${st.done ? " is-done" : i === currentIndex ? " is-current" : ""}"${i === currentIndex ? ' aria-current="step"' : ""}>
+          <span class="stepper__dot">${st.done ? icon("check") : i + 1}</span><span class="stepper__label">${esc(st.label)}<small>${esc(st.hint)}</small></span>
+        </li>`).join("")}
+      </ol>`;
+  }
+
+  /** Uma bolinha por conteúdo, na cor da resposta: dá para ver o lote de relance */
+  function progressDots(b) {
+    const n = (k) => Number(b[k]) || 0;
+    const dots = [["ok", n("aprovados")], ["adjust", n("ajustes")], ["wait", n("aguardando")], ["draft", n("rascunhos")]]
+      .flatMap(([tone, k]) => Array.from({ length: k }, () => tone)).slice(0, 40);
+    const label = `${n("aprovados")} aprovados, ${n("ajustes")} com ajustes, ${n("aguardando")} aguardando, ${n("rascunhos")} não enviados`;
+    return `<div class="batch-dots" role="img" aria-label="${esc(label)}">${dots.map((t) => `<span class="batch-dot batch-dot--${t}"></span>`).join("")}</div>`;
+  }
+
   function batchCard(b) {
     const mode = APPROVAL_MODES[b.approval_mode];
-    const reviewed = Number(b.aprovados) + Number(b.ajustes);
-    const sent = Number(b.total) - Number(b.rascunhos);
+    const n = (k) => Number(b[k]) || 0;
+    const sent = n("total") - n("rascunhos");
     return `
       <article class="batch-card batch-card--${esc(b.overall_status)}" data-batch="${esc(b.id)}">
         <div class="batch-card__head">
           <div class="batch-card__who">
             <p class="batch-card__client">${esc(clientName(b.client_id))}</p>
-            <h3 class="batch-card__title">${esc(b.title)}</h3>
+            <h3 class="batch-card__title"><button class="batch-card__open" type="button" data-batch-open="${esc(b.id)}">${esc(b.title)}</button></h3>
             <p class="batch-card__meta">${icon("calendar")}${esc(monthLabel(b.month.slice(0, 7)))} · ${icon(mode.icon)}${esc(mode.short)}</p>
           </div>
           ${batchBadge(b.overall_status)}
         </div>
-        <ul class="batch-counts" aria-label="Contagem dos conteúdos">
-          <li><b>${esc(b.total)}</b><span>conteúdos</span></li>
-          <li class="is-ok"><b>${esc(b.aprovados)}</b><span>aprovados</span></li>
-          <li class="is-wait"><b>${esc(b.aguardando)}</b><span>aguardando</span></li>
-          <li class="is-adjust"><b>${esc(b.ajustes)}</b><span>ajustes</span></li>
-        </ul>
-        <progress class="batch-progress" max="${Math.max(1, sent)}" value="${reviewed}" aria-label="${reviewed} de ${sent} revisados"></progress>
-        <dl class="batch-dates">
-          <div><dt>Enviado</dt><dd>${esc(dateTime(b.sent_at))}</dd></div>
-          <div><dt>Última interação do cliente</dt><dd>${esc(dateTime(b.last_client_action_at))}</dd></div>
-        </dl>
-        <p class="batch-link">${linkLine(b)}</p>
+        ${n("total") ? `
+          ${progressDots(b)}
+          <ul class="batch-counts" aria-label="Contagem dos conteúdos">
+            <li><b>${n("total")}</b><span>${n("total") === 1 ? "conteúdo" : "conteúdos"}</span></li>
+            <li class="is-ok"><b>${n("aprovados")}</b><span>${n("aprovados") === 1 ? "aprovado" : "aprovados"}</span></li>
+            <li class="is-wait"><b>${n("aguardando")}</b><span>aguardando</span></li>
+            <li class="is-adjust"><b>${n("ajustes")}</b><span>${n("ajustes") === 1 ? "ajuste" : "ajustes"}</span></li>
+          </ul>
+          ${sent ? `<p class="batch-card__pct">${Math.round((n("aprovados") / sent) * 100)}% aprovado</p>` : ""}` : ""}
+        ${stepBox(b, "card")}
         <div class="batch-card__actions">
-          <button class="btn btn--primary btn--sm" type="button" data-batch-open="${esc(b.id)}">${icon("layers")}<span>Gerenciar conteúdos</span></button>
-          ${b.archived_at ? "" : b.link_id
-            ? `<button class="btn btn--ghost btn--sm" type="button" data-batch-copy="${esc(b.id)}">${icon("copy")}<span>Copiar link</span></button>`
-            : `<button class="btn btn--ghost btn--sm" type="button" data-batch-publish="${esc(b.id)}">${icon("link")}<span>Gerar link</span></button>`}
+          <button class="btn btn--ghost btn--sm" type="button" data-batch-open="${esc(b.id)}">${icon("layers")}<span>Abrir lote</span></button>
+          ${!b.archived_at && b.link_id ? `<button class="btn btn--ghost btn--sm" type="button" data-batch-copy="${esc(b.id)}">${icon("copy")}<span>Copiar link</span></button>` : ""}
           ${kebab([
             { label: "Visualizar como cliente", icon: "eye", attrs: `data-batch-preview="${esc(b.id)}"` },
-            !b.archived_at && b.link_id && { label: "Mensagem WhatsApp", icon: "message", attrs: `data-batch-whatsapp="${esc(b.id)}"` },
+            !b.archived_at && b.link_id && { label: "Copiar mensagem WhatsApp", icon: "message", attrs: `data-batch-whatsapp="${esc(b.id)}"` },
             !b.archived_at && b.link_id && { label: "Desativar link", icon: "lock", attrs: `data-batch-revoke="${esc(b.id)}"`, danger: true },
             state.can.admin && { label: "Excluir lote", icon: "trash", attrs: `data-batch-delete="${esc(b.id)}"`, danger: true }
           ], `Mais ações: ${b.title}`)}
@@ -123,21 +178,21 @@ export function setupApprovals({ api, state, toast, confirm, navigate, openConte
       </article>`;
   }
 
+  /** Abas de status com contagem (substituem o filtro de status e os quadros de aviso) */
+  const TABS = [["", "Todos"], ["aguardando", "Aguardando o cliente"], ["com_ajustes", "Com ajustes"], ["parcial", "Parciais"], ["rascunho", "Rascunhos"], ["aprovado", "Aprovados"], ["arquivado", "Arquivados"]];
   function renderOverview() {
-    const active = batches.filter((b) => !b.archived_at);
-    const waiting = active.filter((b) => Number(b.aguardando) > 0);
-    const adjust = active.filter((b) => Number(b.ajustes) > 0);
-    if (!waiting.length && !adjust.length) { overview.innerHTML = ""; return; }
-    const line = (b, n, word) => `<li><button type="button" class="link-btn" data-batch-open="${esc(b.id)}"><b>${esc(clientName(b.client_id))}</b> · ${esc(b.title)}</button> <span>${n} ${word}</span></li>`;
+    const f = readFilters();
+    const scope = batches.filter((b) => (!f.client_id || b.client_id === f.client_id) && (!f.month || b.month.startsWith(f.month)));
+    const countOf = (k) => (k === "arquivado" ? scope.filter((b) => b.archived_at).length
+      : scope.filter((b) => !b.archived_at && (!k || b.overall_status === k)).length);
     overview.innerHTML = `
-      <div class="appr-overview__box appr-overview__box--wait">
-        <p class="appr-overview__title">${icon("clock")}${waiting.length} ${waiting.length === 1 ? "lote aguardando o cliente" : "lotes aguardando o cliente"}</p>
-        <ul>${waiting.slice(0, 6).map((b) => line(b, b.aguardando, Number(b.aguardando) === 1 ? "para aprovar" : "para aprovar")).join("")}</ul>
-      </div>
-      ${adjust.length ? `<div class="appr-overview__box appr-overview__box--adjust">
-        <p class="appr-overview__title">${icon("message")}${adjust.length} ${adjust.length === 1 ? "lote com ajustes pedidos" : "lotes com ajustes pedidos"}</p>
-        <ul>${adjust.slice(0, 6).map((b) => line(b, b.ajustes, Number(b.ajustes) === 1 ? "ajuste" : "ajustes")).join("")}</ul>
-      </div>` : ""}`;
+      <div class="appr-tabs" role="tablist" aria-label="Lotes por situação">
+        ${TABS.map(([k, label]) => {
+          const n = countOf(k);
+          if (k && !n && f.status !== k) return "";
+          return `<button class="appr-tab appr-tab--${k || "todos"}" type="button" role="tab" aria-selected="${f.status === k}" data-appr-tab="${k}">${esc(label)}<span class="appr-tab__n">${n}</span></button>`;
+        }).join("")}
+      </div>`;
   }
 
   function render() {
@@ -393,8 +448,7 @@ export function setupApprovals({ api, state, toast, confirm, navigate, openConte
     if (!b.link_id) {
       return `
         <div class="link-box link-box--empty">
-          <p>${icon("link")}<b>Sem link ativo.</b> Gere o link para o cliente abrir sem login.</p>
-          <button class="btn btn--primary" type="button" data-batch-publish="${esc(b.id)}">${icon("link")}<span>Gerar link para aprovação</span></button>
+          <p>${icon("link")}<b>Sem link ativo.</b> ${activeItems().length ? "Use o botão do próximo passo, acima, para gerar o link." : "Escolha os conteúdos primeiro; depois é só gerar o link."}</p>
         </div>`;
     }
     const url = current.token ? approvalUrl(origin(), current.token) : "";
@@ -436,21 +490,28 @@ export function setupApprovals({ api, state, toast, confirm, navigate, openConte
     const items = activeItems();
     drawer.querySelector("[data-batch-badges]").innerHTML = `${batchBadge(b.overall_status)}<span class="appr-chip appr-chip--neutral">${icon(mode.icon)}${esc(mode.label)}</span>`;
     drawerBody.innerHTML = `
-      <h2 class="drawer__title" id="batch-drawer-title">${esc(b.title)}</h2>
-      <dl class="facts">
-        <div class="facts__row"><dt>${icon("user")}Cliente</dt><dd>${esc(clientName(b.client_id))}</dd></div>
-        <div class="facts__row"><dt>${icon("calendar")}Mês</dt><dd>${esc(monthLabel(b.month.slice(0, 7)))}</dd></div>
-        <div class="facts__row"><dt>${icon("send")}Enviado</dt><dd>${esc(dateTime(b.sent_at))}</dd></div>
-        <div class="facts__row"><dt>${icon("clock")}Última interação</dt><dd>${esc(dateTime(b.last_client_action_at))}</dd></div>
-      </dl>
-      ${b.intro_message ? `<p class="batch-intro">${esc(b.intro_message)}</p>` : ""}
-      <div class="drawer__actions batch-actions">
-        <button class="btn btn--ghost btn--sm" type="button" data-batch-edit="${esc(b.id)}">${icon("edit")}<span>Editar dados</span></button>
-        <button class="btn btn--ghost btn--sm" type="button" data-batch-preview="${esc(b.id)}">${icon("eye")}<span>Visualizar como cliente</span></button>
-        <button class="btn btn--ghost btn--sm" type="button" data-batch-report="${esc(b.id)}">${icon("download")}<span>Relatório PDF</span></button>
-        <button class="btn btn--ghost btn--sm" type="button" data-batch-archive="${esc(b.id)}">${icon("box")}<span>${b.archived_at ? "Reativar lote" : "Arquivar lote"}</span></button>
-        ${state.can.admin ? `<button class="btn btn--ghost btn--sm btn--danger-text" type="button" data-batch-delete="${esc(b.id)}">${icon("trash")}<span>Excluir lote</span></button>` : ""}
+      <div class="batch-drawer__top">
+        <div>
+          <p class="batch-card__client">${esc(clientName(b.client_id))} · ${esc(monthLabel(b.month.slice(0, 7)))}</p>
+          <h2 class="drawer__title" id="batch-drawer-title">${esc(b.title)}</h2>
+        </div>
+        <div class="batch-drawer__tools">
+          <button class="btn btn--ghost btn--sm" type="button" data-batch-preview="${esc(b.id)}">${icon("eye")}<span>Ver como o cliente</span></button>
+          ${kebab([
+            { label: "Editar dados do lote", icon: "edit", attrs: `data-batch-edit="${esc(b.id)}"` },
+            { label: "Relatório PDF", icon: "download", attrs: `data-batch-report="${esc(b.id)}"` },
+            { label: b.archived_at ? "Reativar lote" : "Arquivar lote", icon: "box", attrs: `data-batch-archive="${esc(b.id)}"` },
+            state.can.admin && { label: "Excluir lote", icon: "trash", attrs: `data-batch-delete="${esc(b.id)}"`, danger: true }
+          ], "Mais ações do lote")}
+        </div>
       </div>
+      <div class="batch-drawer__summary">
+      ${stepper(b, items)}
+      ${stepBox(b, "drawer")}
+      ${items.length ? progressDots(b) : ""}
+      <p class="batch-drawer__facts">${icon("send")}${b.sent_at ? `Enviado ${esc(dateTime(b.sent_at))}` : "Ainda não enviado"}<span>·</span>${icon("clock")}${b.last_client_action_at ? `Última resposta ${esc(dateTime(b.last_client_action_at))}` : "Sem resposta do cliente"}</p>
+      </div>
+      ${b.intro_message ? `<p class="batch-intro">${esc(b.intro_message)}</p>` : ""}
       <section class="detail"><div class="detail__head"><h3 class="detail__title">Link de aprovação</h3></div>${linkBox()}</section>
       <section class="detail">
         <div class="detail__head"><h3 class="detail__title">Conteúdos (${items.length})</h3>

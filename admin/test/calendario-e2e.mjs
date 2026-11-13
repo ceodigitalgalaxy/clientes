@@ -174,6 +174,49 @@ await step("Lista continua disponível (com seleção em massa)", async () => {
   await page.waitForSelector(".acal--month");
 });
 
+await step("Excluir em lote: duas confirmações (a segunda pede EXCLUIR)", async () => {
+  const a1 = await make(padaria, "Apagar em lote A", plus(40));
+  const a2 = await make(estudio, "Apagar em lote B", plus(41));
+  await page.click('[data-cal-mode="lista"]');
+  await page.reload();
+  await page.waitForSelector(`.row [data-pick="${a1.id}"]`);
+  await page.check(`[data-pick="${a1.id}"]`);
+  await page.check(`[data-pick="${a2.id}"]`);
+  await page.click("[data-bulk-delete]");
+  await page.waitForSelector("#confirm-modal[open]");
+  assert.match(await page.textContent("#confirm-modal"), /Excluir 2 conteúdos\?.*Apagar em lote A.*Apagar em lote B/s);
+  await page.click('#confirm-modal [data-confirm="ok"]');
+  await page.waitForSelector("#bulk-delete-modal[open]");
+  assert.equal(await page.isDisabled("[data-bulk-delete-ok]"), true, "só libera digitando");
+  await page.fill('#bulk-delete-modal [name="word"]', "apagar");
+  assert.equal(await page.isDisabled("[data-bulk-delete-ok]"), true);
+  await shot("cal14-excluir-lote");
+  await page.click("[data-bulk-delete-cancel]");
+  await page.waitForSelector("#bulk-delete-modal", { state: "hidden" });
+  assert.ok(store.peekContent(a1.id) && store.peekContent(a2.id), "cancelar mantém");
+  await page.click("[data-bulk-delete]");
+  await page.click('#confirm-modal [data-confirm="ok"]');
+  await page.fill('#bulk-delete-modal [name="word"]', "excluir");
+  await page.click("[data-bulk-delete-ok]");
+  await toastSays(/2 conteúdos excluídos/);
+  assert.equal(store.peekContent(a1.id), null);
+  assert.equal(store.peekContent(a2.id), null);
+  await page.click('[data-cal-mode="mes"]');
+  await page.waitForSelector(".acal--month");
+});
+
+await step("Quadro e agenda: menu ⋯ com ver, editar e excluir", async () => {
+  await page.click('[data-cal-mode="quadro"]');
+  await page.waitForSelector(".kboard");
+  await page.click(`[data-kcard="${mover.id}"] [data-menu-toggle]`);
+  assert.deepEqual(await page.$$eval(`[data-kcard="${mover.id}"] .menu [role=menuitem]`, (b) => b.map((x) => x.textContent.trim())), ["Ver detalhes", "Editar", "Excluir"]);
+  await page.click(`[data-kcard="${mover.id}"] .menu [data-edit-content]`);
+  await page.waitForSelector("#content-modal[open]");
+  assert.equal(await page.inputValue('#content-modal [name="title"]'), "Agenda de pães");
+  await page.click('#content-modal [data-action="close-modal"]');
+  await page.waitForSelector("#content-modal", { state: "hidden" });
+});
+
 await step("Quadro: colunas por etapa e arrastar muda a etapa", async () => {
   await page.click('[data-cal-mode="quadro"]');
   await page.waitForSelector(".kboard");
@@ -234,7 +277,7 @@ await step("Celular: menu embaixo com 'Mais', topo enxuto e botão flutuante", a
   assert.equal(nav.pos, "fixed");
   assert.ok(nav.bottom <= 1, "menu colado embaixo");
   const visible = await page.$$eval(".admin-nav .admin-nav__link", (l) => l.filter((a) => a.offsetParent !== null).map((a) => a.textContent.trim()));
-  assert.deepEqual(visible.map((t) => t.replace(/\d+$/, "")), ["Início", "Demandas", "Conteúdos", "Aprovações", "Mais"], JSON.stringify(visible));
+  assert.deepEqual(visible.map((t) => t.replace(/\d+$/, "")), ["Início", "Minhas", "Demandas", "Conteúdos", "Mais"], JSON.stringify(visible));
   assert.equal(await page.isVisible(".admin-bar"), false);
   const fab = await page.$eval('#view-conteudos [data-action="new-content"]', (b) => getComputedStyle(b).position);
   assert.equal(fab, "fixed");
@@ -266,7 +309,7 @@ await step("Celular: filtros abrem pelo botão e mostram quantos estão ativos",
 await step("Celular: 'Mais' abre as outras seções", async () => {
   await page.click("[data-nav-more]");
   await page.waitForSelector("#nav-sheet:not([hidden])");
-  assert.match(await page.textContent("#nav-sheet"), /Anúncios.*Clientes.*Importar.*Equipe/s);
+  assert.match(await page.textContent("#nav-sheet"), /Aprovações.*Anúncios.*Clientes.*Equipe/s);
   await shot("cal07-celular-mais", { fullPage: false });
   await page.click('#nav-sheet [data-route="equipe"]');
   await page.waitForSelector("#team-list .member-card");
