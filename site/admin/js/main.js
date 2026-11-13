@@ -9,23 +9,23 @@
    O banco aplica as mesmas regras (RLS): esconder a tela não é a proteção.
    ========================================================================== */
 
-import { $, on } from "../../js/lib/dom.js?v=476ab22dd7";
-import { icon, brandMark } from "../../js/lib/icons.js?v=476ab22dd7";
-import { toast } from "../../js/ui/toast.js?v=476ab22dd7";
-import { SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY } from "../../js/config.js?v=476ab22dd7";
-import { createAuth } from "../../js/lib/auth.js?v=476ab22dd7";
-import { createStorage } from "../../js/lib/storage.js?v=476ab22dd7";
-import { createSupabaseStore } from "./data/store.js?v=476ab22dd7";
-import { createApi } from "./api.js?v=476ab22dd7";
-import { validateContentFilters } from "./domain/rules.js?v=476ab22dd7";
-import { createConfirm, showFieldErrors, setBusy } from "./ui/dialogs.js?v=476ab22dd7";
-import { setupClients } from "./views/clients.js?v=476ab22dd7";
-import { setupContents } from "./views/contents.js?v=476ab22dd7";
-import { setupAccess } from "./views/access.js?v=476ab22dd7";
-import { setupImport } from "./views/import.js?v=476ab22dd7";
-import { setupAds } from "./views/ads.js?v=476ab22dd7";
-import { setupBrand } from "./views/brand.js?v=476ab22dd7";
-import { setupApprovals } from "./views/approvals.js?v=476ab22dd7";
+import { $, on } from "../../js/lib/dom.js?v=d8b3be61ca";
+import { icon, brandMark } from "../../js/lib/icons.js?v=d8b3be61ca";
+import { toast } from "../../js/ui/toast.js?v=d8b3be61ca";
+import { SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY } from "../../js/config.js?v=d8b3be61ca";
+import { createAuth } from "../../js/lib/auth.js?v=d8b3be61ca";
+import { createStorage } from "../../js/lib/storage.js?v=d8b3be61ca";
+import { createSupabaseStore } from "./data/store.js?v=d8b3be61ca";
+import { createApi } from "./api.js?v=d8b3be61ca";
+import { validateContentFilters } from "./domain/rules.js?v=d8b3be61ca";
+import { createConfirm, showFieldErrors, setBusy } from "./ui/dialogs.js?v=d8b3be61ca";
+import { setupClients } from "./views/clients.js?v=d8b3be61ca";
+import { setupContents } from "./views/contents.js?v=d8b3be61ca";
+import { setupAccess } from "./views/access.js?v=d8b3be61ca";
+import { setupImport } from "./views/import.js?v=d8b3be61ca";
+import { setupAds } from "./views/ads.js?v=d8b3be61ca";
+import { setupBrand } from "./views/brand.js?v=d8b3be61ca";
+import { setupApprovals } from "./views/approvals.js?v=d8b3be61ca";
 
 /* O painel não abre dentro de outro site (proteção contra clique disfarçado).
    A página fica invisível até esta checagem (veja .admin em admin.css). */
@@ -95,7 +95,10 @@ const approvalsView = setupApprovals({ api, state, toast, confirm, navigate, ope
 async function showRoute() {
   if (!state.signedIn) return;
   const [path, query = ""] = location.hash.replace(/^#\/?/, "").split("?");
+  const previous = state.route;
   state.route = ROUTES.includes(path) ? path : "conteudos";
+  // Trocou de seção: painéis e janelas da seção anterior fecham (não ficam por cima)
+  if (previous && previous !== state.route) document.querySelectorAll("dialog[open]").forEach((d) => d.close());
   state.filters = state.route === "conteudos" ? validateContentFilters(Object.fromEntries(new URLSearchParams(query))) : {};
   document.querySelectorAll("[data-view]").forEach((view) => { view.hidden = view.dataset.view !== state.route; });
   document.querySelectorAll("[data-route]").forEach((link) => {

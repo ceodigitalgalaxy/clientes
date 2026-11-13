@@ -2,8 +2,8 @@
    Valida os dados antes de enviar (domain/rules.js); o banco confere de novo
    com as próprias regras e só aceita membros da equipe (RLS). */
 
-import { validateClient, validateContent, validateContentFilters, parseUsername, passwordProblem, CONTENT_STATUS, PRODUCTION_STATUS, isUuid, validateAd, validateAdFilters, AD_LIMITS, validateBrandKit, validateBatch } from "./domain/rules.js?v=476ab22dd7";
-import { UPLOAD_LIMITS, fileName, fileProblem, resizeImage } from "../../js/lib/storage.js?v=476ab22dd7";
+import { validateClient, validateContent, validateContentFilters, parseUsername, passwordProblem, CONTENT_STATUS, PRODUCTION_STATUS, isUuid, validateAd, validateAdFilters, AD_LIMITS, validateBrandKit, validateBatch } from "./domain/rules.js?v=d8b3be61ca";
+import { UPLOAD_LIMITS, fileName, fileProblem, resizeImage } from "../../js/lib/storage.js?v=d8b3be61ca";
 
 export class ApiError extends Error {
   constructor(status, message, fields) { super(message); this.status = status; this.fields = fields || {}; }
@@ -217,9 +217,12 @@ export function createApi({ store, onSessionLost, access = null, storage = null 
     deleteBatch: guard((id) => store.deleteBatch(id)),
     /** Tudo do lote para gerenciar: itens, versões enviadas, decisões e histórico */
     batchDetail: guard(async (batchId) => {
-      const [items, decisions, events] = await Promise.all([store.listBatchItems(batchId), store.listDecisions({ batchId }), store.listEvents({ batchId })]);
+      const [items, decisions, events, staleRows] = await Promise.all([store.listBatchItems(batchId), store.listDecisions({ batchId }), store.listEvents({ batchId }),
+        store.approvalRpc("approval_stale", { p_batch: batchId }).catch(() => [])]);
       const versions = await store.listVersions({ ids: [...new Set(items.map((i) => i.version_id).filter(Boolean))] });
-      return { items, decisions, events, versions };
+      // Itens cujo conteúdo mudou (só nos campos daquela etapa) depois do envio
+      const stale = new Set((staleRows || []).filter((r) => r.stale).map((r) => r.item_id));
+      return { items, decisions, events, versions, stale };
     }),
     setBatchItems: guard((batchId, contentIds) => store.approvalRpc("approval_set_items", { p_batch: batchId, p_contents: ids(contentIds, "Seleção de conteúdos inválida.") })),
     /** "Gerar link para aprovação": envia os escolhidos e devolve o token do link */
@@ -327,10 +330,11 @@ export function createApi({ store, onSessionLost, access = null, storage = null 
     }),
     /** Versões enviadas e decisões do cliente pelo link (mais recentes primeiro) */
     contentApprovalHistory: guard(async (contentId) => {
-      const [versions, decisions, legacy] = await Promise.all([
-        store.listVersions({ contentId }), store.listDecisions({ contentId }), store.listApprovals(contentId).catch(() => [])
+      const [versions, decisions, legacy, stale] = await Promise.all([
+        store.listVersions({ contentId }), store.listDecisions({ contentId }), store.listApprovals(contentId).catch(() => []),
+        store.approvalRpc("approval_stale", { p_content: contentId }).catch(() => [])
       ]);
-      return { versions, decisions, legacy };
+      return { versions, decisions, legacy, stale: stale || [] };
     }),
     listApprovals: guard((contentId) => store.listApprovals(contentId)),
     sendForApproval: guard((contentId) => store.setContentStatus(contentId, "aguardando_aprovacao")),

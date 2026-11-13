@@ -1,15 +1,15 @@
 /* Seção Conteúdos: filtros, lista, detalhes, cadastro, edição e exclusão */
 
-import { $, esc, on } from "../../../js/lib/dom.js?v=476ab22dd7";
-import { icon } from "../../../js/lib/icons.js?v=476ab22dd7";
-import { longDayLabel, timeLabel, todayISO } from "../../../js/lib/dates.js?v=476ab22dd7";
-import { typeBadge } from "../../../js/ui/badges.js?v=476ab22dd7";
-import { renderMedia, wireMediaFallbacks } from "../../../js/ui/media.js?v=476ab22dd7";
-import { CONTENT_STATUS, CLIENT_VISIBLE_STATUS, APPROVAL_STATUS, PRODUCTION_STATUS, NETWORKS, FORMATS, LIMITS, validateContent, validateContentFilters } from "../domain/rules.js?v=476ab22dd7";
-import { closeDialog, wireDialog, showFieldErrors, setBusy } from "../ui/dialogs.js?v=476ab22dd7";
-import { stateBlock, loadingRows, button } from "../ui/states.js?v=476ab22dd7";
-import { reviewSections, mountReview } from "./content-review.js?v=476ab22dd7";
-import { describeMedia, mediaCover, coverHtml } from "../../../js/ui/media.js?v=476ab22dd7";
+import { $, esc, on } from "../../../js/lib/dom.js?v=d8b3be61ca";
+import { icon } from "../../../js/lib/icons.js?v=d8b3be61ca";
+import { longDayLabel, timeLabel, todayISO } from "../../../js/lib/dates.js?v=d8b3be61ca";
+import { typeBadge } from "../../../js/ui/badges.js?v=d8b3be61ca";
+import { renderMedia, wireMediaFallbacks } from "../../../js/ui/media.js?v=d8b3be61ca";
+import { CONTENT_STATUS, CLIENT_VISIBLE_STATUS, APPROVAL_STATUS, PRODUCTION_STATUS, NETWORKS, FORMATS, LIMITS, validateContent, validateContentFilters } from "../domain/rules.js?v=d8b3be61ca";
+import { closeDialog, wireDialog, showFieldErrors, setBusy } from "../ui/dialogs.js?v=d8b3be61ca";
+import { stateBlock, loadingRows, button } from "../ui/states.js?v=d8b3be61ca";
+import { reviewSections, mountReview } from "./content-review.js?v=d8b3be61ca";
+import { describeMedia, mediaCover, coverHtml } from "../../../js/ui/media.js?v=d8b3be61ca";
 
 const shortDate = (iso) => iso.split("-").reverse().join("/");
 const statusChip = (status) => `<span class="content-status cs--${esc(status)}">${esc(CONTENT_STATUS[status]?.label || status)}</span>`;
@@ -24,6 +24,13 @@ function refThumb(content) {
   if (cover) return `<span class="row__thumb${video ? " row__thumb--has-video" : ""}" title="${esc(media.provider || (video ? "Vídeo de referência" : "Imagem de referência"))}">${coverHtml(cover, "data-thumb")}${video ? `<span class="row__play">${icon("play")}</span>` : ""}</span>`;
   return `<span class="row__thumb row__thumb--video" title="${esc(media.provider || "Vídeo de referência")}">${icon("play")}</span>`;
 }
+
+/** Ideia e final lado a lado (status independentes) + produção */
+const stageChip = (label, status) => {
+  const s = APPROVAL_STATUS[status] || APPROVAL_STATUS.rascunho;
+  return `<span class="appr-chip appr-chip--${esc(s.tone)} appr-chip--sm" title="${esc(`${label}: ${s.label}`)}">${icon(s.icon)}${esc(label)}: ${esc(s.short.toLowerCase())}</span>`;
+};
+export const stageChips = (c) => `${stageChip("Ideia", c.approval_status)}${c.final_status && c.final_status !== "rascunho" ? stageChip("Final", c.final_status) : ""}${c.production_status ? `<span class="prod-chip">${esc(PRODUCTION_STATUS[c.production_status]?.label || "")}</span>` : ""}`;
 
 const options = (entries, selected = "") => entries.map(([value, label]) => `<option value="${esc(value)}"${value === selected ? " selected" : ""}>${esc(label)}</option>`).join("");
 
@@ -66,6 +73,7 @@ export function setupContents({ api, state, toast, confirm, navigate }) {
   form.elements.network.innerHTML = `<option value="">Escolha a rede</option>${options(Object.entries(NETWORKS))}`;
   form.elements.format.innerHTML = `<option value="">Escolha o formato</option>${options(Object.entries(FORMATS).map(([k, v]) => [k, v.label]))}`;
   form.elements.approval_status.innerHTML = options(Object.entries(APPROVAL_STATUS).map(([k, v]) => [k, v.label]));
+  form.elements.final_status.innerHTML = options(Object.entries(APPROVAL_STATUS).map(([k, v]) => [k, v.label]));
   form.elements.production_status.innerHTML = `<option value="">Ainda não começou</option>${options(Object.entries(PRODUCTION_STATUS).map(([k, v]) => [k, v.label]))}`;
 
   const clientName = (id) => state.clients.find((c) => c.id === id)?.name || "Cliente removido";
@@ -158,7 +166,7 @@ export function setupContents({ api, state, toast, confirm, navigate }) {
           <span class="row__titlecell">${refThumb(c)}<button class="row__title" type="button" data-view-content="${esc(c.id)}">${esc(c.title)}</button>${c.assets_count ? `<span class="row__art" title="Itens na arte final">${icon("layers")}${esc(c.assets_count)}</span>` : ""}</span>
           <span class="row__network">${esc(NETWORKS[c.network] || c.network)}</span>
           <span class="row__format">${typeBadge(c.format)}</span>
-          <span class="row__status">${statusChip(c.status)}${c.production_status && c.production_status !== "publicado" ? `<span class="prod-chip">${esc(PRODUCTION_STATUS[c.production_status]?.label || "")}</span>` : ""}</span>
+          <span class="row__status">${stageChips(c)}</span>
           <span class="row__actions">
             <button class="icon-btn" type="button" data-edit-content="${esc(c.id)}" aria-label="Editar ${esc(c.title)}" title="Editar">${icon("edit")}</button>
             <button class="icon-btn icon-btn--danger" type="button" data-delete-content="${esc(c.id)}" aria-label="Excluir ${esc(c.title)}" title="Excluir">${icon("trash")}</button>
@@ -176,9 +184,14 @@ export function setupContents({ api, state, toast, confirm, navigate }) {
     requestAnimationFrame(() => { body.scrollTop = scroll; });
     $("#drawer-badges").innerHTML = `${typeBadge(content.format, true)}${statusChip(content.status)}`;
     // Referência: só a equipe vê (o portal do cliente não recebe este link)
-    const guided = [["Pilar editorial", content.pillar], ["A ideia", content.idea], ["Roteiro / como vai ser", content.content_plan], ["Texto na arte", content.art_text], ["Objetivo", content.objective], ["Chamada para ação", content.cta]]
-      .filter(([, text]) => text).map(([label, text]) => `<div class="detail"><h3 class="detail__title">${label}</h3><p class="caption-text">${esc(text)}</p></div>`).join("")
-      || '<div class="detail"><h3 class="detail__title">Como vai ser o conteúdo</h3><p class="caption-text"><span class="field__optional">Ainda sem explicação para o cliente. Use “Editar” para preencher a ideia e como vai ser.</span></p></div>';
+    const block = (rows) => rows.filter(([, text]) => text).map(([label, text]) => `<div class="detail"><h3 class="detail__title">${label}</h3><p class="caption-text">${esc(text)}</p></div>`).join("");
+    const plan = block([["A ideia", content.idea], ["Roteiro / como vai ser", content.content_plan], ["Observações do planejamento", content.planning_notes], ["Objetivo <span class=\"field__optional\">· só a equipe vê</span>", content.objective], ["Pilar editorial <span class=\"field__optional\">· só a equipe vê</span>", content.pillar]])
+      || '<p class="caption-text"><span class="field__optional">Sem ideia ainda. Use “Editar” para preencher a ideia e como vai ser.</span></p>';
+    const production = block([["Texto na arte", content.art_text], ["Legenda", content.caption], ["Hashtags", content.hashtags], ["Chamada para ação", content.cta], ["Observações para o cliente", content.client_notes]])
+      || '<p class="caption-text"><span class="field__optional">Sem legenda ainda.</span></p>';
+    const guided = `
+      <section class="stage-block stage-block--plan"><p class="stage-block__label">${icon("lightbulb")}Planejamento <span>· vai no link da ideia</span></p>${plan}</section>
+      <section class="stage-block stage-block--final"><p class="stage-block__label">${icon("image")}Produção <span>· só vai ao cliente na aprovação final</span></p>${production}</section>`;
     const media = content.media_url
       ? `<div class="detail"><h3 class="detail__title">Referência <span class="field__optional">· só a equipe vê</span></h3><div class="media-ref">${renderMedia({ url: content.media_url, kind: content.media_kind || "image", title: content.title })}</div></div>`
       : "";
@@ -192,8 +205,6 @@ export function setupContents({ api, state, toast, confirm, navigate }) {
       </dl>
       ${guided}
       ${media}
-      <div class="detail"><h3 class="detail__title">Legenda</h3><p class="caption-text">${content.caption ? esc(content.caption) : '<span class="field__optional">Sem legenda ainda.</span>'}</p></div>
-      ${content.client_notes ? `<div class="detail"><h3 class="detail__title">Observação para o cliente</h3><p class="caption-text">${esc(content.client_notes)}</p></div>` : ""}
       ${content.internal_notes ? `<div class="internal"><p class="internal__label">${icon("lock")}Observações internas · só a agência vê</p><p class="internal__text">${esc(content.internal_notes)}</p></div>` : ""}
       <p class="drawer__version">${esc(versionLine(content))}</p>
       <div class="drawer__actions">
@@ -241,7 +252,7 @@ export function setupContents({ api, state, toast, confirm, navigate }) {
     submit.querySelector("span").textContent = content ? "Salvar alterações" : "Cadastrar conteúdo";
     form.elements.client_id.innerHTML = `<option value="">Escolha o cliente</option>${options(active.map((c) => [c.id, c.name]))}`;
     if (content) {
-      ["client_id", "title", "scheduled_date", "network", "format", "media_url", "pillar", "idea", "content_plan", "art_text", "objective", "caption", "cta", "client_notes", "internal_notes", "approval_status", "production_status"].forEach((name) => { form.elements[name].value = content[name] || ""; });
+      ["client_id", "title", "scheduled_date", "network", "format", "media_url", "pillar", "idea", "content_plan", "art_text", "objective", "caption", "hashtags", "cta", "client_notes", "planning_notes", "internal_notes", "approval_status", "final_status", "production_status"].forEach((name) => { form.elements[name].value = content[name] || ""; });
       form.elements.scheduled_time.value = content.scheduled_time ? content.scheduled_time.slice(0, 5) : "";
       form.elements.media_kind.value = content.media_kind || "";
     } else {
@@ -250,6 +261,7 @@ export function setupContents({ api, state, toast, confirm, navigate }) {
       form.elements.client_id.value = preset?.client_id || form.elements.client_id.value;
       if (preset?.scheduled_date) form.elements.scheduled_date.value = preset.scheduled_date;
       form.elements.approval_status.value = "rascunho";
+      form.elements.final_status.value = "rascunho";
       form.elements.production_status.value = "";
     }
     syncMediaKind();

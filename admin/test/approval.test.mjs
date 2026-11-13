@@ -20,7 +20,8 @@ const team = { id: "u-equipe", member: true, username: "admdg" };
 const padaria = await store.createClient({ name: "Padaria Central", slug: "padaria", active: true });
 const outro = await store.createClient({ name: "Outro Cliente", slug: "outro", active: true });
 const make = async (client, title, extra = {}) => store.createContent(validateContent({ client_id: client.id, title, scheduled_date: "2026-11-10", network: "instagram", format: "post", ...extra }).value);
-const c1 = await make(padaria, "Bom dia", { idea: "Primeira fornada", media_url: "https://interno.exemplo.com/REFERENCIA.jpg", internal_notes: "SEGREDO-INTERNO", pillar: "Bastidores" });
+const c1 = await make(padaria, "Bom dia", { idea: "Primeira fornada", media_url: "https://interno.exemplo.com/REFERENCIA.jpg", internal_notes: "SEGREDO-INTERNO", pillar: "Bastidores",
+  caption: "LEGENDA-DA-PRODUCAO", hashtags: "#padaria", planning_notes: "Observação do plano", client_notes: "Observação do final" });
 const c2 = await make(padaria, "Promoção", { idea: "Café + pão" });
 const cx = await make(outro, "Do outro");
 const path = `${padaria.id}/${c1.id}/arte.png`;
@@ -71,7 +72,7 @@ assert.equal((await store.getContent(c1.id)).status, "aguardando_aprovacao");
 /* ---------- Página pública ---------- */
 let r = await call({ action: "ver", token });
 const view = r.data.view;
-await okAsync("cliente vê só o lote do link, sem referência nem observação interna", async () => {
+await okAsync("planejamento: só a ideia (sem legenda, arte, arquivos ou nada interno)", async () => {
   assert.equal(r.status, 200);
   assert.equal(view.items.length, 2);
   assert.equal(view.batch.mode, "planejamento");
@@ -79,8 +80,8 @@ await okAsync("cliente vê só o lote do link, sem referência nem observação 
   const text = JSON.stringify(r.data);
   assert.ok(!text.includes("REFERENCIA") && !text.includes("SEGREDO-INTERNO") && !text.includes("storage_path"), "nada interno");
   assert.ok(!text.includes("Do outro"));
-  assert.equal(view.items[0].content.pillar, "Bastidores");
-  assert.match(view.items[0].content.assets[0].src, /\/storage\/v1\/object\/sign\/content-media\/.+\?token=/, "arquivo por link assinado");
+  assert.ok(!text.includes("LEGENDA-DA-PRODUCAO") && !text.includes("#padaria") && !text.includes("Observação do final") && !text.includes("sign/content-media"), "nada da produção");
+  assert.deepEqual([view.items[0].content.idea, view.items[0].content.planning_notes, view.items[0].content.assets.length], ["Primeira fornada", "Observação do plano", 0]);
   assert.equal(r.headers["cache-control"], "no-store");
   assert.match(r.headers["x-robots-tag"], /noindex/);
 });
@@ -152,7 +153,27 @@ await okAsync("link expirado avisa e registra", async () => {
   const b2 = await store.createBatch({ client_id: padaria.id, title: "Arte final", month: "2026-11-01", approval_mode: "final" }, team);
   await store.approvalSetItems(team, { p_batch: b2.id, p_contents: [c1.id] });
   const t2 = (await store.approvalPublish(team, { p_batch: b2.id, p_items: null, p_title: "Arte final", p_intro: "", p_mode: "final", p_expires: new Date(Date.now() + 86400000).toISOString() })).token;
-  assert.equal((await call({ action: "ver", token: t2 })).data.view.batch.mode, "final");
+  const finalView = (await call({ action: "ver", token: t2 })).data.view;
+  assert.equal(finalView.batch.mode, "final");
+  // Final: arte (link assinado), legenda, hashtags e observação para o cliente; sem a ideia nem nada interno
+  const fc = finalView.items[0].content;
+  assert.deepEqual([fc.caption, fc.hashtags, fc.client_notes, fc.idea], ["LEGENDA-DA-PRODUCAO", "#padaria", "Observação do final", undefined]);
+  assert.match(fc.assets[0].src, /\/storage\/v1\/object\/sign\/content-media\/.+\?token=/, "arquivo por link assinado");
+  assert.ok(!JSON.stringify(finalView).includes("SEGREDO-INTERNO"));
+  // Ideia e final independentes: a ideia continua aprovada com o final aguardando
+  assert.deepEqual([(await store.getContent(c1.id)).approval_status, (await store.getContent(c1.id)).final_status], ["aprovado", "aguardando_aprovacao"]);
+  // Mudar só a legenda não pede para reaprovar a ideia; mudar a ideia pede
+  await store.updateContent(c1.id, { ...(await store.getContent(c1.id)), caption: "Legenda nova" });
+  const staleNow = async (b) => (await store.approvalStale(team, { p_batch: b })).filter((x) => x.stale).map((x) => x.content_id);
+  assert.deepEqual(await staleNow(batch.id), []);
+  assert.deepEqual(await staleNow(b2.id), [c1.id]);
+  // O tipo do lote não muda depois de enviado
+  await assert.rejects(store.updateBatch(b2.id, { approval_mode: "planejamento" }), /modo_travado/);
+  // Final sem arte nem legenda não vai
+  const vazio = await make(padaria, "Sem nada");
+  const b4 = await store.createBatch({ client_id: padaria.id, title: "Final vazio", month: "2026-11-01", approval_mode: "final" }, team);
+  await store.approvalSetItems(team, { p_batch: b4.id, p_contents: [vazio.id] });
+  await assert.rejects(store.approvalPublish(team, { p_batch: b4.id, p_items: null, p_title: "Final vazio", p_intro: "", p_mode: "final" }), /final_sem_conteudo/);
   store.expireLink(b2.id);
   r = await call({ action: "ver", token: t2 });
   assert.deepEqual([r.status, r.data.reason], [410, "link_expirado"]);

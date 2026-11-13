@@ -13,15 +13,15 @@
    O banco confere tudo de novo (funções approval_* e RLS).
    ========================================================================== */
 
-import { $, esc, on } from "../../../js/lib/dom.js?v=476ab22dd7";
-import { icon } from "../../../js/lib/icons.js?v=476ab22dd7";
-import { monthLabel, timeLabel, stampLabel, todayISO, longDayLabel } from "../../../js/lib/dates.js?v=476ab22dd7";
-import { typeBadge } from "../../../js/ui/badges.js?v=476ab22dd7";
-import { APPROVAL_STATUS, APPROVAL_MODES, BATCH_STATUS, APPROVAL_EVENTS, isPending, approvalUrl, whatsappMessage } from "../../../js/domain/approvals.js?v=476ab22dd7";
-import { NETWORKS, validateBatch } from "../domain/rules.js?v=476ab22dd7";
-import { closeDialog, wireDialog, showFieldErrors, setBusy } from "../ui/dialogs.js?v=476ab22dd7";
-import { stateBlock, loadingCards, button } from "../ui/states.js?v=476ab22dd7";
-import { buildApprovalReport, reportFileName } from "../ui/approval-report.js?v=476ab22dd7";
+import { $, esc, on } from "../../../js/lib/dom.js?v=d8b3be61ca";
+import { icon } from "../../../js/lib/icons.js?v=d8b3be61ca";
+import { monthLabel, timeLabel, stampLabel, todayISO, longDayLabel } from "../../../js/lib/dates.js?v=d8b3be61ca";
+import { typeBadge } from "../../../js/ui/badges.js?v=d8b3be61ca";
+import { APPROVAL_STATUS, APPROVAL_MODES, BATCH_STATUS, APPROVAL_EVENTS, isPending, approvalUrl, whatsappMessage } from "../../../js/domain/approvals.js?v=d8b3be61ca";
+import { NETWORKS, validateBatch } from "../domain/rules.js?v=d8b3be61ca";
+import { closeDialog, wireDialog, showFieldErrors, setBusy } from "../ui/dialogs.js?v=d8b3be61ca";
+import { stateBlock, loadingCards, button } from "../ui/states.js?v=d8b3be61ca";
+import { buildApprovalReport, reportFileName } from "../ui/approval-report.js?v=d8b3be61ca";
 
 const POLL_MS = 30000;
 const options = (entries, placeholder) => `${placeholder !== undefined ? `<option value="">${esc(placeholder)}</option>` : ""}${entries.map(([v, l]) => `<option value="${esc(v)}">${esc(l)}</option>`).join("")}`;
@@ -115,6 +115,7 @@ export function setupApprovals({ api, state, toast, confirm, navigate, openConte
             <button class="btn btn--ghost btn--sm" type="button" data-batch-whatsapp="${esc(b.id)}">${icon("message")}<span>Mensagem WhatsApp</span></button>
             <button class="btn btn--ghost btn--sm btn--danger-text" type="button" data-batch-revoke="${esc(b.id)}">${icon("lock")}<span>Desativar link</span></button>`
             : `<button class="btn btn--ghost btn--sm" type="button" data-batch-publish="${esc(b.id)}">${icon("link")}<span>Gerar link</span></button>`}
+          <button class="btn btn--ghost btn--sm btn--danger-text" type="button" data-batch-delete="${esc(b.id)}">${icon("trash")}<span>Excluir</span></button>
         </div>
       </article>`;
   }
@@ -165,6 +166,35 @@ export function setupApprovals({ api, state, toast, confirm, navigate, openConte
     }
     refreshAttention();
     if (params.batch) openBatch(params.batch);
+    if (params.enviar) {
+      history.replaceState(null, "", "#/aprovacoes");
+      sendToStage(params.enviar, params.etapa === "final" ? "final" : "planejamento");
+    }
+  }
+
+  /** "Enviar para aprovação da ideia/final" a partir do conteúdo: entra no lote
+      aberto daquele cliente, mês e etapa (ou num lote novo) e abre o envio */
+  async function sendToStage(contentId, mode) {
+    try {
+      const content = await api.getContent(contentId);
+      const month = content.scheduled_date.slice(0, 7);
+      let batch = batches.find((b) => !b.archived_at && b.client_id === content.client_id && b.month.startsWith(month) && b.approval_mode === mode);
+      if (!batch) {
+        const name = monthLabel(month).split(" ")[0].toLowerCase();
+        const created = await api.createBatch({ client_id: content.client_id, title: `${mode === "final" ? "Conteúdo final" : "Planejamento"} de ${name}`, month: `${month}-01`, approval_mode: mode });
+        batches = await api.listBatches();
+        batch = summaryOf(created.id);
+      }
+      const detail = await api.batchDetail(batch.id);
+      const inBatch = detail.items.filter((i) => !i.removed_at).map((i) => i.content_id).filter(Boolean);
+      if (!inBatch.includes(content.id)) await api.setBatchItems(batch.id, [...inBatch, content.id]);
+      batches = await api.listBatches();
+      render();
+      await openPublish(batch.id);
+      toast(`"${content.title}" está no lote "${batch.title}". Confira e envie.`);
+    } catch (error) {
+      toast(error.message, "error");
+    }
   }
   on(filtersForm, "change", "input, select", () => render());
   filtersForm.addEventListener("reset", () => setTimeout(render));
@@ -176,9 +206,10 @@ export function setupApprovals({ api, state, toast, confirm, navigate, openConte
     const b = batches.find((x) => x.id === e.batch_id);
     const where = b ? `${clientName(b.client_id)} · ${b.title}` : "Lote";
     const who = e.actor_reference && e.actor_type === "cliente" ? e.actor_reference : "";
-    const title = e.event_type === "aprovado" ? `${who || "Cliente"} aprovou um conteúdo`
-      : e.event_type === "ajustes" ? `${who || "Cliente"} pediu ajuste`
-      : e.event_type === "lote_aprovado" ? "Planejamento totalmente aprovado"
+    const final = (e.metadata?.stage || b?.approval_mode) === "final";
+    const title = e.event_type === "aprovado" ? `${who || "Cliente"} aprovou ${final ? "um conteúdo final" : "uma ideia"}`
+      : e.event_type === "ajustes" ? `${who || "Cliente"} pediu ajuste ${final ? "no conteúdo final" : "na ideia"}`
+      : e.event_type === "lote_aprovado" ? (final ? "Conteúdo final totalmente aprovado" : "Planejamento totalmente aprovado")
       : e.event_type === "link_expirado" ? "Link expirado"
       : APPROVAL_EVENTS[e.event_type] || e.event_type;
     return { where, title, comment: e.metadata?.comment || "" };
@@ -254,19 +285,30 @@ export function setupApprovals({ api, state, toast, confirm, navigate, openConte
     batchForm.elements.month.value = values.month ? values.month.slice(0, 7) : "";
     batchForm.elements.intro_message.value = values.intro_message || "";
     batchForm.querySelector(`[name=approval_mode][value="${values.approval_mode || "planejamento"}"]`).checked = true;
-    if (!batch && !batchForm.elements.title.value && batchForm.elements.month.value) batchForm.elements.title.value = `Planejamento de ${monthLabel(batchForm.elements.month.value).split(" ")[0].toLowerCase()}`;
+    const sent = Boolean(batch?.sent_at);
+    batchForm.querySelectorAll("[name=approval_mode]").forEach((r) => { r.disabled = sent; });
+    batchForm.querySelector("[data-mode-locked]").hidden = !sent;
+    if (!batch && !batchForm.elements.title.value && batchForm.elements.month.value) batchForm.elements.title.value = autoTitle();
     batchModal.showModal();
     (batchForm.elements.client_id.value ? batchForm.elements.title : batchForm.elements.client_id).focus();
   }
-  batchForm.elements.month.addEventListener("change", () => {
+  // Título automático: "Planejamento de dezembro" ou "Conteúdo final de dezembro"
+  function autoTitle() {
+    const month = batchForm.elements.month.value ? monthLabel(batchForm.elements.month.value).split(" ")[0].toLowerCase() : "";
+    const final = batchForm.querySelector("[name=approval_mode]:checked")?.value === "final";
+    return month ? `${final ? "Conteúdo final" : "Planejamento"} de ${month}` : "";
+  }
+  const syncAutoTitle = () => {
     if (editingBatch) return;
     const t = batchForm.elements.title;
-    if (!t.value || /^Planejamento de \S+$/.test(t.value)) t.value = `Planejamento de ${monthLabel(batchForm.elements.month.value).split(" ")[0].toLowerCase()}`;
-  });
+    if (!t.value || /^(Planejamento|Conteúdo final) de \S+$/.test(t.value)) t.value = autoTitle();
+  };
+  batchForm.elements.month.addEventListener("change", syncAutoTitle);
+  batchForm.querySelectorAll("[name=approval_mode]").forEach((r) => r.addEventListener("change", syncAutoTitle));
   batchForm.addEventListener("submit", async (event) => {
     event.preventDefault();
     const data = Object.fromEntries(new FormData(batchForm));
-    if (editingBatch) data.client_id = editingBatch.client_id;
+    if (editingBatch) { data.client_id = editingBatch.client_id; data.approval_mode ||= editingBatch.approval_mode; }
     const { errors } = validateBatch(data);
     if (Object.keys(errors).length) { showFieldErrors(batchForm, errors); return; }
     const submit = batchForm.querySelector("[type=submit]");
@@ -292,10 +334,8 @@ export function setupApprovals({ api, state, toast, confirm, navigate, openConte
   const activeItems = () => (current?.detail.items || []).filter((i) => !i.removed_at);
   const versionOf = (item) => current.detail.versions.find((v) => v.id === item.version_id);
   const contentOf = (item) => current.contents.find((c) => c.id === item.content_id);
-  const isStale = (item) => {
-    const v = versionOf(item); const c = contentOf(item);
-    return Boolean(v && c && v.content_version < c.version);
-  };
+  // Mudou depois do envio, só nos campos que o cliente vê nesta etapa (banco: approval_stale)
+  const isStale = (item) => Boolean(current?.detail.stale?.has(item.id));
   const itemTitle = (item) => versionOf(item)?.snapshot?.title || contentOf(item)?.title || "Conteúdo removido";
 
   async function openBatch(id, { keepScroll = false } = {}) {
@@ -406,7 +446,7 @@ export function setupApprovals({ api, state, toast, confirm, navigate, openConte
         <button class="btn btn--ghost btn--sm" type="button" data-batch-preview="${esc(b.id)}">${icon("eye")}<span>Visualizar como cliente</span></button>
         <button class="btn btn--ghost btn--sm" type="button" data-batch-report="${esc(b.id)}">${icon("download")}<span>Relatório PDF</span></button>
         <button class="btn btn--ghost btn--sm" type="button" data-batch-archive="${esc(b.id)}">${icon("box")}<span>${b.archived_at ? "Reativar lote" : "Arquivar lote"}</span></button>
-        ${!b.sent_at ? `<button class="btn btn--ghost btn--sm btn--danger-text" type="button" data-batch-delete="${esc(b.id)}">${icon("trash")}<span>Excluir lote</span></button>` : ""}
+        <button class="btn btn--ghost btn--sm btn--danger-text" type="button" data-batch-delete="${esc(b.id)}">${icon("trash")}<span>Excluir lote</span></button>
       </div>
       <section class="detail"><div class="detail__head"><h3 class="detail__title">Link de aprovação</h3></div>${linkBox()}</section>
       <section class="detail">
@@ -425,6 +465,17 @@ export function setupApprovals({ api, state, toast, confirm, navigate, openConte
   }
 
   /* ---------- Conteúdos do lote ---------- */
+  // Na escolha: status da etapa do lote; no final, também a ideia e o que falta
+  function pickStage(c) {
+    if (current.batch.approval_mode !== "final") return apprBadge(c.approval_status);
+    const ready = Number(c.assets_count) > 0 || Boolean(String(c.caption || "").trim());
+    const idea = APPROVAL_STATUS[c.approval_status];
+    return `<span class="pick-item__stages">
+      ${apprBadge(c.final_status || "rascunho")}
+      <span class="prod-chip">Ideia: ${esc((idea?.short || "Rascunho").toLowerCase())}</span>
+      ${ready ? "" : `<span class="prod-chip prod-chip--warn">${icon("message")}Sem arte nem legenda</span>`}
+    </span>`;
+  }
   function pickRows() {
     const scope = pickModal.querySelector("[data-pick-scope]").value;
     const month = current.batch.month.slice(0, 7);
@@ -438,7 +489,7 @@ export function setupApprovals({ api, state, toast, confirm, navigate, openConte
               <span class="pick-item__title">${esc(c.title)}</span>
               <span class="pick-item__meta">${esc(longDayLabel(c.scheduled_date))}${c.scheduled_time ? ` · ${esc(timeLabel(c.scheduled_time.slice(0, 5)))}` : ""} · ${esc(NETWORKS[c.network] || c.network)} ${typeBadge(c.format)}</span>
             </span>
-            ${apprBadge(c.approval_status)}
+            ${pickStage(c)}
           </label></li>`).join("")}</ul>`
       : `<p class="field__hint">Nenhum conteúdo de ${esc(clientName(current.batch.client_id))} ${scope === "all" ? "" : `em ${esc(monthLabel(month))}`}. Crie um novo ou mostre todos.</p>`;
   }
@@ -592,6 +643,8 @@ export function setupApprovals({ api, state, toast, confirm, navigate, openConte
     publishForm.elements.title.value = b.title;
     publishForm.elements.intro.value = b.intro_message || "";
     publishForm.querySelector(`[name=mode][value="${b.approval_mode}"]`).checked = true;
+    // Depois do primeiro envio, a etapa do lote fica travada (as decisões são daquela etapa)
+    publishForm.querySelectorAll("[name=mode]").forEach((r) => { r.disabled = Boolean(b.sent_at); });
     publishForm.elements.expires_on.value = b.link_expires_at ? b.link_expires_at.slice(0, 10) : "";
     publishForm.elements.expires_on.min = todayISO();
     publishForm.elements.allow_individual.checked = b.allow_individual !== false;
@@ -608,7 +661,7 @@ export function setupApprovals({ api, state, toast, confirm, navigate, openConte
     setBusy(submit, true);
     try {
       const result = await api.publishBatch(current.batch.id, {
-        items: chosen, title: data.get("title"), intro: data.get("intro"), mode: data.get("mode"), expiresOn: data.get("expires_on") || null,
+        items: chosen, title: data.get("title"), intro: data.get("intro"), mode: data.get("mode") || current.batch.approval_mode, expiresOn: data.get("expires_on") || null,
         allowIndividual: publishForm.elements.allow_individual.checked, allowBulk: publishForm.elements.allow_bulk.checked
       });
       current.token = result.token;
@@ -635,17 +688,23 @@ export function setupApprovals({ api, state, toast, confirm, navigate, openConte
     }
     try { await api.archiveBatch(current.batch.id, archived); await reloadCurrent(archived ? "Lote arquivado" : "Lote reativado"); } catch (error) { toast(error.message, "error"); }
   });
-  on(drawer, "click", "[data-batch-delete]", async () => {
-    const ok = await confirm({ title: "Excluir este lote?", text: "Ele nunca foi enviado ao cliente. Os conteúdos continuam no calendário.", confirmLabel: "Excluir" });
+  on(document, "click", "[data-batch-delete]", async (event, button) => {
+    const b = batches.find((x) => x.id === button.dataset.batchDelete) || (current?.batch.id === button.dataset.batchDelete ? current.batch : null);
+    if (!b) return;
+    const text = b.sent_at
+      ? `"${b.title}" (${clientName(b.client_id)}) já foi enviado. O link para de funcionar na hora e o histórico de decisões deste lote é apagado. Os conteúdos continuam no calendário; os que ainda aguardavam aprovação voltam para rascunho. Não dá para desfazer.`
+      : `"${b.title}" (${clientName(b.client_id)}) nunca foi enviado ao cliente. Os conteúdos continuam no calendário.`;
+    const ok = await confirm({ title: "Excluir este lote?", text, confirmLabel: "Excluir lote" });
     if (!ok) return;
+    button.disabled = true;
     try {
-      const done = await api.deleteBatch(current.batch.id);
-      closeDialog(drawer);
-      current = null;
+      await api.deleteBatch(b.id);
+      if (current?.batch.id === b.id) { closeDialog(drawer); current = null; }
       batches = await api.listBatches();
       render();
-      toast(done ? "Lote excluído" : "Este lote já foi enviado e não pode ser excluído. Arquive.", done ? "success" : "error");
-    } catch (error) { toast(error.message, "error"); }
+      refreshAttention();
+      toast("Lote excluído");
+    } catch (error) { button.disabled = false; toast(error.message, "error"); }
   });
   on(drawer, "click", "[data-batch-report]", () => {
     const b = current.batch;

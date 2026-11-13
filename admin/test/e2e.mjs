@@ -270,7 +270,7 @@ await step("Editar conteúdo (sobe a versão)", async () => {
   await page.waitForSelector("#content-drawer[open]");
   assert.match(await page.textContent(".drawer__version"), /Visível no calendário do cliente · versão 2/);
   assert.match(await page.textContent('#content-drawer .detail:has-text("Legenda") .caption-text'), /pão de fermentação natural!/);
-  assert.match(await page.textContent("#content-drawer"), /A ideia.*primeira fornada.*Roteiro \/ como vai ser.*Forno abrindo.*Texto na arte.*Saiu agora!.*Objetivo.*movimento de manhã.*Referência · só a equipe vê/s);
+  assert.match(await page.textContent("#content-drawer"), /Planejamento.*A ideia.*primeira fornada.*Roteiro \/ como vai ser.*Forno abrindo.*Objetivo.*movimento de manhã.*Produção.*Texto na arte.*Saiu agora!.*Referência · só a equipe vê/s);
   const saved = (await store.listContents({})).find((c) => c.title === "Lançamento do pão de fermentação natural");
   assert.deepEqual([saved.idea, saved.art_text], ["Mostrar a primeira fornada do dia", "Saiu agora!"]);
   await page.click('#content-drawer [data-action="close-drawer"]');

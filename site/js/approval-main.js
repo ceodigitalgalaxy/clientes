@@ -8,10 +8,10 @@
      vê a mesma página só para leitura (função approval_preview).
    ========================================================================== */
 
-import { SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY } from "./config.js?v=476ab22dd7";
-import { createApprovalPage, renderLinkProblem } from "./ui/approval-page.js?v=476ab22dd7";
-import { createAuth } from "./lib/auth.js?v=476ab22dd7";
-import { createStorage } from "./lib/storage.js?v=476ab22dd7";
+import { SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY } from "./config.js?v=d8b3be61ca";
+import { createApprovalPage, renderLinkProblem } from "./ui/approval-page.js?v=d8b3be61ca";
+import { createAuth } from "./lib/auth.js?v=d8b3be61ca";
+import { createStorage } from "./lib/storage.js?v=d8b3be61ca";
 
 /* A página não abre dentro de outro site (clique disfarçado) */
 if (window.top !== window.self) throw new Error("Esta página não pode ser aberta dentro de outra.");

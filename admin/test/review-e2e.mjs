@@ -201,6 +201,8 @@ await step("PDF de referência e capa: aceitos e marcados", async () => {
   // O cliente passa a ver no calendário (aprovação pelo link fica em Aprovações)
   await store.setContentStatus(lancamento.id, "aguardando_aprovacao");
   assert.equal((await store.getContent(lancamento.id)).approval_status, "aguardando_aprovacao");
+  // A arte só chega ao portal depois do envio para a aprovação final
+  store.setFinalStatus(lancamento.id, "aguardando_aprovacao");
 });
 
 let versionSent = 0;
@@ -239,7 +241,7 @@ await step("Painel mostra o pedido de ajuste no histórico", async () => {
   await admin.waitForSelector("#content-drawer .history__item--ajustes");
   assert.match(await admin.textContent("#content-drawer .history__item--ajustes"), /Cliente pediu ajuste pelo portal.*versão \d+.*Trocar a foto da capa/s);
   assert.match(await admin.textContent("#content-drawer .drawer__badges"), /Ajustes solicitados/);
-  assert.match(await admin.textContent('.row:has-text("Carrossel de lançamento") .row__status'), /Ajustes solicitados/);
+  assert.match(await admin.textContent('.row:has-text("Carrossel de lançamento") .row__status'), /Ideia: ajustes/);
 });
 
 await step("Equipe troca a capa (nova versão)", async () => {
@@ -379,7 +381,7 @@ await step("Importar: grava os marcados e leva aos conteúdos do cliente", async
   const after = await store.listContents({ client_id: padaria.id });
   assert.equal(after.length, before + 3);
   const imported = after.find((c) => c.title === "Importado com imagem");
-  assert.deepEqual([imported.scheduled_date, imported.scheduled_time, imported.network, imported.format, imported.status, imported.media_kind, imported.client_notes, imported.internal_notes], ["2027-03-10", "09:00:00", "instagram", "post", "aguardando_aprovacao", "image", "Confira a cor", "Interno: margem"]);
+  assert.deepEqual([imported.scheduled_date, imported.scheduled_time, imported.network, imported.format, imported.status, imported.media_kind, imported.planning_notes, imported.internal_notes], ["2027-03-10", "09:00:00", "instagram", "post", "aguardando_aprovacao", "image", "Confira a cor", "Interno: margem"]);
   assert.equal(after.find((c) => c.title === "Importado com vídeo").media_kind, "image", "carrossel com link: tipo pelo formato");
   await admin.click("#import-preview [data-imp-see]");
   await admin.waitForURL(new RegExp(`client_id=${padaria.id}`));
@@ -435,7 +437,7 @@ await step("Status em massa: marcar vários, confirmar e o cliente passa a ver",
   await admin.waitForSelector("#bulk-bar", { state: "hidden" });
   const after = (await store.listContents({ client_id: padaria.id })).filter((c) => c.title.startsWith("Massa"));
   assert.deepEqual(after.map((c) => c.status), ["aguardando_aprovacao", "aguardando_aprovacao", "aguardando_aprovacao"]);
-  assert.equal(await admin.locator('.row:has-text("Massa A") .row__status').textContent(), "Aguardando aprovação");
+  assert.equal(await admin.locator('.row:has-text("Massa A") .row__status').textContent(), "Ideia: aguardando");
   // Selecionar todos / desmarcar todos
   await admin.click("[data-bulk-all]");
   assert.equal(Number(await admin.textContent("#bulk-bar [data-bulk-count]")), await admin.locator("[data-pick]").count());

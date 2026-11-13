@@ -332,3 +332,4 @@ html.ap-locked { overflow: hidden; }
   .ap-bar__fill, .ap-card__open, .ap-card__more .icon, .ap-more__summary .icon { transition: none; }
   .ap-card__open:hover { transform: none; }
 }
+.ap-hashtags { margin-top: 8px; font-size: 15px; line-height: 1.6; color: var(--brand); overflow-wrap: anywhere; }

@@ -86,6 +86,8 @@ export function createFakeSupabase({ store, publishableKey }) {
       approval_link_revoke: ["p_batch", "approvalLinkRevoke"],
       approval_preview: ["p_batch", "approvalPreview"],
       approval_mark_read: [null, "approvalMarkRead"],
+      approval_batch_delete: ["p_batch", "approvalBatchDelete"],
+      approval_stale: [null, "approvalStale"],
       media_in_history: ["p_path", "mediaInHistory"]
     }[name];
     if (approvalRpc && (!approvalRpc[0] || approvalRpc[0] === keys)) return store[approvalRpc[1]](team, body || {});

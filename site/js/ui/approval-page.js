@@ -16,14 +16,14 @@
    Tudo o que vem do banco passa por esc(): nada vira HTML.
    ========================================================================== */
 
-import { esc, on } from "../lib/dom.js?v=476ab22dd7";
-import { icon, brandMark } from "../lib/icons.js?v=476ab22dd7";
-import { monthLabel, monthName, longDayLabel, timeLabel, monthGrid, WEEKDAYS_SHORT, stampLabel, fromISO } from "../lib/dates.js?v=476ab22dd7";
-import { ACTIVITY_TYPES, PLATFORMS } from "../domain/model.js?v=476ab22dd7";
-import { APPROVAL_STATUS, APPROVAL_MODES, isPending } from "../domain/approvals.js?v=476ab22dd7";
-import { renderFinal, wireCarousel } from "./preview.js?v=476ab22dd7";
-import { wireMediaFallbacks } from "./media.js?v=476ab22dd7";
-import { toast } from "./toast.js?v=476ab22dd7";
+import { esc, on } from "../lib/dom.js?v=d8b3be61ca";
+import { icon, brandMark } from "../lib/icons.js?v=d8b3be61ca";
+import { monthLabel, monthName, longDayLabel, timeLabel, monthGrid, WEEKDAYS_SHORT, stampLabel, fromISO } from "../lib/dates.js?v=d8b3be61ca";
+import { ACTIVITY_TYPES, PLATFORMS } from "../domain/model.js?v=d8b3be61ca";
+import { APPROVAL_STATUS, APPROVAL_MODES, isPending } from "../domain/approvals.js?v=d8b3be61ca";
+import { renderFinal, wireCarousel } from "./preview.js?v=d8b3be61ca";
+import { wireMediaFallbacks } from "./media.js?v=d8b3be61ca";
+import { toast } from "./toast.js?v=d8b3be61ca";
 
 const NAME_KEY = "dg-aprovacao-nome";
 const SESSION_KEY = "dg-aprovacao-sessao";
@@ -199,7 +199,7 @@ export function createApprovalPage(root, { preview = false, decide, approveAll }
     const c = counts();
     if (!c.total || c.pending) return "";
     if (!c.adjust) {
-      return `<section class="ap-done ap-done--ok" role="status"><span class="ap-done__icon">${icon("check")}</span><div><h2 class="ap-done__title">Planejamento aprovado!</h2><p>Obrigado! Recebemos sua aprovação. Agora nossa equipe seguirá com a próxima etapa.</p></div></section>`;
+      return `<section class="ap-done ap-done--ok" role="status"><span class="ap-done__icon">${icon("check")}</span><div><h2 class="ap-done__title">${view.batch.mode === "final" ? "Conteúdos aprovados!" : "Planejamento aprovado!"}</h2><p>Obrigado! Recebemos sua aprovação. ${view.batch.mode === "final" ? "Agora é com a gente: vamos programar as publicações." : "Agora nossa equipe seguirá com a próxima etapa."}</p></div></section>`;
     }
     const titles = items().filter((i) => i.status === "ajustes").map((i) => i.content?.title).filter(Boolean);
     return `<section class="ap-done ap-done--partial" role="status"><span class="ap-done__icon">${icon("message")}</span><div>
@@ -377,15 +377,16 @@ export function createApprovalPage(root, { preview = false, decide, approveAll }
     const idea = c.idea
       ? `<p class="ap-sec__text${clamped ? " is-clamped" : ""}">${esc(c.idea)}</p>${isLong ? `<button type="button" class="ap-link" data-ap-expand="${esc(item.id)}" aria-expanded="${!clamped}">${clamped ? "Ver descrição completa" : "Mostrar menos"}</button>` : ""}`
       : "";
-    const captionBody = [para(c.caption, "ap-sec__text--box"), c.cta ? `<p class="ap-cta">${icon("send")}<span><b>Chamada para ação:</b> ${esc(c.cta)}</span></p>` : ""].join("");
+    // O banco já manda só o que a etapa mostra: ideia (planejamento) ou arte e legenda (final)
+    const final = view.batch.mode === "final";
+    const captionBody = [para(c.caption, "ap-sec__text--box"), c.hashtags ? `<p class="ap-hashtags">${esc(c.hashtags)}</p>` : "", c.cta ? `<p class="ap-cta">${icon("send")}<span><b>Chamada para ação:</b> ${esc(c.cta)}</span></p>` : ""].join("");
+    const notes = c.planning_notes || c.client_notes;
     const facts = [
-      c.objective && ["Objetivo", c.objective],
-      c.pillar && ["Pilar", c.pillar],
       ["Rede", networkOf(c.network)],
       item.version_number > 1 && ["Versão", `Versão ${item.version_number}`]
     ].filter(Boolean);
     const extra = `<dl class="ap-facts">${facts.map(([k, v]) => `<div><dt>${esc(k)}</dt><dd>${esc(v)}</dd></div>`).join("")}</dl>`;
-    const empty = !c.idea && !c.content_plan && !c.caption && !(c.assets || []).length;
+    const empty = !c.idea && !c.content_plan && !c.caption && !notes && !(c.assets || []).length;
     return `
       <div class="ap-detail__grid${media ? "" : " is-text"}">
         <div class="ap-detail__intro">
@@ -398,9 +399,8 @@ export function createApprovalPage(root, { preview = false, decide, approveAll }
           <div class="ap-detail__sections">
             ${section("lightbulb", "A ideia", idea)}
             ${section("play", "Roteiro / como vai ser", para(c.content_plan))}
-            ${c.art_text ? section("type", "Texto na arte", `<blockquote class="art-text">${esc(c.art_text)}</blockquote>`) : ""}
-            ${section("message", "Observação da Digital Galaxy", para(c.client_notes, "ap-sec__text--note"))}
-            ${more(c.caption ? "Ver legenda" : "Chamada para ação", captionBody, { open: view.batch.mode === "final" })}
+            ${final ? section("edit", "Legenda", captionBody) : ""}
+            ${section("message", final ? "Observações" : "Observações do planejamento", para(notes, "ap-sec__text--note"))}
             ${more("Informações adicionais", extra)}
             ${empty ? '<p class="ap-muted">Nossa equipe ainda está detalhando este conteúdo.</p>' : ""}
           </div>

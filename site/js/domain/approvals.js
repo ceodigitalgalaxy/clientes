@@ -28,13 +28,13 @@ export const PRODUCTION_STATUS = {
 export const APPROVAL_MODES = {
   planejamento: {
     label: "Aprovação de planejamento", short: "Planejamento", icon: "lightbulb",
-    what: "o tema, a ideia, o formato, a data e a abordagem",
-    note: "Você está aprovando a IDEIA de cada conteúdo (tema, formato, data e abordagem). A arte, o vídeo e a legenda podem ainda não estar prontos: eles vêm numa próxima etapa."
+    what: "o tema, a ideia, o formato e a data",
+    note: "Você está aprovando a IDEIA de cada conteúdo: tema, formato, data e como vai ser. A arte, o vídeo e a legenda são produzidos depois e chegam para você numa aprovação separada."
   },
   final: {
     label: "Aprovação de conteúdo final", short: "Conteúdo final", icon: "image",
     what: "a arte, o vídeo, a legenda e a data",
-    note: "Você está aprovando o conteúdo FINAL: a arte, o vídeo ou carrossel, a legenda e a data, do jeito que vão ao ar."
+    note: "Você está aprovando o conteúdo FINAL: a arte, o vídeo ou carrossel, a legenda e a data, do jeito que vão ao ar. A ideia já foi aprovada antes, numa etapa separada."
   }
 };
 

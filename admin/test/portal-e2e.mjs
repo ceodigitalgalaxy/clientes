@@ -183,7 +183,7 @@ await step("Equipe entra no painel da agência", async () => {
 });
 
 await step("Imagem cadastrada no painel aparece na data certa do calendário", async () => {
-  await adminCreate({ client: "Padaria Central Ltda", title: "Pão de fermentação natural", scheduled_date: D(10), scheduled_time: "10:30", network: "instagram", format: "post", media_url: "https://cdn.exemplo.com/arte.png", idea: "Mostrar a primeira fornada do dia", content_plan: "1. Forno abrindo\n2. Pães na vitrine", art_text: "Saiu agora!", objective: "Movimento de manhã", caption: "Chegou o pão que você pediu!", client_notes: "Confira a cor da embalagem.", internal_notes: "SEGREDO: margem baixa", status: "aguardando_aprovacao" });
+  await adminCreate({ client: "Padaria Central Ltda", title: "Pão de fermentação natural", scheduled_date: D(10), scheduled_time: "10:30", network: "instagram", format: "post", media_url: "https://cdn.exemplo.com/arte.png", idea: "Mostrar a primeira fornada do dia", content_plan: "1. Forno abrindo\n2. Pães na vitrine", art_text: "Saiu agora!", objective: "Movimento de manhã", caption: "Chegou o pão que você pediu!", planning_notes: "Confira a cor da embalagem.", internal_notes: "SEGREDO: margem baixa", status: "aguardando_aprovacao" });
   // Do mesmo cliente, mas ainda em produção: não aparece
   await adminCreate({ client: "Padaria Central Ltda", title: "Rascunho escondido", scheduled_date: D(11), network: "instagram", format: "post", status: "planejado" });
   // De outro cliente: não aparece
@@ -203,12 +203,13 @@ await step("Conteúdos de outros clientes, em produção e observações interna
   assert.ok(!html.includes("Estúdio Luz"));
 });
 
-await step("Detalhes: a ideia, como vai ser, texto na arte, objetivo, legenda e observação (sem referência e sem aprovar)", async () => {
+await step("Detalhes (etapa da ideia): ideia, como vai ser, objetivo e observação; legenda e texto da arte ainda não", async () => {
   await portal.click(`.cal__cell[data-day="${D(10)}"] .chip`);
   await portal.waitForSelector("#drawer[open] #drawer-title");
   assert.equal(await portal.textContent("#drawer-title"), "Pão de fermentação natural");
   const text = await portal.textContent("#drawer");
-  assert.match(text, /A ideia.*Mostrar a primeira fornada.*Como vai ser.*Forno abrindo.*Pães na vitrine.*Texto na arte.*Saiu agora!.*Objetivo.*Movimento de manhã.*Legenda.*Chegou o pão que você pediu!/s);
+  assert.match(text, /A ideia.*Mostrar a primeira fornada.*Como vai ser.*Forno abrindo.*Pães na vitrine.*Objetivo.*Movimento de manhã/s);
+  assert.ok(!text.includes("Chegou o pão que você pediu!") && !text.includes("Saiu agora!"), "legenda e texto da arte só na aprovação final");
   for (const part of ["Instagram", "Aguardando aprovação", "Confira a cor da embalagem.", "10h30", "responda no nosso grupo"]) assert.ok(text.includes(part), part);
   assert.ok(text.includes(`${Number(D(10).slice(8))} de`), "data");
   assert.ok(!text.includes("SEGREDO"));
@@ -221,7 +222,12 @@ await step("Detalhes: a ideia, como vai ser, texto na arte, objetivo, legenda e 
   await shot(portal, "p01-detalhes");
 });
 
-await step("Painel aberto se atualiza quando a agência edita (legenda)", async () => {
+await step("Enviado para a aprovação final: o painel aberto passa a mostrar a legenda", async () => {
+  await admin.click('.row:has-text("Pão de fermentação natural") [data-edit-content]');
+  await admin.waitForSelector("#content-modal[open]");
+  await admin.selectOption('#content-modal [name="final_status"]', "aguardando_aprovacao");
+  await admin.click("#content-modal [type=submit]");
+  await admin.waitForSelector("#content-modal:not([open])", { state: "attached" });
   await adminEdit("Pão de fermentação natural", { caption: "Legenda revisada pela equipe" });
   await portalRefocus();
   await portal.waitForFunction(() => document.querySelector("#drawer .detail__caption")?.textContent === "Legenda revisada pela equipe");

@@ -11,7 +11,7 @@
    Sem dependências: roda no navegador e nos testes (Node).
    ========================================================================== */
 
-import { validateContent, NETWORKS, CONTENT_STATUS } from "./rules.js?v=476ab22dd7";
+import { validateContent, NETWORKS, CONTENT_STATUS } from "./rules.js?v=d8b3be61ca";
 
 export const MAX_IMPORT_ROWS = 500;
 
@@ -31,13 +31,15 @@ const COLUMNS = {
   content_plan: ["como vai ser", "roteiro", "estrutura", "descricao", "descricao do conteudo", "cenas", "slides"],
   art_text: ["texto na arte", "texto da arte", "texto no video", "texto na tela", "chamada"],
   objective: ["objetivo", "objetivo do conteudo"],
-  client_notes: ["observacao para o cliente", "observacoes para o cliente", "obs para o cliente", "obs cliente", "observacao cliente", "nota para o cliente"],
+  // Planilha de planejamento: a observação ao cliente vai com a ideia
+  planning_notes: ["observacao para o cliente", "observacoes para o cliente", "obs para o cliente", "obs cliente", "observacao cliente", "nota para o cliente", "observacoes do planejamento", "observacao do planejamento"],
+  hashtags: ["hashtags", "hashtag", "tags"],
   internal_notes: ["observacoes internas", "observacao interna", "obs interna", "obs internas", "notas internas", "observacoes", "observacao", "obs"],
   status: ["status", "etapa", "situacao", "andamento"]
 };
 export const COLUMN_LABELS = {
   title: "Título", scheduled_date: "Data", scheduled_time: "Horário", network: "Rede social", format: "Formato",
-  media_url: "Link da referência", idea: "Ideia", content_plan: "Como vai ser", art_text: "Texto na arte", objective: "Objetivo", caption: "Legenda", client_notes: "Observação para o cliente", internal_notes: "Observações internas", status: "Status"
+  media_url: "Link da referência", idea: "Ideia", content_plan: "Como vai ser", art_text: "Texto na arte", objective: "Objetivo", caption: "Legenda", hashtags: "Hashtags", planning_notes: "Observação para o cliente", internal_notes: "Observações internas", status: "Status"
 };
 
 const NETWORK_ALIASES = {
@@ -204,7 +206,8 @@ export function mapRows(rows, { clientId, date1904 = false, existing = [], today
       art_text: text("art_text"),
       objective: text("objective"),
       caption: text("caption"),
-      client_notes: text("client_notes"),
+      planning_notes: text("planning_notes"),
+      hashtags: text("hashtags"),
       internal_notes: text("internal_notes"),
       status
     };

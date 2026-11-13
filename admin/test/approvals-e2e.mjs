@@ -174,11 +174,15 @@ await step("Cliente abre o link sem login e vê só o lote, sem nada interno", a
   assert.equal(await client.locator(".ap-card").count(), 3);
   assert.match(await client.textContent(card("Primeira fornada")), /Aguardando aprovação.*Primeira fornada.*Reels.*Ver detalhes/s);
   assert.ok(!(await client.textContent(card("Primeira fornada"))).includes("Mostrar o pão"), "cartão sem a descrição longa");
-  assert.equal(await client.locator(`${card("Primeira fornada")} .ap-thumb img`).count(), 1, "com arte: miniatura");
-  assert.equal(await client.locator(`${card("Promoção do café")} .ap-thumb`).count(), 0, "sem arte: sem espaço de imagem");
+  // Planejamento: a arte (mesmo já anexada) não vai; cartão sem espaço de imagem
+  assert.equal(await client.locator(".ap-card .ap-thumb").count(), 0, "planejamento sem arte");
   await openDetail(client, "Primeira fornada");
-  assert.match(await client.textContent(DETAIL), /Conteúdo 1 de 3.*A ideia.*Mostrar o pão.*Roteiro \/ como vai ser.*Forno abrindo.*Texto na arte.*Saiu agora!.*Ver legenda.*Nada como pão quentinho.*Chamada para ação.*Peça pelo WhatsApp.*Informações adicionais.*Objetivo.*Movimento de manhã.*Pilar.*Bastidores/s);
-  await client.waitForFunction(() => document.querySelector(".ap-detail[open] .media img")?.naturalWidth > 0);
+  const detail = await client.textContent(DETAIL);
+  assert.match(detail, /Conteúdo 1 de 3.*A ideia.*Mostrar o pão.*Roteiro \/ como vai ser.*Forno abrindo.*Informações adicionais.*Rede/s);
+  for (const hidden of ["Nada como pão quentinho", "Saiu agora!", "Peça pelo WhatsApp", "Movimento de manhã", "Bastidores", "Legenda"]) {
+    assert.ok(!detail.includes(hidden), `planejamento não mostra "${hidden}"`);
+  }
+  assert.equal(await client.locator(`${DETAIL} img, ${DETAIL} video`).count(), 0, "sem arte no detalhe");
   await shot(client, "ap02b-detalhe");
   await client.click(`${DETAIL} [data-ap-step="1"]`);
   await client.waitForSelector(`${DETAIL} .ap-detail__title:text-is("Promoção do café")`);
@@ -191,8 +195,7 @@ await step("Cliente abre o link sem login e vê só o lote, sem nada interno", a
   assert.equal(await client.evaluate(() => document.activeElement?.closest(".ap-card")?.querySelector(".ap-card__title")?.textContent), "Primeira fornada", "o foco volta para o cartão");
   const html = await client.content();
   assert.ok(!html.includes("REFERENCIA-INTERNA") && !html.includes("SEGREDO-DA-EQUIPE") && !html.includes("Ensaio do estúdio"));
-  await client.waitForFunction(() => document.querySelector(".ap-card img")?.naturalWidth > 0);
-  assert.match(await client.getAttribute(".ap-card img", "src"), /\/storage\/v1\/object\/sign\/content-media\/.+\?token=/, "arte por link assinado");
+  assert.ok(!html.includes("Nada como pão quentinho") && !html.includes("sign/content-media"), "nem legenda nem arquivo no planejamento");
   assert.match(await client.textContent(".ap-progress__text"), /0 de 3/);
   assert.equal(await client.getAttribute('meta[name="robots"]', "content"), "noindex, nofollow, noarchive");
   await shot(client, "ap02-cliente", { fullPage: true });
@@ -363,7 +366,9 @@ await step("Link inexistente ou incompleto: aviso sem dados", async () => {
   await client.waitForSelector(".ap-problem");
 });
 
-await step("Celular: lista, decisão e calendário em agenda, sem rolagem lateral", async () => {
+await step("Celular (aprovação final): arte e legenda, decisão e agenda, sem rolagem lateral", async () => {
+  // O depoimento ganha legenda (o final precisa de arte ou legenda)
+  await store.updateContent(c3.id, { ...(await store.getContent(c3.id)), caption: "Há 20 anos com você." });
   const b2 = await store.createBatch({ client_id: padaria.id, title: "Arte final do mês", month: `${MONTH}-01`, approval_mode: "final" }, { id: "x", username: "admdg-teste" });
   await store.approvalSetItems({ id: "x", member: true, username: "admdg-teste" }, { p_batch: b2.id, p_contents: [c1.id, c3.id] });
   const { token } = await store.approvalPublish({ id: "x", member: true, username: "admdg-teste" }, { p_batch: b2.id, p_items: null, p_title: "Arte final do mês", p_intro: "", p_mode: "final" });
@@ -379,11 +384,17 @@ await step("Celular: lista, decisão e calendário em agenda, sem rolagem latera
   assert.ok(cardHeight >= 48 && cardHeight < 260, `cartão compacto e fácil de tocar (${cardHeight}px)`);
   assert.ok(await page.isVisible(".ap-bulkbar [data-ap-all]"), "aprovar todos fixo no rodapé");
   assert.ok(await page.isHidden(".ap-tools [data-ap-all]"), "sem botão repetido na barra do topo");
+  // Final: a arte vai (link assinado) e a miniatura só aparece em quem tem arte
+  await page.waitForFunction(() => document.querySelector(".ap-card img")?.naturalWidth > 0);
+  assert.match(await page.getAttribute(".ap-card img", "src"), /\/storage\/v1\/object\/sign\/content-media\/.+\?token=/, "arte por link assinado");
+  assert.equal(await page.locator(`${card("Depoimento de cliente")} .ap-thumb`).count(), 0, "sem arte: sem espaço de imagem");
   await shot(page, "ap07-celular", { fullPage: true });
   await page.tap(".ap-card [data-ap-open] >> nth=0");
   await page.waitForSelector(".ap-detail[open] [data-ap-approve]");
   const btn = await page.$eval(".ap-detail[open] [data-ap-approve]", (b) => b.getBoundingClientRect().height);
   assert.ok(btn >= 48, `botão de ${btn}px (fácil de tocar)`);
+  assert.match(await page.textContent(".ap-detail[open]"), /Legenda.*Nada como pão quentinho/s);
+  assert.ok(!(await page.textContent(".ap-detail[open]")).includes("Mostrar o pão"), "o final não repete a ideia");
   const fit = await page.$eval(".ap-detail[open] .ap-detail__panel", (p) => p.scrollWidth - p.clientWidth);
   assert.ok(fit <= 0, "detalhe sem rolagem lateral");
   await shot(page, "ap07b-celular-detalhe");
@@ -423,6 +434,74 @@ await step("Painel no celular: lista de lotes e gerenciar sem rolagem lateral", 
   assert.ok(wide <= 0, `gerenciar sem rolagem lateral (${wide}px)`);
   await shot(admin, "ap09-painel-celular");
   await admin.setViewportSize({ width: 1360, height: 900 });
+});
+
+await step("Excluir lote já enviado: confirma, some da lista, pendentes voltam a rascunho", async () => {
+  await admin.reload();
+  const target = '.batch-card:has(.batch-card__title:text-is("Arte final do mês"))';
+  await admin.waitForSelector(target);
+  const id = await admin.getAttribute(target, "data-batch");
+  await admin.click(`${target} [data-batch-delete]`);
+  await admin.waitForSelector("#confirm-modal[open]");
+  assert.match(await admin.textContent("#confirm-modal"), /já foi enviado.*link para de funcionar.*histórico de decisões.*voltam para rascunho/s);
+  await confirmOk();
+  await toastSays(admin, /Lote excluído/);
+  await admin.waitForSelector(target, { state: "detached" });
+  assert.equal((await store.listDecisions({ batch_id: id })).length, 0, "histórico do lote apagado");
+  // Lote final: só o status FINAL volta; a ideia aprovada continua aprovada
+  assert.equal((await store.getContent(c3.id)).final_status, "rascunho", "pendente volta para rascunho");
+  assert.equal((await store.getContent(c3.id)).approval_status, "aprovado", "ideia continua aprovada");
+  assert.equal((await store.getContent(c1.id)).final_status, "aprovado", "aprovado continua aprovado");
+  assert.ok(await store.getContent(c3.id), "conteúdo continua no calendário");
+  // O outro lote continua e também pode ser excluído pelo painel de gerenciar
+  await admin.click(".batch-card [data-batch-open]");
+  await admin.waitForSelector("#batch-drawer [data-batch-delete]");
+  await admin.click("#batch-drawer [data-batch-delete]");
+  await confirmOk();
+  await toastSays(admin, /Lote excluído/);
+  await admin.waitForSelector(".batch-card", { state: "detached" });
+});
+
+await step("Do conteúdo: 'Enviar para aprovação final' cria o lote final; sem arte nem legenda não vai", async () => {
+  await admin.goto(`${ORIGIN}/admin/#/conteudos`);
+  await admin.click(`.row [data-view-content="${c2.id}"]`);
+  await admin.waitForSelector("#content-drawer [data-send-stage=final]");
+  assert.match(await admin.textContent("#content-drawer .approval-box__stages"), /Aprovação da ideia.*Aprovado.*Aprovação final.*Não enviado/s);
+  assert.match(await admin.textContent("#content-drawer"), /Planejamento.*vai no link da ideia.*Produção.*só vai ao cliente na aprovação final/s);
+  await admin.waitForTimeout(400);
+  await shot(admin, "ap11-conteudo-etapas");
+  await admin.click("#content-drawer [data-send-stage=final]");
+  await admin.waitForSelector("#publish-modal[open]");
+  assert.ok(await admin.isChecked('#publish-modal [name="mode"][value="final"]'));
+  await admin.click("#publish-modal [type=submit]");
+  await admin.waitForSelector("#publish-modal .form-error:not([hidden])");
+  assert.match(await admin.textContent("#publish-modal .form-error"), /precisa de arte.*ou legenda/);
+  await admin.click('#publish-modal [data-action="close-modal"]');
+  // Completa a produção (legenda e hashtags) e envia de novo
+  await admin.goto(`${ORIGIN}/admin/#/conteudos`);
+  await admin.click(`.row [data-edit-content="${c2.id}"]`);
+  await admin.waitForSelector("#content-modal[open]");
+  assert.match(await admin.textContent("#content-modal"), /1\. Planejamento.*2\. Produção.*3\. Interno/s);
+  await shot(admin, "ap12-formulario", { fullPage: false });
+  await admin.fill('#content-modal [name="caption"]', "Café especial + pão na chapa por R$ 9,90.");
+  await admin.fill('#content-modal [name="hashtags"]', "#cafedamanha #padaria");
+  await admin.fill('#content-modal [name="client_notes"]', "Arte com a nova logo.");
+  await admin.click("#content-modal [type=submit]");
+  await admin.waitForSelector("#content-modal", { state: "hidden" });
+  await admin.click(`.row [data-view-content="${c2.id}"]`);
+  await admin.click("#content-drawer [data-send-stage=final]");
+  await admin.waitForSelector("#publish-modal[open]");
+  await admin.click("#publish-modal [type=submit]");
+  await toastSays(admin, /Link copiado/);
+  const saved = await store.getContent(c2.id);
+  assert.deepEqual([saved.approval_status, saved.final_status], ["aprovado", "aguardando_aprovacao"], "ideia e final independentes");
+  const link = await admin.evaluate(() => navigator.clipboard.readText());
+  await client.goto("about:blank");
+  await client.goto(link);
+  await client.waitForSelector(".ap-card");
+  await openDetail(client, "Promoção do café");
+  assert.match(await client.textContent(DETAIL), /Legenda.*Café especial \+ pão na chapa.*#cafedamanha.*Observações.*Arte com a nova logo/s);
+  await shot(client, "ap10-final-detalhe");
 });
 
 await step("Sem erros de JavaScript no console", async () => assert.deepEqual(consoleErrors, [], JSON.stringify(consoleErrors)));

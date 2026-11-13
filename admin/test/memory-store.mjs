@@ -9,7 +9,7 @@ import { createApprovalsMemory } from "./memory-approvals.mjs";
 import { pairFromStatus, statusFromPair } from "../../site/js/domain/approvals.js";
 import { CLIENT_VISIBLE_STATUS } from "../../site/admin/js/domain/rules.js";
 
-const VISIBLE_FIELDS = ["title", "scheduled_date", "scheduled_time", "network", "format", "caption", "client_notes", "idea", "content_plan", "art_text", "objective", "pillar", "cta"];
+const VISIBLE_FIELDS = ["title", "scheduled_date", "scheduled_time", "network", "format", "caption", "client_notes", "idea", "content_plan", "art_text", "objective", "pillar", "cta", "planning_notes", "hashtags"];
 
 /** Gatilho contents_a_status: status antigo calculado dos dois novos (e vice-versa) */
 function syncStatus(next, old = null) {
@@ -172,11 +172,12 @@ export function createMemoryStore() {
       const c = a && contents.get(a.content_id);
       return Boolean(m && c && c.client_id === m.clientId && clients.get(c.client_id)?.active && CLIENT_VISIBLE_STATUS.includes(c.status));
     },
+    setFinalStatus(id, status) { const c = contents.get(id); if (c) c.final_status = status; },
     async getContent(id) { await this.tick(); const c = contents.get(id); if (!c) throw new StoreError(404, "Registro não encontrado.", "PGRST116"); return { ...c }; },
     async createContent(value) {
       await this.tick();
       if (!clients.has(value.client_id)) throw new StoreError(409, "Cliente não encontrado.", "23503");
-      const c = { id: randomUUID(), pillar: null, cta: null, ...syncStatus(value), scheduled_time: value.scheduled_time ? `${value.scheduled_time}:00` : null, version: 1, created_at: now(), updated_at: now() };
+      const c = { id: randomUUID(), pillar: null, cta: null, planning_notes: null, hashtags: null, final_status: "rascunho", ...syncStatus(value), scheduled_time: value.scheduled_time ? `${value.scheduled_time}:00` : null, version: 1, created_at: now(), updated_at: now() };
       contents.set(c.id, c);
       return { ...c };
     },
@@ -224,7 +225,17 @@ export function createMemoryStore() {
     /** portal_agenda(): sem referência e sem decisão, com os campos guiados */
     async portalAgenda(userId, from, to) {
       const rows = await this.portalContents(userId, from, to);
-      return rows.map(({ media_url, media_kind, decision, ...rest }) => ({ idea: null, content_plan: null, art_text: null, objective: null, ...rest }));
+      // Como no banco: legenda, arte e arquivos só depois do envio para a aprovação final
+      return rows.map(({ media_url, media_kind, decision, planning_notes, hashtags, final_status, ...rest }) => {
+        const final = final_status && final_status !== "rascunho";
+        return {
+          idea: null, content_plan: null, objective: null, ...rest,
+          art_text: final ? rest.art_text ?? null : null,
+          caption: final ? [rest.caption, hashtags].filter(Boolean).join("\n\n") || null : null,
+          client_notes: final ? rest.client_notes || planning_notes || null : planning_notes || null,
+          assets: final ? rest.assets : []
+        };
+      });
     },
     async listClientCalendar(clientId, { from, to } = {}) {
       return (await this.listContents({ client_id: clientId, from, to }))
@@ -235,7 +246,12 @@ export function createMemoryStore() {
   Object.assign(store, createAdsMemory({ clients, members, now, tick: () => store.tick() }));
   Object.assign(store, createApprovalsMemory({
     clients, contents, assetsOf, now, tick: () => store.tick(),
-    setContentApproval(id, approval) { const c = contents.get(id); if (c) Object.assign(c, syncStatus({ approval_status: approval }, c)); }
+    setContentApproval(id, approval, mode = "planejamento") {
+      const c = contents.get(id);
+      if (!c) return;
+      if (mode === "final") c.final_status = approval;
+      else Object.assign(c, syncStatus({ approval_status: approval }, c));
+    }
   }));
   return store;
 }

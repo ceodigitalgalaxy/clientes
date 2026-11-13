@@ -39,14 +39,30 @@ export function createApprovalsMemory({ clients, contents, assetsOf, setContentA
     return {
       title: c.title, scheduled_date: c.scheduled_date, scheduled_time: c.scheduled_time ? c.scheduled_time.slice(0, 5) : null,
       network: c.network, format: c.format, pillar: c.pillar ?? null, objective: c.objective ?? null, idea: c.idea ?? null,
-      content_plan: c.content_plan ?? null, art_text: c.art_text ?? null, caption: c.caption ?? null, cta: c.cta ?? null, client_notes: c.client_notes ?? null,
+      content_plan: c.content_plan ?? null, art_text: c.art_text ?? null, caption: c.caption ?? null, hashtags: c.hashtags ?? null, cta: c.cta ?? null, client_notes: c.client_notes ?? null,
+      planning_notes: c.planning_notes ?? null,
       assets: assetsOf(contentId).map((a) => ({ kind: a.kind, role: a.role || "midia", name: a.name ?? null, storage_path: a.storage_path, url: a.url }))
     };
   };
   const activeItems = (batchId) => [...items.values()].filter((i) => i.batch_id === batchId && !i.removed_at)
     .sort((a, b) => a.display_order - b.display_order || a.created_at.localeCompare(b.created_at));
   const activeLink = (batchId) => [...links.values()].find((l) => l.batch_id === batchId && !l.revoked_at) || null;
-  const setApproval = (contentId, status) => setContentApproval(contentId, status);
+  const modeOf = (batchId) => batches.get(batchId)?.approval_mode || "planejamento";
+  const setApproval = (contentId, status, mode) => setContentApproval(contentId, status, mode);
+  const stageStatus = (contentId, mode) => { const c = contents.get(contentId); return c ? (mode === "final" ? c.final_status || "rascunho" : c.approval_status) : null; };
+  /** Como private.approval_view: o recorte do que cada etapa mostra ao cliente */
+  const view = (snap, mode) => {
+    if (!snap) return null;
+    const base = { title: snap.title, scheduled_date: snap.scheduled_date, scheduled_time: snap.scheduled_time, network: snap.network, format: snap.format };
+    return mode === "final"
+      ? { ...base, caption: snap.caption ?? null, hashtags: snap.hashtags ?? null, cta: snap.cta ?? null, client_notes: snap.client_notes ?? null, assets: snap.assets || [] }
+      : { ...base, idea: snap.idea ?? null, content_plan: snap.content_plan ?? null, planning_notes: snap.planning_notes ?? null, assets: [] };
+  };
+  const staleItem = (item) => {
+    const v = item.version_id && versions.get(item.version_id);
+    if (!v || !contents.has(item.content_id)) return false;
+    return JSON.stringify(view(v.snapshot, modeOf(item.batch_id))) !== JSON.stringify(view(snapshot(item.content_id), modeOf(item.batch_id)));
+  };
 
   function batchJson(batchId, linkId, preview = false) {
     const b = batches.get(batchId);
@@ -64,7 +80,7 @@ export function createApprovalsMemory({ clients, contents, assetsOf, setContentA
           const prev = decisions.filter((x) => x.item_id === i.id && x.action === "ajustes" && x.version_id !== i.version_id).at(-1);
           return {
             id: i.id, status: i.status, version_id: i.version_id, version_number: v?.version_number ?? null,
-            content: v ? structuredClone(v.snapshot) : preview && contents.has(i.content_id) ? snapshot(i.content_id) : null,
+            content: view(v ? structuredClone(v.snapshot) : preview && contents.has(i.content_id) ? snapshot(i.content_id) : null, b.approval_mode),
             decision: d ? { action: d.action, comment: d.comment, reviewer_name: d.reviewer_name, created_at: d.created_at, bulk: d.bulk } : null,
             previous_request: prev ? { comment: prev.comment, reviewer_name: prev.reviewer_name, created_at: prev.created_at } : null
           };
@@ -100,9 +116,9 @@ export function createApprovalsMemory({ clients, contents, assetsOf, setContentA
       action, comment: text, reviewer_name: reviewer, session_id: session ? String(session).slice(0, 64) : null, bulk, created_at: stamp() });
     const from = item.status;
     item.status = action; item.decided_at = now();
-    setApproval(item.content_id, action);
+    setApproval(item.content_id, action, modeOf(link.batch_id));
     event(link.batch_id, action, "cliente", reviewer || "Cliente (sem nome)", { item_id: item.id, content_id: item.content_id, version_id: item.version_id,
-      from_status: from, to_status: action, metadata: { comment: text, session, link_id: link.id, bulk } });
+      from_status: from, to_status: action, metadata: { comment: text, session, link_id: link.id, bulk, stage: modeOf(link.batch_id) } });
     return { ok: true, item: item.id, status: action };
   }
   function afterClient(batchId, name) {
@@ -116,20 +132,22 @@ export function createApprovalsMemory({ clients, contents, assetsOf, setContentA
 
   function send(batchId, itemIds, actor) {
     let count = 0;
+    const mode = modeOf(batchId);
     for (const item of activeItems(batchId)) {
       if (itemIds && !itemIds.includes(item.id)) continue;
       const c = contents.get(item.content_id);
       if (!c) continue;
       const sent = item.version_id ? versions.get(item.version_id) : null;
-      if (!(!sent || item.status === "ajustes" || sent.content_version < c.version)) continue;
+      if (!(!sent || item.status === "ajustes" || staleItem(item))) continue;
+      if (mode === "final" && !assetsOf(c.id).length && !String(c.caption || "").trim()) throw fail("final_sem_conteudo");
       const number = [...versions.values()].filter((v) => v.content_id === c.id).length + 1;
-      const v = { id: randomUUID(), content_id: c.id, client_id: c.client_id, version_number: number, content_version: c.version, snapshot: snapshot(c.id), created_by: actor.id, created_at: stamp() };
+      const v = { id: randomUUID(), content_id: c.id, client_id: c.client_id, version_number: number, content_version: c.version, snapshot: view(snapshot(c.id), mode), stage: mode, created_by: actor.id, created_at: stamp() };
       versions.set(v.id, v);
       const to = sent ? "reenviado" : "aguardando_aprovacao";
       const from = item.status;
       Object.assign(item, { version_id: v.id, status: to, decided_at: null });
-      setApproval(c.id, to);
-      event(batchId, to === "reenviado" ? "nova_versao" : "enviado", "equipe", actor.username, { item_id: item.id, content_id: c.id, version_id: v.id, from_status: from, to_status: to, metadata: { version_number: number } });
+      setApproval(c.id, to, mode);
+      event(batchId, to === "reenviado" ? "nova_versao" : "enviado", "equipe", actor.username, { item_id: item.id, content_id: c.id, version_id: v.id, from_status: from, to_status: to, metadata: { version_number: number, stage: mode } });
       count += 1;
     }
     if (count) { const b = batches.get(batchId); b.sent_at ||= now(); }
@@ -197,6 +215,7 @@ export function createApprovalsMemory({ clients, contents, assetsOf, setContentA
       const b = getBatch(id);
       const allowed = ["title", "month", "approval_mode", "intro_message", "allow_individual", "allow_bulk", "archived_at"];
       if (Object.keys(value).some((k) => !allowed.includes(k))) throw new StoreError(403, "permission denied", "42501");
+      if (b.sent_at && value.approval_mode && value.approval_mode !== b.approval_mode) throw fail("modo_travado");
       Object.assign(b, value, { updated_at: now() });
       return { ...b };
     },
@@ -249,6 +268,7 @@ export function createApprovalsMemory({ clients, contents, assetsOf, setContentA
       await tick(); team(actor);
       const b = openBatch(p_batch);
       if (p_expires && p_expires <= now()) throw fail("expiracao_no_passado");
+      if (b.sent_at && p_mode && p_mode !== b.approval_mode) throw fail("modo_travado");
       Object.assign(b, { title: String(p_title || "").trim() || b.title, intro_message: String(p_intro || "").trim() || null, approval_mode: p_mode || b.approval_mode,
         allow_individual: p_allow_individual, allow_bulk: p_allow_bulk, updated_at: now() });
       const sent = send(b.id, p_items || null, actor);
@@ -280,6 +300,31 @@ export function createApprovalsMemory({ clients, contents, assetsOf, setContentA
         event(p_batch, "link_desativado", "equipe", actor.username, { metadata: { link_id: l.id, motivo: "desativado" } });
       }
       return null;
+    },
+    /** Como approval_batch_delete: link e histórico do lote apagados; pendentes só deste lote voltam a rascunho */
+    async approvalBatchDelete(actor, { p_batch }) {
+      await tick(); team(actor);
+      getBatch(p_batch);
+      for (const i of activeItems(p_batch)) {
+        if (!i.content_id || !["aguardando_aprovacao", "reenviado"].includes(i.status)) continue;
+        const mode = modeOf(p_batch);
+        const elsewhere = [...items.values()].some((o) => o.content_id === i.content_id && o.batch_id !== p_batch && !o.removed_at
+          && !batches.get(o.batch_id)?.archived_at && modeOf(o.batch_id) === mode && ["aguardando_aprovacao", "reenviado"].includes(o.status));
+        if (["aguardando_aprovacao", "reenviado"].includes(stageStatus(i.content_id, mode)) && !elsewhere) setApproval(i.content_id, "rascunho", mode);
+      }
+      for (const [id, l] of links) if (l.batch_id === p_batch) { vault.delete(l.secret_id); links.delete(id); }
+      for (let k = decisions.length - 1; k >= 0; k -= 1) if (decisions[k].batch_id === p_batch) decisions.splice(k, 1);
+      for (let k = events.length - 1; k >= 0; k -= 1) if (events[k].batch_id === p_batch) events.splice(k, 1);
+      for (const [id, i] of items) if (i.batch_id === p_batch) items.delete(id);
+      batches.delete(p_batch);
+      return null;
+    },
+    /** Como approval_stale: itens que mudaram (só nos campos da etapa) depois do envio */
+    async approvalStale(actor, { p_batch = null, p_content = null } = {}) {
+      await tick();
+      if (!actor?.member || (!p_batch && !p_content)) return [];
+      return [...items.values()].filter((i) => !i.removed_at && i.content_id && (!p_batch || i.batch_id === p_batch) && (!p_content || i.content_id === p_content))
+        .map((i) => ({ item_id: i.id, batch_id: i.batch_id, content_id: i.content_id, mode: modeOf(i.batch_id), stale: staleItem(i) }));
     },
     async approvalPreview(actor, { p_batch }) { await tick(); team(actor); getBatch(p_batch); return batchJson(p_batch, null, true); },
     async approvalMarkRead(actor, { p_ids = null } = {}) {

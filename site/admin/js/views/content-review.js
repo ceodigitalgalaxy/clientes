@@ -5,12 +5,12 @@
    - Aprovação e produção: status separados; o cliente aprova pelo link do lote
      (seção Aprovações). O histórico mostra cada versão enviada e a resposta. */
 
-import { esc, on } from "../../../js/lib/dom.js?v=476ab22dd7";
-import { icon } from "../../../js/lib/icons.js?v=476ab22dd7";
-import { stampLabel } from "../../../js/lib/dates.js?v=476ab22dd7";
-import { renderMedia, mediaFallback } from "../../../js/ui/media.js?v=476ab22dd7";
-import { UPLOAD_LIMITS } from "../../../js/lib/storage.js?v=476ab22dd7";
-import { APPROVAL_STATUS, PRODUCTION_STATUS } from "../../../js/domain/approvals.js?v=476ab22dd7";
+import { esc, on } from "../../../js/lib/dom.js?v=d8b3be61ca";
+import { icon } from "../../../js/lib/icons.js?v=d8b3be61ca";
+import { stampLabel } from "../../../js/lib/dates.js?v=d8b3be61ca";
+import { renderMedia, mediaFallback } from "../../../js/ui/media.js?v=d8b3be61ca";
+import { UPLOAD_LIMITS } from "../../../js/lib/storage.js?v=d8b3be61ca";
+import { APPROVAL_STATUS, PRODUCTION_STATUS } from "../../../js/domain/approvals.js?v=d8b3be61ca";
 
 const ACCEPT = UPLOAD_LIMITS.contentTypes.join(",");
 const ROLES = { midia: "Galeria / carrossel", capa: "Capa", thumbnail: "Thumbnail do vídeo" };
@@ -72,7 +72,7 @@ export function mountReview({ root, content, api, toast, confirm, onChanged }) {
   /* ---------- Arte final ---------- */
   function renderAssets() {
     if (!assets.length) {
-      listBox.innerHTML = '<p class="final-art__empty">Nenhum arquivo ainda. Na aprovação de planejamento eles são opcionais; para a aprovação de conteúdo final, envie aqui a arte, o vídeo ou os slides.</p>';
+      listBox.innerHTML = '<p class="final-art__empty">Nenhum arquivo ainda. Envie aqui a arte, o vídeo ou os slides: eles ficam só com a equipe até o envio para a aprovação final.</p>';
       return;
     }
     listBox.innerHTML = `<ol class="final-list">${assets.map((asset, i) => `
@@ -216,18 +216,24 @@ export function mountReview({ root, content, api, toast, confirm, onChanged }) {
 
   /* ---------- Aprovação e produção ---------- */
   function renderActions() {
-    const a = APPROVAL_STATUS[content.approval_status] || APPROVAL_STATUS.rascunho;
     const p = PRODUCTION_STATUS[content.production_status];
-    const latest = history.versions?.[0];
-    const stale = latest && latest.content_version < content.version && content.approval_status !== "rascunho";
+    const staleIn = (mode) => (history.stale || []).some((r) => r.mode === mode && r.stale);
+    const stage = (label, status, mode) => {
+      const a = APPROVAL_STATUS[status] || APPROVAL_STATUS.rascunho;
+      return `<div class="approval-box__stage"><span class="approval-box__stage-label">${label}</span><span class="appr-chip appr-chip--${esc(a.tone)}">${icon(a.icon)}${esc(status === "rascunho" ? "Não enviado" : a.label)}</span>
+        ${staleIn(mode) ? `<span class="approval-box__warn">${icon("refresh")}Mudou depois do envio: reenvie para o cliente ver</span>` : ""}</div>`;
+    };
+    const ideaOk = content.approval_status === "aprovado";
     actionsBox.innerHTML = `
-      <div class="approval-box__pair">
-        <span class="appr-chip appr-chip--${esc(a.tone)}">${icon(a.icon)}${esc(a.label)}</span>
-        <span class="prod-chip">${icon(p?.icon || "edit")}${esc(p ? p.label : "Produção não iniciada")}</span>
+      <div class="approval-box__stages">
+        ${stage("Aprovação da ideia", content.approval_status, "planejamento")}
+        ${stage("Aprovação final", content.final_status || "rascunho", "final")}
+        <div class="approval-box__stage"><span class="approval-box__stage-label">Produção</span><span class="prod-chip">${icon(p?.icon || "edit")}${esc(p ? p.label : "Não iniciada")}</span></div>
       </div>
-      ${stale ? `<p class="approval-box__warn">${icon("refresh")}Este conteúdo mudou depois do último envio (o cliente viu a versão ${esc(latest.version_number)}). Reenvie pelo lote em Aprovações para ele aprovar de novo.</p>` : ""}
       <div class="approval-box__buttons">
-        <button class="btn btn--ghost btn--sm" type="button" data-go-approvals>${icon("send")}<span>Abrir aprovações do cliente</span></button>
+        ${["rascunho", "ajustes"].includes(content.approval_status) || staleIn("planejamento") ? `<button class="btn ${ideaOk ? "btn--ghost" : "btn--primary"} btn--sm" type="button" data-send-stage="planejamento">${icon("lightbulb")}<span>Enviar para aprovação da ideia</span></button>` : ""}
+        ${["rascunho", "ajustes"].includes(content.final_status || "rascunho") || staleIn("final") ? `<button class="btn ${ideaOk ? "btn--primary" : "btn--ghost"} btn--sm" type="button" data-send-stage="final">${icon("send")}<span>Enviar para aprovação final</span></button>` : ""}
+        <button class="btn btn--ghost btn--sm" type="button" data-go-approvals>${icon("layers")}<span>Abrir aprovações do cliente</span></button>
         ${content.production_status !== "publicado" ? `<button class="btn btn--ghost btn--sm" type="button" data-mark-published>${icon("check")}<span>Marcar como publicado</span></button>` : ""}
       </div>`;
   }
@@ -236,12 +242,13 @@ export function mountReview({ root, content, api, toast, confirm, onChanged }) {
     const rows = [];
     for (const v of history.versions || []) {
       const ds = (history.decisions || []).filter((d) => d.version_id === v.id);
-      rows.push(`<li class="history__item history__item--versao">${icon("layers")}<div><p class="history__title">Versão ${esc(v.version_number)} enviada <span class="history__meta">· ${esc(stampLabel(v.created_at))}</span></p></div></li>`);
+      const stageName = v.stage === "final" ? "Conteúdo final" : "Ideia";
+      rows.push(`<li class="history__item history__item--versao">${icon("layers")}<div><p class="history__title">${stageName}: versão ${esc(v.version_number)} enviada <span class="history__meta">· ${esc(stampLabel(v.created_at))}</span></p></div></li>`);
       ds.forEach((d) => rows.push(`
         <li class="history__item history__item--${d.action === "aprovado" ? "aprovado" : "ajustes"}">
           ${icon(d.action === "aprovado" ? "check" : "edit")}
           <div>
-            <p class="history__title">${d.action === "aprovado" ? "Aprovado" : "Ajuste solicitado"}${d.reviewer_name ? ` por ${esc(d.reviewer_name)}` : ""} <span class="history__meta">· versão ${esc(v.version_number)} · ${esc(stampLabel(d.created_at))}${d.bulk ? " · aprovação em lote" : ""}</span></p>
+            <p class="history__title">${stageName}: ${d.action === "aprovado" ? "aprovado" : "ajuste solicitado"}${d.reviewer_name ? ` por ${esc(d.reviewer_name)}` : ""} <span class="history__meta">· versão ${esc(v.version_number)} · ${esc(stampLabel(d.created_at))}${d.bulk ? " · aprovação em lote" : ""}</span></p>
             ${d.comment ? `<p class="history__text">${esc(d.comment)}</p>` : ""}
           </div>
         </li>`));
@@ -263,6 +270,7 @@ export function mountReview({ root, content, api, toast, confirm, onChanged }) {
     }
   }
 
+  on(root, "click", "[data-send-stage]", (event, b) => { location.hash = `#/aprovacoes?enviar=${encodeURIComponent(content.id)}&etapa=${encodeURIComponent(b.dataset.sendStage)}`; });
   on(root, "click", "[data-go-approvals]", () => { location.hash = `#/aprovacoes?client_id=${encodeURIComponent(content.client_id)}`; });
   on(root, "click", "[data-mark-published]", async (event, button) => {
     button.disabled = true;

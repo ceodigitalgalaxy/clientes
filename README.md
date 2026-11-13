@@ -86,15 +86,24 @@ Serve a pasta `site/` como o GitHub Pages. Não usa chave nenhuma: entra com usu
 
 ### Central de aprovação de conteúdos (link público, sem login)
 
+**Duas aprovações separadas**, cada uma com status e histórico próprios (aprovar a ideia não aprova o final):
+
+| Etapa | O cliente vê | Status no conteúdo |
+|---|---|---|
+| **Ideia (planejamento)** | título, data, rede, formato, ideia, roteiro e "Observações do planejamento". Nunca legenda, hashtags, arte, vídeo ou arquivos | `approval_status` ("Ideia: …" na lista) |
+| **Conteúdo final** | arte/vídeo/arquivos, legenda, hashtags, CTA, data e "Observações para o cliente" | `final_status` ("Final: …") |
+
+O banco recorta o que cada etapa mostra (`private.approval_view`), inclusive para lotes antigos. O formulário do conteúdo é dividido em **1. Planejamento**, **2. Produção** (fica com a equipe até a aprovação final) e **3. Interno**. Nos detalhes do conteúdo, **Enviar para aprovação da ideia** ou **Enviar para aprovação final** coloca o conteúdo no lote daquele cliente, mês e etapa (ou cria um) e abre o envio. A aprovação final precisa de arte (ou vídeo/arquivo) ou legenda. O tipo do lote não muda depois de enviado. Mudar só a legenda não pede para reaprovar a ideia (o "mudou depois do envio" compara só os campos da etapa). O portal com login também só mostra legenda, texto da arte e arquivos depois do envio para a aprovação final.
+
 Menu **Aprovações** no painel:
 
-1. **Novo lote**: cliente, título, mês e o tipo de aprovação — **Planejamento** (o cliente aprova tema, ideia, formato, data e abordagem; arte e legenda podem não estar prontas) ou **Conteúdo final** (arte, vídeo, carrossel, legenda e data).
+1. **Novo lote**: cliente, título, mês e a etapa — **Ideia (planejamento)** ou **Conteúdo final**.
 2. **Adicionar conteúdo**: marque os conteúdos do mês do cliente (ou crie um novo dali mesmo). Ordene com as setas; retirar um conteúdo preserva o histórico.
 3. **Gerar link para aprovação**: escolha os conteúdos, título, mensagem de abertura, expiração opcional e se o cliente pode aprovar um a um e/ou todos de uma vez. Cada conteúdo enviado vira uma **versão congelada**: o cliente aprova exatamente o que viu. O link é copiado na hora; **Copiar mensagem WhatsApp** já traz o texto pronto com o link.
 4. O cliente abre `https://clientes.digitalgalaxy.com.br/aprovacao/#<código>` (sem conta, sem senha), vê o tipo de aprovação (explicação ao tocar), o progresso, a lista de cartões compactos (data, status, título, formato; a miniatura da arte só aparece quando há arte) ou o calendário (no celular vira agenda), com filtros. O cartão abre o detalhe (painel amplo no computador, tela cheia no celular) com anterior/próximo ("Conteúdo 2 de 6", setas do teclado, deslizar o dedo no celular), a ideia, o roteiro, a legenda e informações extras em seções que abrem, e as ações **Aprovar conteúdo** (com confirmação) ou **Solicitar ajuste** (comentário obrigatório); depois de decidir, "Próximo pendente". No celular, o botão **Aprovar todos os pendentes** fica fixo no rodapé da tela (confirmação com a quantidade; quem tem ajuste pedido não entra). Na primeira ação pedimos um nome para o histórico (identifica a sessão, não comprova identidade).
 5. As respostas aparecem no painel: contagens e status geral de cada lote, quem precisa aprovar, **Avisos** (a cada 30 s, sem recarregar), histórico de cada lote e de cada conteúdo, e **Relatório PDF**.
 6. Ajuste pedido: edite o conteúdo e clique em **Reenviar nova versão**; o cliente vê "Revisado e reenviado" com o pedido anterior. Conteúdo alterado depois do envio fica marcado no painel até ser reenviado.
-7. **Regenerar link** (o anterior para na hora), **Desativar link**, **Visualizar como cliente** (pré-visualização só para a equipe), **Arquivar lote**. Lote já enviado não é apagado.
+7. **Regenerar link** (o anterior para na hora), **Desativar link**, **Visualizar como cliente** (pré-visualização só para a equipe), **Arquivar lote** e **Excluir** (no cartão ou em "Gerenciar conteúdos"; com confirmação). Excluir um lote já enviado desativa o link na hora e apaga o histórico de decisões daquele lote; os conteúdos continuam no calendário e os que ainda aguardavam aprovação voltam para rascunho. Não dá para desfazer: para só tirar da lista, arquive.
 
 Segurança: token de 32 bytes aleatórios (43 caracteres) depois do `#` (não vai ao servidor do site nem em Referer); no banco só o SHA-256 (o token fica cifrado no Vault para copiar de novo); tudo conferido na função `aprovacao` (Edge Function) e no banco, por lote; limite de tentativas por IP e por link; arquivos por links assinados de 30 minutos; páginas com `noindex` e `robots.txt`. Qualquer pessoa com o link válido pode ver e aprovar: envie só ao cliente e desative quando precisar. Avisos por e-mail/WhatsApp ainda não existem (`approval_events` está pronto para isso).
 

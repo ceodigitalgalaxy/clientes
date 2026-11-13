@@ -40,11 +40,13 @@ export const AD_ERRORS = {
   lote_nao_encontrado: "Lote não encontrado. Ele pode ter sido apagado.",
   lote_arquivado: "Este lote está arquivado. Reative para mexer nele.",
   nada_para_enviar: "Escolha pelo menos um conteúdo para o cliente revisar.",
+  final_sem_conteudo: "Para a aprovação final, cada conteúdo precisa de arte (ou vídeo/arquivo) ou legenda. Complete o que falta e envie de novo.",
+  modo_travado: "Este lote já foi enviado: o tipo de aprovação (ideia ou final) não muda mais. Crie outro lote para a outra etapa.",
   conteudo_de_outro_cliente: "Só dá para incluir conteúdos do mesmo cliente do lote.",
   conteudos_demais: "Use até 200 conteúdos por lote.",
   expiracao_no_passado: "A data de expiração precisa ser no futuro."
 };
-const CONTENT_FIELDS = "id,client_id,title,scheduled_date,scheduled_time,network,format,media_url,media_kind,pillar,idea,content_plan,art_text,objective,caption,cta,internal_notes,client_notes,status,approval_status,production_status,version,created_at,updated_at";
+const CONTENT_FIELDS = "id,client_id,title,scheduled_date,scheduled_time,network,format,media_url,media_kind,pillar,idea,content_plan,art_text,objective,caption,hashtags,cta,internal_notes,client_notes,planning_notes,status,approval_status,final_status,production_status,version,created_at,updated_at";
 const ASSET_FIELDS = "id,content_id,kind,role,name,storage_path,url,position,created_at";
 
 /** Traduz erros do PostgREST/PostgreSQL para mensagens do painel */
@@ -288,16 +290,17 @@ export function createSupabaseStore({ url, apiKey, secretKey, getToken, onUnauth
     async updateBatch(id, value) {
       return request(`approval_batches?select=*&id=eq.${enc(id)}`, { method: "PATCH", body: value, single: true, prefer: "return=representation" });
     },
-    /** Só apaga lote nunca enviado (o banco ignora os outros): devolve se apagou */
+    /** Exclui o lote (mesmo enviado): link desativado, histórico do lote apagado,
+        pendentes voltam para rascunho (função approval_batch_delete) */
     async deleteBatch(id) {
-      const rows = await request(`approval_batches?select=id&id=eq.${enc(id)}`, { method: "DELETE", prefer: "return=representation" });
-      return Array.isArray(rows) && rows.length > 0;
+      await request("rpc/approval_batch_delete", { method: "POST", body: { p_batch: id } });
+      return true;
     },
     async listBatchItems(batchId) {
       return request(`approval_items?select=*&batch_id=eq.${enc(batchId)}&order=display_order.asc,created_at.asc`);
     },
     async listVersions({ contentId, ids } = {}) {
-      const query = ["select=id,content_id,version_number,content_version,snapshot,created_at", "order=version_number.desc"];
+      const query = ["select=id,content_id,version_number,content_version,snapshot,stage,created_at", "order=version_number.desc"];
       if (contentId) query.push(`content_id=eq.${enc(contentId)}`);
       if (ids) { if (!ids.length) return []; query.push(`id=in.(${ids.map(enc).join(",")})`); }
       return request(`content_versions?${query.join("&")}`);
