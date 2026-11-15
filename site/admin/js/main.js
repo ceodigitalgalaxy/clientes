@@ -9,30 +9,30 @@
    O banco aplica as mesmas regras (RLS): esconder a tela não é a proteção.
    ========================================================================== */
 
-import { $, on } from "../../js/lib/dom.js?v=5024e0ed17";
-import { icon, brandMark } from "../../js/lib/icons.js?v=5024e0ed17";
-import { toast } from "../../js/ui/toast.js?v=5024e0ed17";
-import { SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY } from "../../js/config.js?v=5024e0ed17";
-import { createAuth } from "../../js/lib/auth.js?v=5024e0ed17";
-import { createStorage } from "../../js/lib/storage.js?v=5024e0ed17";
-import { createSupabaseStore } from "./data/store.js?v=5024e0ed17";
-import { createApi } from "./api.js?v=5024e0ed17";
-import { validateContentFilters } from "./domain/rules.js?v=5024e0ed17";
-import { createConfirm, showFieldErrors, setBusy } from "./ui/dialogs.js?v=5024e0ed17";
-import { setupClients } from "./views/clients.js?v=5024e0ed17";
-import { setupContents } from "./views/contents.js?v=5024e0ed17";
-import { setupAccess } from "./views/access.js?v=5024e0ed17";
-import { setupImport } from "./views/import.js?v=5024e0ed17";
-import { setupAds } from "./views/ads.js?v=5024e0ed17";
-import { setupBrand } from "./views/brand.js?v=5024e0ed17";
-import { setupApprovals } from "./views/approvals.js?v=5024e0ed17";
-import { setupTeam } from "./views/team.js?v=5024e0ed17";
-import { setupTasks } from "./views/tasks.js?v=5024e0ed17";
-import { setupBoard } from "./views/board.js?v=5024e0ed17";
-import { setupHome } from "./views/home.js?v=5024e0ed17";
-import { setupInbox } from "./views/inbox.js?v=5024e0ed17";
-import { setupPush } from "./views/push.js?v=5024e0ed17";
-import { wireMenus } from "./ui/menu.js?v=5024e0ed17";
+import { $, on } from "../../js/lib/dom.js?v=e12983126e";
+import { icon, brandMark } from "../../js/lib/icons.js?v=e12983126e";
+import { toast } from "../../js/ui/toast.js?v=e12983126e";
+import { SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY } from "../../js/config.js?v=e12983126e";
+import { createAuth } from "../../js/lib/auth.js?v=e12983126e";
+import { createStorage } from "../../js/lib/storage.js?v=e12983126e";
+import { createSupabaseStore } from "./data/store.js?v=e12983126e";
+import { createApi } from "./api.js?v=e12983126e";
+import { validateContentFilters } from "./domain/rules.js?v=e12983126e";
+import { createConfirm, showFieldErrors, setBusy } from "./ui/dialogs.js?v=e12983126e";
+import { setupClients } from "./views/clients.js?v=e12983126e";
+import { setupContents } from "./views/contents.js?v=e12983126e";
+import { setupAccess } from "./views/access.js?v=e12983126e";
+import { setupImport } from "./views/import.js?v=e12983126e";
+import { setupAds } from "./views/ads.js?v=e12983126e";
+import { setupBrand } from "./views/brand.js?v=e12983126e";
+import { setupApprovals } from "./views/approvals.js?v=e12983126e";
+import { setupTeam } from "./views/team.js?v=e12983126e";
+import { setupTasks } from "./views/tasks.js?v=e12983126e";
+import { setupBoard } from "./views/board.js?v=e12983126e";
+import { setupHome } from "./views/home.js?v=e12983126e";
+import { setupInbox } from "./views/inbox.js?v=e12983126e";
+import { setupPush } from "./views/push.js?v=e12983126e";
+import { wireMenus } from "./ui/menu.js?v=e12983126e";
 
 /* O painel não abre dentro de outro site (proteção contra clique disfarçado).
    A página fica invisível até esta checagem (veja .admin em admin.css). */
@@ -118,11 +118,24 @@ setupAccess({ api, state, toast, confirm, onChanged: () => loadClients() });
 const importer = setupImport({ api, state, toast, navigate });
 const adsView = setupAds({ api, state, toast, confirm, navigate });
 const teamView = setupTeam({ api, state, toast, confirm, loadTeam });
-const tasksView = setupTasks({ api, state, toast, navigate, openContent: (id) => contents.openById(id) });
+const tasksView = setupTasks({ api, state, toast, openContent: (id) => contents.openById(id), openTask: (id) => boardView.openTask(id), unreadFor: (kinds) => inbox.unreadFor(kinds) });
 const boardView = setupBoard({ api, state, toast, confirm, openContent: (id) => contents.openById(id) });
-const homeView = setupHome({ api, state, navigate, openContent: (id) => contents.openById(id), openForm: () => contents.openForm(), focusContents: (opts) => contents.focus(opts) });
+const homeView = setupHome({ api, state, navigate, openContent: (id) => contents.openById(id), openTask: (id) => boardView.openTask(id), openForm: () => contents.openForm(), focusContents: (opts) => contents.focus(opts) });
 const push = setupPush({ api, toast });
-const inbox = setupInbox({ api, state, push, openContent: (id) => contents.openById(id), openTask: (id) => boardView.openTask(id) });
+const inbox = setupInbox({ api, state, push, openContent: (id) => contents.openById(id), openTask: (id) => boardView.openTask(id), onNew: newsArrived });
+
+/* Chegou aviso novo (quem passou a demanda não precisa avisar ninguém): as telas se atualizam sozinhas */
+const NEWS_TEXT = { tarefa_atribuida: (n) => `${n.actor_name} te passou uma demanda: ${n.body || ""}`, atribuicao: (n) => `${n.actor_name} te passou um conteúdo: ${n.body || ""}` };
+function newsArrived(fresh) {
+  const assigned = fresh.filter((n) => NEWS_TEXT[n.kind]);
+  if (assigned.length === 1) toast(NEWS_TEXT[assigned[0].kind](assigned[0]).slice(0, 120), "info");
+  else if (assigned.length > 1) toast(`${assigned.length} demandas novas com você · veja em Minhas`, "info");
+  tasksView.refresh();
+  if (state.route === "gestao") boardView.load();
+  if (state.route === "inicio") homeView.load();
+}
+// Abriu a demanda (de qualquer lugar): os avisos dela contam como lidos e o "Nova" sai
+document.addEventListener("task-opened", (event) => { if (inbox.markItemRead("demanda", event.detail)) tasksView.repaint(); });
 
 /* Tocar num aviso do celular abre o painel com ?abrir=demanda.<id> (ou conteudo.<id>): abre o item e limpa o endereço */
 const OPEN_ITEM = /^(demanda|conteudo)\.([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})$/i;
@@ -135,7 +148,10 @@ function openFromAddress(href = location.href) {
   if (match[1] === "demanda") boardView.openTask(match[2]); else contents.openById(match[2]);
   inbox.refresh();
 }
-navigator.serviceWorker?.addEventListener("message", (event) => { if (event.data?.type === "abrir-aviso") openFromAddress(event.data.url); });
+navigator.serviceWorker?.addEventListener("message", (event) => {
+  if (event.data?.type === "abrir-aviso") openFromAddress(event.data.url);
+  if (event.data?.type === "novo-aviso") inbox.refresh();   // o aviso chegou no aparelho: atualiza na hora
+});
 wireMenus();
 const approvalsView = setupApprovals({ api, state, toast, confirm, navigate, openContentForm: (content, preset) => contents.openForm(content, preset) });
 

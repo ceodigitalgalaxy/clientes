@@ -5,13 +5,14 @@
      recente, em cartões compactos (clicar abre o conteúdo).
    Tudo vem do banco já recortado pelas permissões (cada um vê os clientes dele). */
 
-import { $, esc, on } from "../../../js/lib/dom.js?v=5024e0ed17";
-import { icon } from "../../../js/lib/icons.js?v=5024e0ed17";
-import { todayISO, addDays, longDayLabel, monthLabel, stampLabel, timeLabel } from "../../../js/lib/dates.js?v=5024e0ed17";
-import { alertTone, nearestDeadline, daysFrom } from "../domain/deadlines.js?v=5024e0ed17";
-import { stateBlock } from "../ui/states.js?v=5024e0ed17";
-import { avatars, eventText, clientDotClass } from "./contents.js?v=5024e0ed17";
-import { toneLabels, attentionItems } from "./contents-calendar.js?v=5024e0ed17";
+import { $, esc, on } from "../../../js/lib/dom.js?v=e12983126e";
+import { icon } from "../../../js/lib/icons.js?v=e12983126e";
+import { todayISO, addDays, longDayLabel, monthLabel, stampLabel, timeLabel } from "../../../js/lib/dates.js?v=e12983126e";
+import { alertTone, nearestDeadline, daysFrom } from "../domain/deadlines.js?v=e12983126e";
+import { stateBlock } from "../ui/states.js?v=e12983126e";
+import { avatars, eventText, clientDotClass } from "./contents.js?v=e12983126e";
+import { toneLabels, attentionItems } from "./contents-calendar.js?v=e12983126e";
+import { dueParts, dueState } from "../domain/tasks.js?v=e12983126e";
 
 const WITH_CLIENT = ["aguardando_aprovacao", "reenviado"];
 const DONE = ["agendado", "publicado"];
@@ -19,23 +20,24 @@ const shortDay = (iso) => (iso ? iso.split("-").reverse().slice(0, 2).join("/") 
 const firstName = (name) => String(name || "").trim().split(/\s+/)[0] || "";
 const whenLabel = (n) => (n === null ? "Sem data" : n < 0 ? `Atrasado ${-n} ${-n === 1 ? "dia" : "dias"}` : n === 0 ? "Hoje" : n === 1 ? "Amanhã" : `Em ${n} dias`);
 
-export function setupHome({ api, state, navigate, openContent, openForm, focusContents }) {
+export function setupHome({ api, state, navigate, openContent, openTask, openForm, focusContents }) {
   const root = $("#home");
   let rows = [];
   let events = [];
+  let boardTasks = [];
 
   const clientName = (id) => state.clients.find((c) => c.id === id)?.name || "Cliente";
   const clientDot = (id) => clientDotClass(state.clients, id);
   const people = (c) => ((c.assignees || []).length ? avatars(state.team, c.assignees) : "");
 
   /** Cartão compacto: faixa da cor do alerta, título, cliente, quando e quem */
-  function item(c, { when, tone }) {
+  function item(c, { when, tone, task = false }) {
     return `
       <li class="hitem tone--${tone}">
-        <button class="hitem__open" type="button" data-open-home="${esc(c.id)}">
+        <button class="hitem__open" type="button" ${task ? "data-open-home-task" : "data-open-home"}="${esc(c.id)}">
           <span class="hitem__when">${esc(when)}</span>
           <span class="hitem__title">${esc(c.title)}</span>
-          <span class="hitem__client"><span class="cli-dot ${clientDot(c.client_id)}" aria-hidden="true"></span>${esc(clientName(c.client_id))}</span>
+          <span class="hitem__client"><span class="cli-dot ${clientDot(c.client_id)}" aria-hidden="true"></span>${esc(c.client_id ? clientName(c.client_id) : "Interno da agência")}</span>
         </button>
         ${people(c)}
       </li>`;
@@ -61,9 +63,19 @@ export function setupHome({ api, state, navigate, openContent, openForm, focusCo
     const producing = rows.filter((c) => c.production_status === "em_producao").length;
     const published = rows.filter((c) => c.production_status === "publicado" && (c.scheduled_date || "").startsWith(month)).length;
     const me = state.me?.user_id;
-    const mine = open.filter((c) => (c.assignees || []).includes(me))
-      .map((c) => ({ c, n: daysFrom(today, nearestDeadline(c)) }))
-      .sort((a, b) => (a.n ?? 999) - (b.n ?? 999)).slice(0, 6);
+    // Minhas: conteúdos e demandas do quadro (inclusive subtarefas) que estão comigo, do prazo mais apertado
+    const TONE = { late: "urgente", today: "urgente", soon: "atencao", ok: "producao", done: "concluido" };
+    const linked = new Set(boardTasks.filter((t) => t.content_id && !t.parent_id && (t.task_assignees || []).some((a) => a.user_id === me)).map((t) => t.content_id));
+    const mineContents = open.filter((c) => (c.assignees || []).includes(me) && !linked.has(c.id)).map((c) => {
+      const n = daysFrom(today, nearestDeadline(c));
+      return { key: `${nearestDeadline(c) || "9999"}`, html: () => item(c, { when: c.due_date || c.scheduled_date ? `${whenLabel(n)} · ${shortDay(nearestDeadline(c))}` : "Sem data", tone: toneOf(c) }) };
+    });
+    const mineTasks = boardTasks.filter((t) => t.status !== "concluido" && (t.task_assignees || []).some((a) => a.user_id === me)).map((t) => {
+      const due = dueState(t.due_at, t.status);
+      const { date, time } = dueParts(t.due_at);
+      return { key: `${date || "9999"}T${time}`, html: () => item({ ...t, assignees: (t.task_assignees || []).map((a) => a.user_id) }, { task: true, when: due ? `${due.label} · ${time}` : "Sem data", tone: due ? TONE[due.tone] : "nao_iniciado" }) };
+    });
+    const mine = [...mineTasks, ...mineContents].sort((a, b) => a.key.localeCompare(b.key)).slice(0, 6);
     const next = rows.filter((c) => c.scheduled_date >= today && c.scheduled_date <= addDays(today, 7) && c.production_status !== "publicado")
       .sort((a, b) => (a.scheduled_date + (a.scheduled_time || "99")).localeCompare(b.scheduled_date + (b.scheduled_time || "99"))).slice(0, 6);
 
@@ -84,7 +96,7 @@ export function setupHome({ api, state, navigate, openContent, openForm, focusCo
           att.length ? `<ul class="hlist">${att.slice(0, 6).map(({ c, n, tone }) => item(c, { when: whenLabel(n), tone })).join("")}</ul>` : empty("Nada atrasado nem vencendo logo. Tudo em dia."),
           att.length > 6 ? `<button class="link-btn" type="button" data-home-go="atencao">Ver todas (${att.length})</button>` : "")}
         ${card("h-mine", "Minhas demandas", "list",
-          mine.length ? `<ul class="hlist">${mine.map(({ c, n }) => item(c, { when: c.due_date || c.scheduled_date ? `${whenLabel(n)} · ${shortDay(nearestDeadline(c))}` : "Sem data", tone: toneOf(c) })).join("")}</ul>` : empty("Nenhuma demanda com você agora."),
+          mine.length ? `<ul class="hlist">${mine.map((x) => x.html()).join("")}</ul>` : empty("Nenhuma demanda com você agora."),
           `<a class="link-btn" href="#/demandas">Ver todas</a>`)}
         ${card("h-next", "Próximas publicações", "calendar",
           next.length ? `<ul class="hlist">${next.map((c) => item(c, { when: `${c.scheduled_date === today ? "Hoje" : shortDay(c.scheduled_date)}${c.scheduled_time ? ` · ${timeLabel(c.scheduled_time.slice(0, 5))}` : ""}`, tone: toneOf(c) })).join("")}</ul>` : empty("Nada programado para os próximos 7 dias."),
@@ -107,8 +119,9 @@ export function setupHome({ api, state, navigate, openContent, openForm, focusCo
     const today = todayISO();
     const from = [addDays(today, -90), `${today.slice(0, 7)}-01`].sort()[0];
     try {
-      const [list, recent] = await Promise.all([api.listContents({ from, to: addDays(today, 31) }), api.recentEvents(8).catch(() => [])]);
+      const [list, recent, tasks] = await Promise.all([api.listContents({ from, to: addDays(today, 31) }), api.recentEvents(8).catch(() => []), api.listTasks().catch(() => [])]);
       rows = list;
+      boardTasks = tasks;
       events = recent;
       render();
     } catch (error) {
@@ -117,6 +130,7 @@ export function setupHome({ api, state, navigate, openContent, openForm, focusCo
   }
 
   on(root, "click", "[data-open-home]", (event, b) => openContent(b.dataset.openHome));
+  on(root, "click", "[data-open-home-task]", (event, b) => openTask(b.dataset.openHomeTask));
   on(root, "click", "[data-home-go]", (event, b) => {
     const go = b.dataset.homeGo;
     if (go === "aprovacoes") { navigate("aprovacoes"); return; }
@@ -125,5 +139,5 @@ export function setupHome({ api, state, navigate, openContent, openForm, focusCo
   on(document, "click", '[data-action="home-new-content"]', () => openForm());
   document.addEventListener("content-saved", () => { if (state.route === "inicio") load(); });
 
-  return { load, reset() { rows = []; events = []; } };
+  return { load, reset() { rows = []; events = []; boardTasks = []; } };
 }

@@ -69,6 +69,8 @@ A seção **Demandas** é o quadro de trabalho da equipe, separado do calendári
 - **Comentários da demanda** (só a equipe vê, nunca vão para o cliente): **@menção** (só aparece quem enxerga a demanda), **Responder**, **Editar** o próprio (fica "editado" e o texto anterior guardado) e **Apagar** (autor ou administrador; some o texto, fica o registro). A aba **Histórico** mostra só os eventos automáticos.
 - **Etiquetas:** o administrador renomeia, troca a cor, arquiva e cria em **Etiquetas**; qualquer pessoa cria uma nova pelo painel da demanda (**Nova etiqueta**). Arquivada some das escolhas e continua nas demandas que já têm.
 - **Avisos** (sininho): demanda passada para você, menção, comentário numa demanda sua e subtarefa concluída; clicar abre a demanda.
+- **Minhas demandas:** tudo o que está com a pessoa num lugar só (demandas e subtarefas do quadro e conteúdos do calendário), por prazo: atrasadas, hoje e amanhã, próximos 7 dias, mais adiante, sem data. Demanda recém-passada aparece marcada como **Nova** até ser aberta; a etapa muda ali mesmo. Conteúdo com demanda de produção aparece uma vez só (como a demanda, com o atalho "Ver o conteúdo"). O cartão **Minhas demandas** do Início segue a mesma regra.
+- **Chega na hora:** quem recebe uma demanda vê aparecer sozinho (sem recarregar) em Minhas, no Início e no contador do menu, com um aviso na tela. O painel confere a cada 20 s, na hora em que a pessoa volta para o app e, com o aviso no celular ativado, no instante em que o aviso chega.
 - **Edição ao mesmo tempo:** cada demanda tem versão; se outra pessoa salvou antes, o painel avisa e recarrega a versão nova, sem gravar por cima.
 
 Tudo conferido no banco (migração `20261116120000_gestao_de_demandas.sql`): colaborador só vê e cria demandas dos clientes liberados, só coloca como responsável quem enxerga o cliente, e não mexe em colunas nem etiquetas oficiais.
@@ -253,6 +255,7 @@ PLAYWRIGHT=$P node admin/test/demandas-e2e.mjs    # gestão de demandas: quadro,
 PLAYWRIGHT=$P node admin/test/demandas2-e2e.mjs   # demandas etapa 2: subtarefas delegadas, checklist, comentários (menção, resposta, edição, apagar), etiquetas, avisos, permissões
 node admin/test/push.test.mjs                     # avisos no celular: cifra do aviso, assinatura, gancho do banco, uma vez só, receptor (sw.js)
 PLAYWRIGHT=$P node admin/test/push-e2e.mjs        # avisos no celular pela tela: ativar, receber, tocar e abrir, sair, outro usuário, iPhone, manifesto
+PLAYWRIGHT=$P node admin/test/minhas-e2e.mjs      # duas pessoas: demanda passada no quadro chega sozinha em Minhas/Início do responsável; Nova, etapa, concluir
 PLAYWRIGHT=$P node admin/test/equipe-e2e.mjs      # equipe: criar colaborador, demanda com prazo, o que ele vê e o que o servidor recusa, desativar
 PLAYWRIGHT=$P node admin/test/ads-e2e.mjs         # aprovação de anúncios: rascunho → envio → alterações → nova versão → aprovação
 PLAYWRIGHT=$P UX_SHOTS=pasta node admin/test/ux-shots.mjs   # só capturas do portal (computador e celular) para revisão visual

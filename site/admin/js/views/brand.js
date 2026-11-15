@@ -1,10 +1,10 @@
 /* Identidade do cliente para o gerador de artes (logos, cores, unidades e campanhas).
    Abre pelo botão "Identidade para artes" do cartão do cliente. */
 
-import { $, esc, on } from "../../../js/lib/dom.js?v=5024e0ed17";
-import { icon } from "../../../js/lib/icons.js?v=5024e0ed17";
-import { BRAND_COLORS, BRAND_CAMPAIGNS, BRAND_LOGO_SLOTS, BRAND_MODELS } from "../domain/rules.js?v=5024e0ed17";
-import { closeDialog, wireDialog, showFieldErrors, setBusy } from "../ui/dialogs.js?v=5024e0ed17";
+import { $, esc, on } from "../../../js/lib/dom.js?v=e12983126e";
+import { icon } from "../../../js/lib/icons.js?v=e12983126e";
+import { BRAND_COLORS, BRAND_CAMPAIGNS, BRAND_LOGO_SLOTS, BRAND_MODELS } from "../domain/rules.js?v=e12983126e";
+import { closeDialog, wireDialog, showFieldErrors, setBusy } from "../ui/dialogs.js?v=e12983126e";
 
 const DEFAULT_COLORS = { primaria: "#06603A", secundaria: "#A9CF45", preco: "#F28C00", alerta: "#E53935", titulo: "#F59E0B" };
 const MAX_UNITS = 12;

@@ -5,14 +5,14 @@
      ("Salvo ✓"). Se outra pessoa salvou antes, avisa e recarrega (version).
    O banco confere quem pode ver, criar, editar, delegar e arquivar. */
 
-import { $, esc, on } from "../../../js/lib/dom.js?v=5024e0ed17";
-import { icon } from "../../../js/lib/icons.js?v=5024e0ed17";
-import { stampLabel } from "../../../js/lib/dates.js?v=5024e0ed17";
-import { TASK_STATUS, TASK_PRIORITIES, dueParts, dueState } from "../domain/tasks.js?v=5024e0ed17";
-import { closeDialog, wireDialog, showFieldErrors, setBusy } from "../ui/dialogs.js?v=5024e0ed17";
-import { kebab } from "../ui/menu.js?v=5024e0ed17";
-import { attachMentions, mentionHtml } from "../ui/mentions.js?v=5024e0ed17";
-import { seesClient, personName, clientDotClass } from "./contents.js?v=5024e0ed17";
+import { $, esc, on } from "../../../js/lib/dom.js?v=e12983126e";
+import { icon } from "../../../js/lib/icons.js?v=e12983126e";
+import { stampLabel } from "../../../js/lib/dates.js?v=e12983126e";
+import { TASK_STATUS, TASK_PRIORITIES, dueParts, dueState } from "../domain/tasks.js?v=e12983126e";
+import { closeDialog, wireDialog, showFieldErrors, setBusy } from "../ui/dialogs.js?v=e12983126e";
+import { kebab } from "../ui/menu.js?v=e12983126e";
+import { attachMentions, mentionHtml } from "../ui/mentions.js?v=e12983126e";
+import { seesClient, personName, clientDotClass } from "./contents.js?v=e12983126e";
 
 const initials = (name) => String(name || "?").trim().split(/\s+/).slice(0, 2).map((w) => w[0]).join("").toUpperCase();
 const options = (entries, selected = "") => entries.map(([v, l]) => `<option value="${esc(v)}"${v === (selected ?? "") ? " selected" : ""}>${esc(l)}</option>`).join("");
@@ -314,6 +314,7 @@ export function setupTaskPanel({ api, state, toast, confirm, board, openContent 
       board.upsert(task);
       render();
       loadActivity(id);
+      document.dispatchEvent(new CustomEvent("task-opened", { detail: id }));
       if (!drawer.open) drawer.showModal();
       autosize(body.querySelector(".task-title"));   // com o painel aberto a altura é a de verdade
     } catch (error) { toast(error.message, "error"); }

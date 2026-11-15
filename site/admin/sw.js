@@ -17,6 +17,10 @@ self.addEventListener("push", (event) => {
   let data = {};
   try { data = event.data ? event.data.json() : {}; } catch { data = {}; }
   const title = String(data.title || "Painel Digital Galaxy").slice(0, 80);
+  // Painel aberto em alguma janela: avisa para ele se atualizar na hora
+  self.clients.matchAll({ type: "window", includeUncontrolled: true })
+    .then((windows) => windows.filter((w) => w.url.startsWith(self.registration.scope)).forEach((w) => w.postMessage({ type: "novo-aviso" })))
+    .catch(() => {});
   event.waitUntil(self.registration.showNotification(title, {
     body: String(data.body || "").slice(0, 180),
     tag: String(data.tag || "aviso"),

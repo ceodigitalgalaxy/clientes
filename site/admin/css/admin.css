@@ -1319,3 +1319,12 @@ body:not(.can-send) .row__pick { visibility: hidden; }
 .inbox__push--ativo .inbox__push-text .icon { color: var(--aprovado); }
 .inbox__push-actions { display: flex; gap: 16px; padding-left: 24px; }
 .inbox__push .btn { justify-self: start; margin-left: 24px; }
+
+/* ---------- Minhas demandas: demandas do quadro junto dos conteúdos ---------- */
+.task-card__kind { display: inline-flex; align-items: center; gap: 4px; color: var(--text-muted); font-weight: 600; }
+.task-card__kind .icon { width: 12px; height: 12px; }
+.task-card .due-pill .icon { width: 12px; height: 12px; }
+.task-card.is-new { border-color: var(--brand); box-shadow: 0 0 0 3px var(--brand-soft); }
+.new-chip { display: inline-flex; align-items: center; min-height: 20px; padding: 0 8px; border-radius: 999px; font-size: 11px; font-weight: 700; color: #fff; background: var(--brand); vertical-align: 1px; }
+.task-card__link { display: inline-flex; align-items: center; gap: 4px; font-size: 12px; }
+.task-card__link .icon { width: 12px; height: 12px; }

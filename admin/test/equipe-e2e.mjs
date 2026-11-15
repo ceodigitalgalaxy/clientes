@@ -198,12 +198,16 @@ await step("Colaborador vê só o cliente liberado e não exclui nada", async ()
   assert.equal(await colab.locator('.view__head [data-action="new-content"]:visible').count(), 0, "não cria conteúdo");
 });
 
-await step("Colaborador atualiza a produção da própria demanda", async () => {
+await step("Colaborador atualiza a etapa da própria demanda (a do conteúdo aparece uma vez só)", async () => {
   await colab.goto(`${ORIGIN}/admin/#/demandas`);
-  await colab.waitForSelector(`[data-task-prod="${tarefaId}"]`);
-  await colab.selectOption(`[data-task-prod="${tarefaId}"]`, "em_producao");
-  await toastSays(colab, /Produção/);
-  assert.equal((await store.getContent(tarefaId)).production_status, "em_producao");
+  // O conteúdo foi criado com "Criar demanda de produção": em Minhas aparece só a demanda, que leva ao conteúdo
+  const demanda = fake.tasks.all().find((t) => t.content_id === tarefaId);
+  await colab.waitForSelector(`[data-task-status="${demanda.id}"]`);
+  assert.equal(await colab.locator(`[data-task-prod="${tarefaId}"]`).count(), 0, "sem cartão repetido do conteúdo");
+  assert.equal(await colab.locator(`[data-board-task="${demanda.id}"] [data-open-task="${tarefaId}"]`).count(), 1, "atalho para o conteúdo");
+  await colab.selectOption(`[data-task-status="${demanda.id}"]`, "em_andamento");
+  await toastSays(colab, /Etapa: Em andamento/);
+  assert.equal(fake.tasks.get(demanda.id).status, "em_andamento");
 });
 
 await step("No formulário, os status de aprovação ficam travados para quem não envia", async () => {
