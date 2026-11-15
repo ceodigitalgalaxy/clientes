@@ -9,13 +9,15 @@
    Função acesso-cliente: roda o código REAL (supabase/functions/acesso-cliente)
    com a chave secreta de mentira, sobre a API de administração de logins daqui. */
 
-import { randomUUID, randomBytes } from "node:crypto";
+import { randomUUID, randomBytes, createHmac } from "node:crypto";
 import { loginEmail, usernameFromEmail } from "../../site/admin/js/domain/rules.js";
 import { createHandler } from "../../supabase/functions/acesso-cliente/handler.js";
 import { createHandler as createTeamHandler } from "../../supabase/functions/equipe/handler.js";
 import { pairFromStatus } from "../../site/js/domain/approvals.js";
 import { createHandler as createApprovalHandler } from "../../supabase/functions/aprovacao/handler.js";
 import { createFakeTasks } from "./fake-tasks.mjs";
+import { createHandler as createPushHandler } from "../../supabase/functions/avisos-push/handler.js";
+import { pushOrigin } from "../../supabase/functions/avisos-push/webpush.js";
 
 /** Chave secreta de mentira: só o "servidor" (a função) conhece */
 export const FAKE_SECRET = "sb_secret_FAKE_SERVIDOR";
@@ -89,7 +91,58 @@ export function createFakeSupabase({ store, publishableKey }) {
   }
 
   /** Funções do portal: o cliente vem da sessão, nunca de um parâmetro */
+  /* ---- Avisos no celular: as mesmas regras da migração 20261118120000_avisos_no_celular.sql ---- */
+  const pushSubs = [];               // push_subscriptions
+  const pushHookSecret = randomBytes(32).toString("hex");   // no banco de verdade fica no Vault
+  let pushVapid = null;              // { private, public } (Vault)
+  /** Código do gancho de UM aviso (como no banco: HMAC do id com o segredo; o segredo nunca sai) */
+  const pushHookFor = (id) => createHmac("sha256", pushHookSecret).update(String(id)).digest("hex");
+  const subsOf = (userId) => pushSubs.filter((s) => s.user_id === userId && active(userById(userId))).map(({ endpoint, p256dh, auth }) => ({ endpoint, p256dh, auth }));
+  const PUSH_TITLES = {
+    atribuicao: (n) => `${n.actor_name} te colocou como responsável`, mencao: (n) => `${n.actor_name} te mencionou`, comentario: (n) => `${n.actor_name} comentou numa demanda sua`,
+    ajuste: (n) => (n.actor_name === "Cliente (pelo link)" ? "O cliente pediu ajuste" : `${n.actor_name} marcou ajuste`),
+    tarefa_atribuida: (n) => `${n.actor_name} te passou uma demanda`, tarefa_mencao: (n) => `${n.actor_name} te mencionou numa demanda`,
+    tarefa_comentario: (n) => `${n.actor_name} comentou numa demanda sua`, subtarefa_concluida: (n) => `${n.actor_name} concluiu uma subtarefa`,
+    prazo_proximo: () => "Entrega chegando", tarefa_atrasada: () => "Demanda atrasada"
+  };
+  /** Funções que só a chave secreta executa (a função avisos-push) */
+  function pushServiceRpc(name, body = {}) {
+    if (name === "push_config") {
+      if (!pushVapid && body.p_private && /^[A-Za-z0-9_-]{80,100}$/.test(body.p_public || "")) pushVapid = { private: body.p_private, public: body.p_public };
+      return pushVapid;
+    }
+    if (name === "push_claim") {
+      if (!body.p_id || body.p_secret !== pushHookFor(body.p_id)) return null;
+      const n = store.findNotification(body.p_id);
+      if (!n || n.pushed_at || n.read_at || !active(userById(n.user_id))) return null;
+      n.pushed_at = new Date().toISOString();
+      return { title: (PUSH_TITLES[n.kind] || (() => "Aviso do painel"))(n), body: n.body || "", tag: n.id,
+        url: `/admin/?abrir=${n.task_id ? `demanda.${n.task_id}` : n.content_id ? `conteudo.${n.content_id}` : "inicio"}`, subscriptions: subsOf(n.user_id) };
+    }
+    if (name === "push_targets") return subsOf(body.p_user);
+    if (name === "push_report") {
+      for (const endpoint of body.p_gone || []) { const i = pushSubs.findIndex((s) => s.endpoint === endpoint); if (i >= 0) pushSubs.splice(i, 1); }
+      for (const s of pushSubs) if ((body.p_ok || []).includes(s.endpoint)) s.last_ok_at = new Date().toISOString();
+      return null;
+    }
+    return undefined;
+  }
+
   async function rpc(name, body, user) {
+    if (name === "push_subscribe") {
+      if (!active(user)) return raise("sem_permissao");
+      if (!pushOrigin(body.p_endpoint) || !/^[A-Za-z0-9_-]{80,100}$/.test(body.p_p256dh || "") || !/^[A-Za-z0-9_-]{16,32}$/.test(body.p_auth || "")) return raise("check");
+      const i = pushSubs.findIndex((s) => s.endpoint === body.p_endpoint);
+      if (i >= 0) pushSubs.splice(i, 1);
+      pushSubs.push({ id: randomUUID(), user_id: user.id, endpoint: body.p_endpoint, p256dh: body.p_p256dh, auth: body.p_auth, user_agent: body.p_agent || null, created_at: new Date().toISOString(), last_ok_at: null });
+      return [];
+    }
+    if (name === "push_unsubscribe") {
+      const i = pushSubs.findIndex((s) => s.endpoint === body.p_endpoint && s.user_id === user?.id);
+      if (i >= 0) pushSubs.splice(i, 1);
+      return [];
+    }
+    if (name.startsWith("push_")) return { error: json(403, { code: "42501", message: "permission denied for function" }) };
     const keys = Object.keys(body || {}).sort().join(",");
     if (name === "portal_profile" && keys === "") return store.portalProfile(user.id);
     if (name === "portal_contents" && keys === "p_from,p_to") return (await store.portalContents(user.id, body.p_from, body.p_to)).map(({ assets, decision, ...row }) => row);
@@ -147,7 +200,8 @@ export function createFakeSupabase({ store, publishableKey }) {
 
   async function rest(method, table, params, body, user, single) {
     if (table.startsWith("rpc/") && method === "POST") return rpc(table.slice(4), body, user);
-    if (["tasks", "board_columns", "labels", "projects", "task_assignees", "task_labels", "task_events"].includes(table)) {
+    if (table === "push_subscriptions" && method === "GET") return pushSubs.filter((p) => p.user_id === user?.id).map(({ p256dh, auth, ...row }) => row);
+    if (["tasks", "board_columns", "labels", "projects", "task_assignees", "task_labels", "task_events", "task_comments", "task_comment_edits", "task_checklist"].includes(table)) {
       if (!active(user)) return method === "GET" ? [] : rlsDenied();
       return tasks.route(method, table, params, body, user);
     }
@@ -439,6 +493,7 @@ export function createFakeSupabase({ store, publishableKey }) {
 
   /** Pedidos feitos com a chave secreta (só a função): sem RLS */
   async function serviceRest(method, table, params, body) {
+    if (table.startsWith("rpc/push_") && method === "POST") { const out = pushServiceRpc(table.slice(4), body || {}); if (out !== undefined) return out; }
     if (table === "agency_members") {
       const id = eq(params, "user_id");
       const user = userById(id);
@@ -507,6 +562,7 @@ export function createFakeSupabase({ store, publishableKey }) {
       if (pathname === "/functions/v1/acesso-cliente") return this.callFunction({ method, url, headers, body });
       if (pathname === "/functions/v1/aprovacao") return this.callApproval({ method, url, headers, body });
       if (pathname === "/functions/v1/equipe") return this.callTeam({ method, url, headers, body });
+      if (pathname === "/functions/v1/avisos-push") return this.callPush({ method, url, headers, body });
       const secret = headers.apikey === FAKE_SECRET;
       if (!secret && headers.apikey !== publishableKey) return json(401, { message: "Invalid API key" });
       const data = body ? JSON.parse(body) : undefined;
@@ -633,6 +689,27 @@ export function createFakeSupabase({ store, publishableKey }) {
   fake.callFunction = async ({ method, url, headers, body }) => {
     const response = await functionHandler(new Request(url, { method, headers, body: method === "GET" || method === "HEAD" ? undefined : body }));
     return { status: response.status, headers: Object.fromEntries(response.headers), body: response.status === 204 ? "" : await response.text() };
+  };
+  // A função "avisos-push" de verdade; os serviços de push (Google, Apple…) são de mentira: guardam o que chegaria
+  fake.pushes = [];                 // { endpoint, headers, body (cifrado) }
+  fake.pushStatus = () => 201;      // o teste troca para simular assinatura morta (410)
+  fake.pushSubs = pushSubs;
+  fake.pushHookSecret = pushHookSecret;
+  fake.pushHookFor = pushHookFor;
+  const pushHandler = createPushHandler({ url: "https://peieimwpkrattuldmjux.supabase.co", secret: FAKE_SECRET, publishable: publishableKey }, approvalFetch, {
+    allowedOrigins: ["http://localhost:5691", "http://localhost:5600"],
+    pushFetch: async (endpoint, init) => { const status = fake.pushStatus(endpoint); fake.pushes.push({ endpoint, headers: init.headers, body: new Uint8Array(init.body), status }); return new Response(null, { status }); }
+  });
+  fake.callPush = async ({ method, url, headers, body }) => {
+    const response = await pushHandler(new Request(url, { method, headers, body: method === "GET" || method === "HEAD" ? undefined : body }));
+    return { status: response.status, headers: Object.fromEntries(response.headers), body: response.status === 204 ? "" : await response.text() };
+  };
+  // Como o gatilho + pg_net: aviso novo de quem tem aparelho → o banco chama a função com o segredo do gancho
+  fake.pushSettled = Promise.resolve();
+  store.onNotification = (n) => {
+    if (!pushSubs.some((s) => s.user_id === n.user_id)) return;
+    fake.pushSettled = fake.pushSettled.then(() => fake.callPush({ method: "POST", url: "https://peieimwpkrattuldmjux.supabase.co/functions/v1/avisos-push",
+      headers: { "content-type": "application/json", "x-hook-secret": pushHookFor(n.id) }, body: JSON.stringify({ action: "enviar", id: n.id }) })).catch(() => {});
   };
   fake.tasks = tasks;
   return fake;

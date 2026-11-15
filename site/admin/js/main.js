@@ -9,29 +9,30 @@
    O banco aplica as mesmas regras (RLS): esconder a tela não é a proteção.
    ========================================================================== */
 
-import { $, on } from "../../js/lib/dom.js?v=8083d4a8ab";
-import { icon, brandMark } from "../../js/lib/icons.js?v=8083d4a8ab";
-import { toast } from "../../js/ui/toast.js?v=8083d4a8ab";
-import { SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY } from "../../js/config.js?v=8083d4a8ab";
-import { createAuth } from "../../js/lib/auth.js?v=8083d4a8ab";
-import { createStorage } from "../../js/lib/storage.js?v=8083d4a8ab";
-import { createSupabaseStore } from "./data/store.js?v=8083d4a8ab";
-import { createApi } from "./api.js?v=8083d4a8ab";
-import { validateContentFilters } from "./domain/rules.js?v=8083d4a8ab";
-import { createConfirm, showFieldErrors, setBusy } from "./ui/dialogs.js?v=8083d4a8ab";
-import { setupClients } from "./views/clients.js?v=8083d4a8ab";
-import { setupContents } from "./views/contents.js?v=8083d4a8ab";
-import { setupAccess } from "./views/access.js?v=8083d4a8ab";
-import { setupImport } from "./views/import.js?v=8083d4a8ab";
-import { setupAds } from "./views/ads.js?v=8083d4a8ab";
-import { setupBrand } from "./views/brand.js?v=8083d4a8ab";
-import { setupApprovals } from "./views/approvals.js?v=8083d4a8ab";
-import { setupTeam } from "./views/team.js?v=8083d4a8ab";
-import { setupTasks } from "./views/tasks.js?v=8083d4a8ab";
-import { setupBoard } from "./views/board.js?v=8083d4a8ab";
-import { setupHome } from "./views/home.js?v=8083d4a8ab";
-import { setupInbox } from "./views/inbox.js?v=8083d4a8ab";
-import { wireMenus } from "./ui/menu.js?v=8083d4a8ab";
+import { $, on } from "../../js/lib/dom.js?v=5024e0ed17";
+import { icon, brandMark } from "../../js/lib/icons.js?v=5024e0ed17";
+import { toast } from "../../js/ui/toast.js?v=5024e0ed17";
+import { SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY } from "../../js/config.js?v=5024e0ed17";
+import { createAuth } from "../../js/lib/auth.js?v=5024e0ed17";
+import { createStorage } from "../../js/lib/storage.js?v=5024e0ed17";
+import { createSupabaseStore } from "./data/store.js?v=5024e0ed17";
+import { createApi } from "./api.js?v=5024e0ed17";
+import { validateContentFilters } from "./domain/rules.js?v=5024e0ed17";
+import { createConfirm, showFieldErrors, setBusy } from "./ui/dialogs.js?v=5024e0ed17";
+import { setupClients } from "./views/clients.js?v=5024e0ed17";
+import { setupContents } from "./views/contents.js?v=5024e0ed17";
+import { setupAccess } from "./views/access.js?v=5024e0ed17";
+import { setupImport } from "./views/import.js?v=5024e0ed17";
+import { setupAds } from "./views/ads.js?v=5024e0ed17";
+import { setupBrand } from "./views/brand.js?v=5024e0ed17";
+import { setupApprovals } from "./views/approvals.js?v=5024e0ed17";
+import { setupTeam } from "./views/team.js?v=5024e0ed17";
+import { setupTasks } from "./views/tasks.js?v=5024e0ed17";
+import { setupBoard } from "./views/board.js?v=5024e0ed17";
+import { setupHome } from "./views/home.js?v=5024e0ed17";
+import { setupInbox } from "./views/inbox.js?v=5024e0ed17";
+import { setupPush } from "./views/push.js?v=5024e0ed17";
+import { wireMenus } from "./ui/menu.js?v=5024e0ed17";
 
 /* O painel não abre dentro de outro site (proteção contra clique disfarçado).
    A página fica invisível até esta checagem (veja .admin em admin.css). */
@@ -59,7 +60,9 @@ const api = createApi({
   // Logins de cliente: função no Supabase que guarda a chave secreta (supabase/functions/acesso-cliente)
   access: { url: `${SUPABASE_URL}/functions/v1/acesso-cliente`, apiKey: SUPABASE_PUBLISHABLE_KEY, getToken: () => auth.accessToken(), refresh: () => auth.refresh() },
   // Logins da equipe: função "equipe" (só administrador)
-  team: { url: `${SUPABASE_URL}/functions/v1/equipe`, apiKey: SUPABASE_PUBLISHABLE_KEY, getToken: () => auth.accessToken(), refresh: () => auth.refresh() }
+  team: { url: `${SUPABASE_URL}/functions/v1/equipe`, apiKey: SUPABASE_PUBLISHABLE_KEY, getToken: () => auth.accessToken(), refresh: () => auth.refresh() },
+  // Avisos no celular: função "avisos-push" (guarda a chave de envio)
+  push: { url: `${SUPABASE_URL}/functions/v1/avisos-push`, apiKey: SUPABASE_PUBLISHABLE_KEY, getToken: () => auth.accessToken(), refresh: () => auth.refresh() }
 });
 
 const state = {
@@ -118,7 +121,21 @@ const teamView = setupTeam({ api, state, toast, confirm, loadTeam });
 const tasksView = setupTasks({ api, state, toast, navigate, openContent: (id) => contents.openById(id) });
 const boardView = setupBoard({ api, state, toast, confirm, openContent: (id) => contents.openById(id) });
 const homeView = setupHome({ api, state, navigate, openContent: (id) => contents.openById(id), openForm: () => contents.openForm(), focusContents: (opts) => contents.focus(opts) });
-const inbox = setupInbox({ api, state, openContent: (id) => contents.openById(id) });
+const push = setupPush({ api, toast });
+const inbox = setupInbox({ api, state, push, openContent: (id) => contents.openById(id), openTask: (id) => boardView.openTask(id) });
+
+/* Tocar num aviso do celular abre o painel com ?abrir=demanda.<id> (ou conteudo.<id>): abre o item e limpa o endereço */
+const OPEN_ITEM = /^(demanda|conteudo)\.([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})$/i;
+function openFromAddress(href = location.href) {
+  let wanted = null;
+  try { wanted = new URL(href, location.href).searchParams.get("abrir"); } catch { wanted = null; }
+  if (new URLSearchParams(location.search).has("abrir")) history.replaceState(null, "", `${location.pathname}${location.hash}`);
+  const match = OPEN_ITEM.exec(wanted || "");
+  if (!match || !state.signedIn) return;
+  if (match[1] === "demanda") boardView.openTask(match[2]); else contents.openById(match[2]);
+  inbox.refresh();
+}
+navigator.serviceWorker?.addEventListener("message", (event) => { if (event.data?.type === "abrir-aviso") openFromAddress(event.data.url); });
 wireMenus();
 const approvalsView = setupApprovals({ api, state, toast, confirm, navigate, openContentForm: (content, preset) => contents.openForm(content, preset) });
 
@@ -232,6 +249,8 @@ async function enterApp() {
   await showRoute();
   tasksView.refreshCount();
   inbox.start();
+  push.start(user.id);
+  openFromAddress();
   // Contador do menu "Anúncios": quantos o cliente pediu para alterar
   if (state.route !== "anuncios") adsView.refreshAttention();
   // Avisos da central de aprovação (decisões dos clientes), a cada 30 s
@@ -266,6 +285,7 @@ loginForm.addEventListener("submit", async (event) => {
 });
 
 on(document, "click", '[data-action="sign-out"]', async () => {
+  await push.beforeSignOut();
   await auth.signOut();
   showLogin("Você saiu do painel.", { info: true });
 });

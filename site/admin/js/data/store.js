@@ -22,6 +22,7 @@ export class StoreError extends Error {
 
 const CLIENT_FIELDS = "id,name,slug,segment,contact_name,contact_email,notes,active,logo_path,created_at,updated_at";
 const AD_FIELDS = "id,client_id,title,campaign_context,objective,platform,platform_other,format,creative_stage,primary_text,headline,description,cta,destination_url,client_notes,internal_notes,status,version,submitted_at,submitted_by,first_submitted_at,created_by,created_at,updated_at";
+const TASK_COMMENT_FIELDS = "id,task_id,parent_id,author_id,author_name,body,mentions,edited_at,deleted_at,created_at";
 const TASK_FIELDS = "id,parent_id,client_id,project_id,content_id,title,description,status,column_id,priority,due_at,position,created_by,completed_at,completed_by,archived_at,version,created_at,updated_at";
 const MEMBER_FIELDS = "user_id,role,active,name,email,job_title,all_clients,edit_scope,can_send_approval";
 const AD_ASSET_FIELDS = "id,ad_id,kind,storage_path,url,position,created_at";
@@ -40,6 +41,9 @@ export const AD_ERRORS = {
   sem_permissao_aprovacao: "Seu usuário não pode mudar o status de aprovação. Peça a um administrador.",
   sem_permissao_arquivar: "Só quem criou a demanda ou um administrador pode arquivá-la.",
   subtarefa_de_subtarefa: "Uma subtarefa não pode ter outra subtarefa dentro.",
+  so_o_autor_edita: "Só quem escreveu o comentário pode editá-lo.",
+  comentario_apagado: "Este comentário já foi apagado.",
+  resposta_invalida: "O comentário respondido não existe mais nesta demanda.",
   nao_pode_proprio_acesso: "Você não pode tirar o seu próprio acesso de administrador.",
   ultimo_admin: "A agência precisa de pelo menos um administrador ativo.",
   mensagem_longa: "A mensagem passou do limite de 1000 caracteres.",
@@ -393,11 +397,11 @@ export function createSupabaseStore({ url, apiKey, secretKey, getToken, onUnauth
 
     /* ---------- Gestão de demandas (tarefas e subtarefas) ---------- */
     async listTasks({ archived = false } = {}) {
-      const query = [`select=${TASK_FIELDS},task_assignees(user_id),task_labels(label_id)`, archived ? "archived_at=not.is.null" : "archived_at=is.null", "order=position.asc", "limit=2000"];
+      const query = [`select=${TASK_FIELDS},task_assignees(user_id),task_labels(label_id),task_comments(count),task_checklist(done)`, "task_comments.deleted_at=is.null", archived ? "archived_at=not.is.null" : "archived_at=is.null", "order=position.asc", "limit=2000"];
       return request(`tasks?${query.join("&")}`);
     },
     async getTask(id) {
-      return request(`tasks?select=${TASK_FIELDS},task_assignees(user_id),task_labels(label_id)&id=eq.${enc(id)}`, { single: true });
+      return request(`tasks?select=${TASK_FIELDS},task_assignees(user_id),task_labels(label_id),task_comments(count),task_checklist(done)&task_comments.deleted_at=is.null&id=eq.${enc(id)}`, { single: true });
     },
     async createTask(value) {
       return request(`tasks?select=${TASK_FIELDS}`, { method: "POST", body: value, single: true, prefer: "return=representation" });
@@ -448,6 +452,35 @@ export function createSupabaseStore({ url, apiKey, secretKey, getToken, onUnauth
     async createLabel(value) {
       return request("labels?select=id,name,color,archived_at", { method: "POST", body: value, single: true, prefer: "return=representation" });
     },
+    async updateLabel(id, value) {
+      return request(`labels?select=id,name,color,archived_at&id=eq.${enc(id)}`, { method: "PATCH", body: value, single: true, prefer: "return=representation" });
+    },
+    /* Comentários das demandas (resposta, edição rastreável, apagar sem sumir o registro) */
+    async listTaskComments(taskId) {
+      return request(`task_comments?select=${TASK_COMMENT_FIELDS}&task_id=eq.${enc(taskId)}&order=created_at.asc&limit=500`);
+    },
+    async addTaskComment(value) {
+      return request(`task_comments?select=${TASK_COMMENT_FIELDS}`, { method: "POST", body: value, single: true, prefer: "return=representation" });
+    },
+    async updateTaskComment(id, value) {
+      return request(`task_comments?select=${TASK_COMMENT_FIELDS}&id=eq.${enc(id)}`, { method: "PATCH", body: value, single: true, prefer: "return=representation" });
+    },
+    async listCommentEdits(commentId) {
+      return request(`task_comment_edits?select=id,body,edited_at&comment_id=eq.${enc(commentId)}&order=edited_at.desc`);
+    },
+    /* Checklist */
+    async listChecklist(taskId) {
+      return request(`task_checklist?select=id,task_id,body,done,done_at,position&task_id=eq.${enc(taskId)}&order=position.asc`);
+    },
+    async addChecklist(value) {
+      return request("task_checklist?select=id,task_id,body,done,done_at,position", { method: "POST", body: value, single: true, prefer: "return=representation" });
+    },
+    async updateChecklist(id, value) {
+      return request(`task_checklist?select=id,task_id,body,done,done_at,position&id=eq.${enc(id)}`, { method: "PATCH", body: value, single: true, prefer: "return=representation" });
+    },
+    async deleteChecklist(id) {
+      await request(`task_checklist?id=eq.${enc(id)}`, { method: "DELETE", prefer: "return=minimal" });
+    },
     async listProjects() {
       return request("projects?select=id,client_id,name,status,archived_at&order=name.asc");
     },
@@ -466,7 +499,7 @@ export function createSupabaseStore({ url, apiKey, secretKey, getToken, onUnauth
       await request(`content_comments?id=eq.${enc(id)}`, { method: "DELETE", prefer: "return=minimal" });
     },
     async listNotifications(limit = 30) {
-      return request(`notifications?select=id,kind,content_id,actor_name,body,read_at,created_at&order=created_at.desc&limit=${Number(limit) || 30}`);
+      return request(`notifications?select=id,kind,content_id,task_id,actor_name,body,read_at,created_at&order=created_at.desc&limit=${Number(limit) || 30}`);
     },
     async markNotificationsRead(ids = null) {
       const filter = ids ? `id=in.(${ids.map(enc).join(",")})` : "read_at=is.null";

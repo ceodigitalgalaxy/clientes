@@ -128,7 +128,9 @@ export function createMemoryStore() {
     notify(userId, kind, contentId, body, actor = {}) {
       const c = contents.get(contentId);
       if (!userId || !c || userId === actor.id || !this.canReceive(userId, c.client_id)) return;
-      notifications.push({ id: randomUUID(), user_id: userId, kind, content_id: contentId, actor_name: actor.name || "Cliente (pelo link)", body: String(body || "").slice(0, 280), read_at: null, created_at: now() });
+      const row = { id: randomUUID(), user_id: userId, kind, content_id: contentId, task_id: null, actor_name: actor.name || "Cliente (pelo link)", body: String(body || "").slice(0, 280), read_at: null, pushed_at: null, created_at: now() };
+      notifications.push(row);
+      this.onNotification?.(row);
     },
     listComments(contentId) { return comments.filter((x) => x.content_id === contentId); },
     addComment({ content_id, body, mentions = [] }, actor) {
@@ -145,6 +147,14 @@ export function createMemoryStore() {
     },
     deleteComment(id) { const i = comments.findIndex((x) => x.id === id); if (i >= 0) comments.splice(i, 1); },
     commentAuthor(id) { return comments.find((x) => x.id === id)?.author_id ?? null; },
+    /** Aviso de demanda (o emulador das demandas já conferiu quem pode receber) */
+    pushNotification(n) {
+      const row = { id: randomUUID(), content_id: null, task_id: null, read_at: null, pushed_at: null, created_at: now(), ...n, body: String(n.body || "").slice(0, 280) };
+      notifications.push(row);
+      this.onNotification?.(row);
+    },
+    onNotification: null,            // o emulador liga aqui o "gancho" do push (como o gatilho + pg_net)
+    findNotification(id) { return notifications.find((n) => n.id === id) || null; },
     listNotifications(userId) { return notifications.filter((n) => n.user_id === userId).slice().reverse(); },
     markNotificationsRead(userId, ids = null) {
       notifications.forEach((n) => { if (n.user_id === userId && !n.read_at && (!ids || ids.includes(n.id))) n.read_at = now(); });

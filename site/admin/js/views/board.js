@@ -8,13 +8,13 @@
    - "+ Adicionar" no pé de cada coluna cria na hora, já naquela coluna.
    Mostra só as demandas principais; as subtarefas contam no card. */
 
-import { $, esc, on } from "../../../js/lib/dom.js?v=8083d4a8ab";
-import { icon } from "../../../js/lib/icons.js?v=8083d4a8ab";
-import { TASK_STATUS, TASK_PRIORITIES, COLORS, dueState } from "../domain/tasks.js?v=8083d4a8ab";
-import { closeDialog, wireDialog } from "../ui/dialogs.js?v=8083d4a8ab";
-import { stateBlock } from "../ui/states.js?v=8083d4a8ab";
-import { avatars, clientDotClass } from "./contents.js?v=8083d4a8ab";
-import { setupTaskPanel } from "./task-panel.js?v=8083d4a8ab";
+import { $, esc, on } from "../../../js/lib/dom.js?v=5024e0ed17";
+import { icon } from "../../../js/lib/icons.js?v=5024e0ed17";
+import { TASK_STATUS, TASK_PRIORITIES, COLORS, dueState } from "../domain/tasks.js?v=5024e0ed17";
+import { closeDialog, wireDialog } from "../ui/dialogs.js?v=5024e0ed17";
+import { stateBlock } from "../ui/states.js?v=5024e0ed17";
+import { avatars, clientDotClass } from "./contents.js?v=5024e0ed17";
+import { setupTaskPanel } from "./task-panel.js?v=5024e0ed17";
 
 const FILTER_KEY = "dg-painel-quadro-filtros";
 const options = (entries, selected = "") => entries.map(([v, l]) => `<option value="${esc(v)}"${v === selected ? " selected" : ""}>${esc(l)}</option>`).join("");
@@ -41,7 +41,8 @@ export function setupBoard({ api, state, toast, confirm, openContent }) {
       if (state.route === "gestao") render();
     },
     remove(id) { tasks = tasks.filter((t) => t.id !== id && t.parent_id !== id); if (state.route === "gestao") render(); },
-    addProject(p) { projects.push(p); }
+    addProject(p) { projects.push(p); },
+    addLabel(l) { labels.push(l); }
   };
   const panel = setupTaskPanel({ api, state, toast, confirm, board, openContent });
 
@@ -87,6 +88,9 @@ export function setupBoard({ api, state, toast, confirm, openContent }) {
     const due = dueState(t.due_at, t.status);
     const tLabels = (t.task_labels || []).map((l) => labelById(l.label_id)).filter(Boolean);
     const ids = (t.task_assignees || []).map((a) => a.user_id);
+    const checks = t.task_checklist || [];
+    const checksDone = checks.filter((c) => c.done).length;
+    const comments = t.task_comments?.[0]?.count || 0;
     return `
       <article class="tcard${t.status === "concluido" ? " is-done" : ""}" draggable="true" data-tcard="${esc(t.id)}">
         <button class="tcard__open" type="button" data-task-open-card="${esc(t.id)}" aria-label="Abrir ${esc(t.title)}"></button>
@@ -97,7 +101,9 @@ export function setupBoard({ api, state, toast, confirm, openContent }) {
           <span class="tcard__meta">
             ${due ? `<span class="due-pill due-pill--${esc(due.tone)}" title="Entrega">${icon("clock")}${esc(due.label)}</span>` : ""}
             ${t.priority === "alta" || t.priority === "urgente" ? `<span class="prio-flag prio-flag--${esc(t.priority)}" title="Prioridade ${esc(TASK_PRIORITIES[t.priority].label.toLowerCase())}">${icon("target")}${esc(TASK_PRIORITIES[t.priority].label)}</span>` : ""}
-            ${subs.length ? `<span class="tcard__count${done === subs.length ? " is-done" : ""}" title="Subtarefas concluídas">${icon("check")}${done}/${subs.length}</span>` : ""}
+            ${subs.length ? `<span class="tcard__count${done === subs.length ? " is-done" : ""}" title="Subtarefas concluídas">${icon("layers")}${done}/${subs.length}</span>` : ""}
+            ${checks.length ? `<span class="tcard__count${checksDone === checks.length ? " is-done" : ""}" title="Checklist">${icon("check")}${checksDone}/${checks.length}</span>` : ""}
+            ${comments ? `<span class="tcard__count" title="Comentários">${icon("message")}${comments}</span>` : ""}
           </span>
           ${ids.length ? avatars(state.team, ids) : ""}
         </div>
@@ -301,6 +307,56 @@ export function setupBoard({ api, state, toast, confirm, openContent }) {
     } catch (error) { toast(error.message, "error"); }
   });
 
+  /* ---------------- Etiquetas (só administrador) ---------------- */
+  const labelModal = $("#labels-modal");
+  const labelList = labelModal.querySelector("[data-labels]");
+  wireDialog(labelModal);
+  function renderLabels() {
+    const sorted = [...labels].sort((a, b) => Number(Boolean(a.archived_at)) - Number(Boolean(b.archived_at)) || a.name.localeCompare(b.name));
+    labelList.innerHTML = sorted.map((l) => {
+      const used = tasks.filter((t) => (t.task_labels || []).some((x) => x.label_id === l.id)).length;
+      return `
+      <li class="labelrow${l.archived_at ? " is-archived" : ""}" data-labelrow="${esc(l.id)}">
+        <span class="label-chip label-chip--${esc(l.color)}">${esc(l.name)}</span>
+        <input class="field__input" data-label-field="name" value="${esc(l.name)}" maxlength="30" aria-label="Nome da etiqueta">
+        <select class="field__input" data-label-field="color" aria-label="Cor">${options(Object.entries(COLORS), l.color)}</select>
+        <span class="labelrow__used">${used ? `${used} ${used === 1 ? "demanda" : "demandas"}` : "sem uso"}</span>
+        <button class="btn btn--ghost btn--sm" type="button" data-label-archive>${l.archived_at ? "Restaurar" : "Arquivar"}</button>
+      </li>`;
+    }).join("");
+  }
+  on(document, "click", '[data-action="board-labels"]', () => { renderLabels(); labelModal.showModal(); });
+  on(labelList, "change", "[data-label-field]", async (event, el) => {
+    const id = el.closest("[data-labelrow]").dataset.labelrow;
+    try {
+      const saved = await api.updateLabel(id, { [el.dataset.labelField]: el.value });
+      labels = labels.map((l) => (l.id === id ? saved : l));
+      renderLabels(); renderBar(); render();
+      toast("Etiqueta salva");
+    } catch (error) { toast(error.status === 409 ? "Já existe uma etiqueta com esse nome." : error.message, "error"); renderLabels(); }
+  });
+  on(labelList, "click", "[data-label-archive]", async (event, b) => {
+    const id = b.closest("[data-labelrow]").dataset.labelrow;
+    const l = labels.find((x) => x.id === id);
+    try {
+      const saved = await api.updateLabel(id, { archived: !l.archived_at });
+      labels = labels.map((x) => (x.id === id ? saved : x));
+      renderLabels(); renderBar(); render();
+      toast(saved.archived_at ? `"${l.name}" arquivada: some das escolhas, continua nas demandas que já têm` : `"${l.name}" de volta`);
+    } catch (error) { toast(error.message, "error"); }
+  });
+  labelModal.querySelector("[data-label-add]").addEventListener("submit", async (event) => {
+    event.preventDefault();
+    const form = event.currentTarget;
+    try {
+      const saved = await api.createLabel({ name: form.elements.name.value, color: form.elements.color.value });
+      labels.push(saved);
+      form.reset();
+      renderLabels(); renderBar();
+      toast(`Etiqueta "${saved.name}" criada`);
+    } catch (error) { toast(error.status === 409 ? "Já existe uma etiqueta com esse nome." : error.message, "error"); }
+  });
+
   // Atalho: N cria demanda (fora de campos de texto)
   document.addEventListener("keydown", (event) => {
     if (state.route !== "gestao" || event.key.toLowerCase() !== "n" || event.ctrlKey || event.metaKey || event.altKey) return;
@@ -309,5 +365,5 @@ export function setupBoard({ api, state, toast, confirm, openContent }) {
     panel.openNew(presetFromFilters());
   });
 
-  return { load, openTask: (id) => panel.open(id), openNew: (preset) => panel.openNew(preset), reset() { tasks = []; loaded = false; } };
+  return { load, async openTask(id) { if (!loaded) await load(); return panel.open(id); }, openNew: (preset) => panel.openNew(preset), reset() { tasks = []; loaded = false; } };
 }

@@ -23,6 +23,9 @@ export function createFakeTasks({ store, h }) {
   const assignees = new Map();   // task → Set(user)
   const taskLabels = new Map();  // task → Set(label)
   const events = [];
+  const comments = [];           // task_comments
+  const commentEdits = [];       // task_comment_edits
+  const checklist = [];          // task_checklist
 
   const asg = (id) => assignees.get(id) || new Set();
   const seesRow = (u, t) => active(u) && (isAdmin(u) || (t.client_id ? sees(u, t.client_id)
@@ -32,7 +35,17 @@ export function createFakeTasks({ store, h }) {
   const edits = (u, t) => active(u) && (isAdmin(u) || ((!t.client_id || sees(u, t.client_id))
     && (t.created_by === u.id || asg(t.id).has(u.id) || (t.parent_id && tasks.get(t.parent_id)?.created_by === u.id) || (t.client_id && editsClient(u, t.client_id)))));
   const canTake = (target, t) => active(target) && (!t.client_id || sees(target, t.client_id));
-  const row = (t) => ({ ...t, task_assignees: [...asg(t.id)].map((user_id) => ({ user_id })), task_labels: [...(taskLabels.get(t.id) || [])].map((label_id) => ({ label_id })) });
+  const row = (t) => ({ ...t, task_assignees: [...asg(t.id)].map((user_id) => ({ user_id })), task_labels: [...(taskLabels.get(t.id) || [])].map((label_id) => ({ label_id })),
+    task_comments: [{ count: comments.filter((c) => c.task_id === t.id && !c.deleted_at).length }],
+    task_checklist: checklist.filter((i) => i.task_id === t.id).sort((a, b) => a.position - b.position).map((i) => ({ done: i.done })) });
+  /** Como private.user_sees_task: a pessoa (não só quem está logado) enxerga a demanda? */
+  const userSees = (uid, t) => { const u = userById(uid); return Boolean(u && t) && seesRow(u, t); };
+  /** Como private.notify_task: só quem enxerga a demanda e não fez a ação */
+  const notify = (uid, kind, taskId, body, actor) => {
+    const t = tasks.get(taskId);
+    if (!uid || uid === actor?.id || !userSees(uid, t)) return;
+    store.pushNotification({ user_id: uid, kind, task_id: taskId, actor_name: actor ? memberName(actor) : "Sistema", body });
+  };
   const log = (taskId, type, actor, from = null, to = null, metadata = {}) => events.push({ id: randomUUID(), task_id: taskId, event_type: type, actor_name: actor ? memberName(actor) : (type === "status" ? "Cliente (pelo link)" : "Sistema"), from_value: from, to_value: to, metadata, created_at: now() });
 
   /** Como private.tasks_prepare: coluna manda no status; mudou só o status, vai para a 1ª coluna daquela etapa */
@@ -104,6 +117,14 @@ export function createFakeTasks({ store, h }) {
         if (labels.some((l) => l.name.trim().toLowerCase() === String(body.name).trim().toLowerCase())) return { error: json(409, { code: "23505", message: "duplicate key" }) };
         const l = { id: randomUUID(), archived_at: null, ...body }; labels.push(l); return [l];
       }
+      if (method === "PATCH") {
+        if (!isAdmin(user)) return [];
+        const l = labels.find((x) => x.id === eq(params, "id"));
+        if (!l) return [];
+        if (body.name && labels.some((x) => x.id !== l.id && x.name.trim().toLowerCase() === body.name.trim().toLowerCase())) return { error: json(409, { code: "23505", message: "duplicate key" }) };
+        Object.assign(l, body);
+        return [l];
+      }
     }
     if (table === "projects") {
       if (method === "GET") return projects.filter((p) => sees(user, p.client_id));
@@ -140,6 +161,10 @@ export function createFakeTasks({ store, h }) {
         if (next.client_id && !sees(user, next.client_id) && !isAdmin(user)) return rlsDenied();
         tasks.set(prev.id, next);
         logChanges(prev, next, user);
+        if (next.parent_id && next.status === "concluido" && prev.status !== "concluido") {
+          const parent = tasks.get(next.parent_id);
+          new Set([...asg(parent.id), parent.created_by]).forEach((uid) => notify(uid, "subtarefa_concluida", parent.id, `${next.title} (em "${parent.title}")`, user));
+        }
         return [row(next)];
       }
       if (method === "DELETE") {
@@ -163,7 +188,10 @@ export function createFakeTasks({ store, h }) {
           const set = map.get(r.task_id) || new Set();
           if (set.has(r[key])) return { error: json(409, { code: "23505", message: "duplicate key" }) };
           set.add(r[key]); map.set(r.task_id, set);
-          if (isPeople) log(r.task_id, "responsavel_adicionado", user, null, r.user_id, { name: memberName(userById(r.user_id)) });
+          if (isPeople) {
+            log(r.task_id, "responsavel_adicionado", user, null, r.user_id, { name: memberName(userById(r.user_id)) });
+            notify(r.user_id, "tarefa_atribuida", r.task_id, tasks.get(r.task_id).title, user);
+          }
         }
         return [];
       }
@@ -175,6 +203,72 @@ export function createFakeTasks({ store, h }) {
         }
         return [];
       }
+    }
+    if (table === "task_comments") {
+      if (method === "GET") {
+        const t = tasks.get(eq(params, "task_id"));
+        return t && seesRow(user, t) ? comments.filter((c) => c.task_id === t.id).sort((a, b) => a.created_at.localeCompare(b.created_at)) : [];
+      }
+      const cleanMentions = (list, taskId, authorId) => [...new Set(list || [])].filter((m) => m !== authorId && userSees(m, tasks.get(taskId)));
+      if (method === "POST") {
+        const t = tasks.get(body.task_id);
+        if (!t || !seesRow(user, t)) return rlsDenied();
+        const text = String(body.body || "").trim();
+        if (!text || text.length > 5000) return raise("check");
+        let parentId = body.parent_id || null;
+        if (parentId) {
+          const parent = comments.find((c) => c.id === parentId);
+          if (!parent || parent.task_id !== t.id) return raise("resposta_invalida");
+          if (parent.parent_id) parentId = parent.parent_id;
+        }
+        const c = { id: randomUUID(), task_id: t.id, parent_id: parentId, author_id: user.id, author_name: memberName(user), body: text, mentions: cleanMentions(body.mentions, t.id, user.id), edited_at: null, deleted_at: null, created_at: now() };
+        comments.push(c);
+        c.mentions.forEach((m) => notify(m, "tarefa_mencao", t.id, text, user));
+        new Set([...asg(t.id), t.created_by]).forEach((uid) => { if (!c.mentions.includes(uid)) notify(uid, "tarefa_comentario", t.id, text, user); });
+        return [c];
+      }
+      if (method === "PATCH") {
+        const c = comments.find((x) => x.id === eq(params, "id"));
+        if (!c || !seesRow(user, tasks.get(c.task_id)) || !(c.author_id === user.id || isAdmin(user))) return [];
+        if (c.deleted_at) return raise("comentario_apagado");
+        if (body.deleted_at) { c.deleted_at = now(); return [c]; }
+        if (c.author_id !== user.id) return raise("so_o_autor_edita");
+        const text = String(body.body || "").trim();
+        if (!text || text.length > 5000) return raise("check");
+        if (text === c.body) return [c];
+        commentEdits.push({ id: randomUUID(), comment_id: c.id, body: c.body, edited_at: now() });
+        const before = c.mentions;
+        Object.assign(c, { body: text, edited_at: now(), mentions: cleanMentions(body.mentions, c.task_id, user.id) });
+        c.mentions.filter((m) => !before.includes(m)).forEach((m) => notify(m, "tarefa_mencao", c.task_id, text, user));
+        return [c];
+      }
+    }
+    if (table === "task_comment_edits" && method === "GET") {
+      const c = comments.find((x) => x.id === eq(params, "comment_id"));
+      return c && seesRow(user, tasks.get(c.task_id)) ? commentEdits.filter((e) => e.comment_id === c.id).slice().reverse() : [];
+    }
+    if (table === "task_checklist") {
+      if (method === "GET") {
+        const t = tasks.get(eq(params, "task_id"));
+        return t && seesRow(user, t) ? checklist.filter((i) => i.task_id === t.id).sort((a, b) => a.position - b.position) : [];
+      }
+      if (method === "POST") {
+        const t = tasks.get(body.task_id);
+        if (!t || !edits(user, t)) return rlsDenied();
+        const text = String(body.body || "").trim();
+        if (!text || text.length > 300) return raise("check");
+        const i = { id: randomUUID(), task_id: t.id, body: text, done: false, done_at: null, position: Date.now() / 1000 + Math.random(), created_at: now() };
+        checklist.push(i);
+        return [i];
+      }
+      const i = checklist.find((x) => x.id === eq(params, "id"));
+      if (!i || !edits(user, tasks.get(i.task_id))) return [];
+      if (method === "PATCH") {
+        if ("done" in body) { i.done = Boolean(body.done); i.done_at = i.done ? now() : null; }
+        if ("body" in body) i.body = String(body.body).trim();
+        return [i];
+      }
+      if (method === "DELETE") { checklist.splice(checklist.indexOf(i), 1); return []; }
     }
     if (table === "task_events" && method === "GET") {
       const t = tasks.get(eq(params, "task_id"));
@@ -193,5 +287,5 @@ export function createFakeTasks({ store, h }) {
     return row(next);
   }
 
-  return { route, syncFromContent, editAsOther, all: () => [...tasks.values()].map(row), get: (id) => (tasks.has(id) ? row(tasks.get(id)) : null), columns, labels };
+  return { route, syncFromContent, editAsOther, comments, checklist, all: () => [...tasks.values()].map(row), get: (id) => (tasks.has(id) ? row(tasks.get(id)) : null), columns, labels };
 }

@@ -8,8 +8,8 @@
    O menu abre "flutuando" (position: fixed) para não ser cortado pela lista,
    e sobe quando não cabe embaixo. Fecha ao clicar fora, no Esc, ao rolar e ao escolher. */
 
-import { icon } from "../../../js/lib/icons.js?v=8083d4a8ab";
-import { esc } from "../../../js/lib/dom.js?v=8083d4a8ab";
+import { icon } from "../../../js/lib/icons.js?v=5024e0ed17";
+import { esc } from "../../../js/lib/dom.js?v=5024e0ed17";
 
 /** HTML do menu: items = [{ label, icon, attrs: 'data-x="id"', danger }] (itens vazios são ignorados) */
 export function kebab(items, label = "Mais ações") {

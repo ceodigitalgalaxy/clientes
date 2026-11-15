@@ -2,8 +2,8 @@
    Com um painel ou modal aberto, o aviso aparece dentro dele (camada do topo),
    para não ficar atrás do fundo escurecido. */
 
-import { esc } from "../lib/dom.js?v=8083d4a8ab";
-import { icon } from "../lib/icons.js?v=8083d4a8ab";
+import { esc } from "../lib/dom.js?v=5024e0ed17";
+import { icon } from "../lib/icons.js?v=5024e0ed17";
 
 function container() {
   const open = document.querySelector("dialog[open]:not(.is-closing)");
@@ -22,7 +22,10 @@ export function toast(message, tone = "success") {
   const item = document.createElement("div");
   item.className = `toast toast--${tone}`;
   item.innerHTML = `${icon(tone === "success" ? "check" : "message")}<span>${esc(message)}</span>`;
-  container().appendChild(item);
+  const box = container();
+  // No máximo 2 avisos à vista: o mais antigo sai para não cobrir a tela
+  [...box.querySelectorAll(".toast")].slice(0, -1).forEach((old) => { old.classList.remove("is-visible"); setTimeout(() => old.remove(), 300); });
+  box.appendChild(item);
   requestAnimationFrame(() => item.classList.add("is-visible"));
   setTimeout(() => {
     item.classList.remove("is-visible");

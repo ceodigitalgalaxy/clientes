@@ -1,20 +1,26 @@
 /* Avisos do painel (sininho no topo): atribuição, menção, comentário numa
-   demanda sua e pedido de ajuste do cliente. Os avisos nascem no banco
+   demanda sua, subtarefa concluída e pedido de ajuste do cliente. Os avisos nascem no banco
    (gatilhos); aqui só lemos os da própria pessoa e marcamos como lidos.
    Abrir um aviso abre o conteúdo e marca aquele aviso como lido. */
 
-import { $, esc, on } from "../../../js/lib/dom.js?v=8083d4a8ab";
-import { icon } from "../../../js/lib/icons.js?v=8083d4a8ab";
-import { stampLabel } from "../../../js/lib/dates.js?v=8083d4a8ab";
+import { $, esc, on } from "../../../js/lib/dom.js?v=5024e0ed17";
+import { icon } from "../../../js/lib/icons.js?v=5024e0ed17";
+import { stampLabel } from "../../../js/lib/dates.js?v=5024e0ed17";
 
 const KINDS = {
   atribuicao: { icon: "user", text: (n) => `${n.actor_name} te colocou como responsável` },
   mencao: { icon: "message", text: (n) => `${n.actor_name} te mencionou` },
   comentario: { icon: "message", text: (n) => `${n.actor_name} comentou numa demanda sua` },
-  ajuste: { icon: "refresh", text: (n) => (n.actor_name === "Cliente (pelo link)" ? "O cliente pediu ajuste" : `${n.actor_name} marcou ajuste`) }
+  ajuste: { icon: "refresh", text: (n) => (n.actor_name === "Cliente (pelo link)" ? "O cliente pediu ajuste" : `${n.actor_name} marcou ajuste`) },
+  tarefa_atribuida: { icon: "user", text: (n) => `${n.actor_name} te passou uma demanda` },
+  tarefa_mencao: { icon: "message", text: (n) => `${n.actor_name} te mencionou numa demanda` },
+  tarefa_comentario: { icon: "message", text: (n) => `${n.actor_name} comentou numa demanda sua` },
+  subtarefa_concluida: { icon: "check", text: (n) => `${n.actor_name} concluiu uma subtarefa` },
+  prazo_proximo: { icon: "clock", text: () => "Entrega chegando" },
+  tarefa_atrasada: { icon: "clock", text: () => "Demanda atrasada" }
 };
 
-export function setupInbox({ api, state, openContent }) {
+export function setupInbox({ api, state, push, openContent, openTask }) {
   const toggle = document.querySelector('[data-action="toggle-inbox"]');
   const badge = toggle.querySelector("[data-inbox-count]");
   const panel = $("#inbox");
@@ -37,7 +43,7 @@ export function setupInbox({ api, state, openContent }) {
       ${items.length ? `<ul class="inbox__list">${items.map((n) => {
         const k = KINDS[n.kind] || KINDS.comentario;
         return `
-          <li><button class="inbox__item${n.read_at ? "" : " is-unread"}" type="button" data-inbox-open="${esc(n.id)}" data-content="${esc(n.content_id || "")}">
+          <li><button class="inbox__item${n.read_at ? "" : " is-unread"}" type="button" data-inbox-open="${esc(n.id)}" data-content="${esc(n.content_id || "")}" data-task="${esc(n.task_id || "")}">
             <span class="inbox__icon inbox__icon--${esc(n.kind)}">${icon(k.icon)}</span>
             <span class="inbox__body">
               <span class="inbox__text">${esc(k.text(n))}</span>
@@ -45,7 +51,9 @@ export function setupInbox({ api, state, openContent }) {
               <span class="inbox__time">${esc(stampLabel(n.created_at))}</span>
             </span>
           </button></li>`;
-      }).join("")}</ul>` : '<p class="inbox__empty">Nenhum aviso por enquanto. Quando alguém te atribuir uma demanda, te mencionar ou o cliente pedir ajuste, aparece aqui.</p>'}`;
+      }).join("")}</ul>` : '<p class="inbox__empty">Nenhum aviso por enquanto. Quando alguém te passar uma demanda, te mencionar, concluir uma subtarefa sua ou o cliente pedir ajuste, aparece aqui.</p>'}
+      <div data-push-box></div>`;
+    push?.mount(panel.querySelector("[data-push-box]"));
   }
   async function refresh() {
     if (!state.signedIn) return;
@@ -67,7 +75,8 @@ export function setupInbox({ api, state, openContent }) {
     const n = items.find((x) => x.id === b.dataset.inboxOpen);
     setOpen(false);
     if (n && !n.read_at) { n.read_at = new Date().toISOString(); syncBadge(); api.markNotificationsRead([n.id]).catch(() => {}); }
-    if (b.dataset.content) openContent(b.dataset.content);
+    if (b.dataset.task) openTask(b.dataset.task);
+    else if (b.dataset.content) openContent(b.dataset.content);
   });
 
   return {

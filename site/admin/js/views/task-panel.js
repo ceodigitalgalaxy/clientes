@@ -5,13 +5,14 @@
      ("Salvo ✓"). Se outra pessoa salvou antes, avisa e recarrega (version).
    O banco confere quem pode ver, criar, editar, delegar e arquivar. */
 
-import { $, esc, on } from "../../../js/lib/dom.js?v=8083d4a8ab";
-import { icon } from "../../../js/lib/icons.js?v=8083d4a8ab";
-import { stampLabel } from "../../../js/lib/dates.js?v=8083d4a8ab";
-import { TASK_STATUS, TASK_PRIORITIES, dueParts, dueState } from "../domain/tasks.js?v=8083d4a8ab";
-import { closeDialog, wireDialog, showFieldErrors, setBusy } from "../ui/dialogs.js?v=8083d4a8ab";
-import { kebab } from "../ui/menu.js?v=8083d4a8ab";
-import { seesClient, personName, clientDotClass } from "./contents.js?v=8083d4a8ab";
+import { $, esc, on } from "../../../js/lib/dom.js?v=5024e0ed17";
+import { icon } from "../../../js/lib/icons.js?v=5024e0ed17";
+import { stampLabel } from "../../../js/lib/dates.js?v=5024e0ed17";
+import { TASK_STATUS, TASK_PRIORITIES, dueParts, dueState } from "../domain/tasks.js?v=5024e0ed17";
+import { closeDialog, wireDialog, showFieldErrors, setBusy } from "../ui/dialogs.js?v=5024e0ed17";
+import { kebab } from "../ui/menu.js?v=5024e0ed17";
+import { attachMentions, mentionHtml } from "../ui/mentions.js?v=5024e0ed17";
+import { seesClient, personName, clientDotClass } from "./contents.js?v=5024e0ed17";
 
 const initials = (name) => String(name || "?").trim().split(/\s+/).slice(0, 2).map((w) => w[0]).join("").toUpperCase();
 const options = (entries, selected = "") => entries.map(([v, l]) => `<option value="${esc(v)}"${v === (selected ?? "") ? " selected" : ""}>${esc(l)}</option>`).join("");
@@ -56,10 +57,10 @@ export function setupTaskPanel({ api, state, toast, confirm, board, openContent 
       <label class="pick-person"><input type="checkbox" name="assignee" value="${esc(m.user_id)}" ${chosen.includes(m.user_id) ? "checked" : ""}>
         <span class="avatar">${esc(initials(m.name || m.username))}</span><span>${esc(m.name || m.username)}${m.user_id === state.me?.user_id ? " (você)" : ""}</span></label>`).join("")}</div>`;
   }
-  function labelPicker(chosen) {
+  function labelPicker(chosen, { canAdd = false } = {}) {
     const list = board.labels().filter((l) => !l.archived_at);
     return `<div class="pick-labels">${list.map((l) => `
-      <label class="pick-label"><input type="checkbox" name="label" value="${esc(l.id)}" ${chosen.includes(l.id) ? "checked" : ""}><span class="label-chip label-chip--${esc(l.color)}">${esc(l.name)}</span></label>`).join("")}</div>`;
+      <label class="pick-label"><input type="checkbox" name="label" value="${esc(l.id)}" ${chosen.includes(l.id) ? "checked" : ""}><span class="label-chip label-chip--${esc(l.color)}">${esc(l.name)}</span></label>`).join("")}${canAdd ? `<button class="label-add" type="button" data-label-new>${icon("sparkle")}Nova etiqueta</button>` : ""}</div>`;
   }
 
   /* ---------------- Nova demanda (criação rápida) ---------------- */
@@ -125,6 +126,112 @@ export function setupTaskPanel({ api, state, toast, confirm, board, openContent 
   const assigneesOf = (t) => (t.task_assignees || []).map((a) => a.user_id);
   const labelsOf = (t) => (t.task_labels || []).map((l) => l.label_id);
 
+  /* ---------------- Subtarefas, checklist e comentários ---------------- */
+  let activity = { taskId: null, comments: null, checklist: null };   // o que já veio do banco para a demanda aberta
+  let activityTab = "comentarios";
+  let draft = "";            // comentário sendo escrito (sobrevive ao redesenho do painel)
+  let composer = null;       // @menção do campo de comentário
+  const me = () => state.me?.user_id;
+  /** Quem pode ser mencionado: quem enxerga a demanda (o banco confere de novo) */
+  function mentionable(t) {
+    if (!t) return [];
+    const involved = new Set([t.created_by, ...assigneesOf(t)]);
+    board.tasks().filter((x) => x.parent_id === t.id || x.id === t.parent_id).forEach((x) => assigneesOf(x).forEach((id) => involved.add(id)));
+    return state.team.filter((m) => m.active !== false && m.user_id !== me()
+      && (t.client_id ? seesClient(m, t.client_id) : (m.role === "admin" || involved.has(m.user_id))));
+  }
+  const avatarsOf = (ids) => ids.map((id) => `<span class="avatar avatar--xs" title="${esc(personName(state.team, id))}">${esc(initials(personName(state.team, id)))}</span>`).join("");
+
+  function subtasksHtml(t, subtasks) {
+    const done = subtasks.filter((x) => x.status === "concluido").length;
+    const team = people(t.client_id);
+    return `
+      <section class="detail"><h3 class="detail__title">Subtarefas ${subtasks.length ? `<span class="detail__count">${done}/${subtasks.length}</span>` : ""}</h3>
+        ${subtasks.length ? `<ul class="subtasks">${subtasks.map((x) => {
+          const due = dueState(x.due_at, x.status);
+          const ids = assigneesOf(x);
+          return `<li class="subtask${x.status === "concluido" ? " is-done" : ""}">
+            <label class="subtask__check"><input type="checkbox" data-subtask-done="${esc(x.id)}" ${x.status === "concluido" ? "checked" : ""}><span class="visually-hidden">Concluir ${esc(x.title)}</span></label>
+            <button class="subtask__title" type="button" data-task-open="${esc(x.id)}">${esc(x.title)}</button>
+            <span class="subtask__meta">${due ? `<span class="due-pill due-pill--${esc(due.tone)}">${esc(due.label)}</span>` : ""}${ids.length ? avatarsOf(ids) : '<span class="field__optional">sem responsável</span>'}</span>
+          </li>`;
+        }).join("")}</ul>` : '<p class="field__hint">Quebre a demanda em partes e entregue cada uma para alguém (o responsável da demanda continua o mesmo).</p>'}
+        <form class="subtask-add" data-subtask-add novalidate>
+          <input class="field__input field__input--sm" name="title" maxlength="200" placeholder="+ Nova subtarefa" aria-label="Título da subtarefa" autocomplete="off">
+          <select class="field__input field__input--sm" name="assignee" aria-label="Responsável da subtarefa"><option value="">Responsável…</option>${options(team.map((m) => [m.user_id, `${m.name || m.username}${m.user_id === me() ? " (você)" : ""}`]))}</select>
+          <input class="field__input field__input--sm" type="date" name="due_date" aria-label="Entrega da subtarefa">
+          <button class="btn btn--ghost btn--sm" type="submit">Adicionar</button>
+        </form>
+      </section>`;
+  }
+
+  function checklistHtml() {
+    const items = activity.taskId === current?.id ? activity.checklist : null;
+    if (!items) return '<p class="field__hint">Carregando…</p>';
+    if (!items.length) return "";
+    return `<ul class="checklist">${items.map((i) => `
+      <li class="check-item${i.done ? " is-done" : ""}">
+        <label class="check"><input type="checkbox" data-check-done="${esc(i.id)}" ${i.done ? "checked" : ""}><span>${esc(i.body)}</span></label>
+        <button class="icon-btn icon-btn--sm" type="button" data-check-delete="${esc(i.id)}" aria-label="Apagar item ${esc(i.body)}">${icon("close")}</button>
+      </li>`).join("")}</ul>`;
+  }
+
+  function commentHtml(c, replies = []) {
+    const mine = c.author_id === me();
+    const gone = Boolean(c.deleted_at);
+    const actions = gone ? "" : [
+      `<button class="link-btn" type="button" data-comment-reply="${esc(c.parent_id || c.id)}">Responder</button>`,
+      mine ? `<button class="link-btn" type="button" data-comment-edit="${esc(c.id)}">Editar</button>` : "",
+      mine || state.can.admin ? `<button class="link-btn link-btn--danger" type="button" data-comment-delete="${esc(c.id)}">Apagar</button>` : ""
+    ].join("");
+    return `
+      <li class="tcomment${mine ? " tcomment--mine" : ""}${gone ? " is-deleted" : ""}" data-comment="${esc(c.id)}">
+        <span class="avatar">${esc(initials(c.author_name || "?"))}</span>
+        <div class="tcomment__main">
+          <p class="tcomment__meta"><b>${esc(c.author_name || "Alguém")}</b> · ${esc(stampLabel(c.created_at))}${c.edited_at && !gone ? ` · <button class="link-btn tcomment__edited" type="button" data-comment-versions="${esc(c.id)}" title="Ver o texto anterior">editado</button>` : ""}</p>
+          ${gone ? '<p class="tcomment__body tcomment__body--gone">Comentário apagado</p>' : `<p class="tcomment__body">${mentionHtml(c.body, c.mentions, (id) => personName(state.team, id))}</p>`}
+          <div class="tcomment__versions" data-versions-of="${esc(c.id)}" hidden></div>
+          ${actions ? `<p class="tcomment__actions">${actions}</p>` : ""}
+          ${replies.length ? `<ul class="tcomments tcomments--replies">${replies.map((r) => commentHtml(r)).join("")}</ul>` : ""}
+        </div>
+      </li>`;
+  }
+  function commentsHtml() {
+    const list = activity.taskId === current?.id ? activity.comments : null;
+    if (!list) return '<p class="field__hint">Carregando…</p>';
+    const top = list.filter((c) => !c.parent_id);
+    if (!top.length) return '<p class="field__hint">Nenhum comentário ainda. Combine aqui os detalhes com a equipe.</p>';
+    return `<ul class="tcomments">${top.map((c) => commentHtml(c, list.filter((r) => r.parent_id === c.id))).join("")}</ul>`;
+  }
+  function paintCounts() {
+    const comments = (activity.taskId === current?.id && activity.comments) || null;
+    const items = (activity.taskId === current?.id && activity.checklist) || null;
+    const cc = body.querySelector("[data-comment-count]");
+    if (cc) cc.textContent = comments ? `(${comments.filter((c) => !c.deleted_at).length})` : "";
+    const ck = body.querySelector("[data-check-count]");
+    if (ck) ck.textContent = items && items.length ? `${items.filter((i) => i.done).length}/${items.length}` : "";
+  }
+  function paintActivity() {
+    const cl = body.querySelector("[data-checklist]");
+    if (cl) cl.innerHTML = checklistHtml();
+    const cm = body.querySelector("[data-task-comments]");
+    if (cm) cm.innerHTML = commentsHtml();
+    paintCounts();
+  }
+  /** Card do quadro acompanha a contagem (comentários e checklist) sem recarregar tudo */
+  function syncCardCounts() {
+    if (!current || activity.taskId !== current.id) return;
+    current = { ...current, task_comments: [{ count: (activity.comments || []).filter((c) => !c.deleted_at).length }], task_checklist: (activity.checklist || []).map((i) => ({ done: i.done })) };
+    board.upsert(current);
+  }
+  async function loadActivity(id) {
+    if (activity.taskId !== id) activity = { taskId: id, comments: null, checklist: null };
+    const [comments, checklist] = await Promise.all([api.listTaskComments(id).catch(() => []), api.listChecklist(id).catch(() => [])]);
+    if (current?.id !== id) return;
+    activity = { taskId: id, comments, checklist };
+    paintActivity();
+  }
+
   function render() {
     const t = current;
     const cols = board.columns().filter((c) => !c.hidden || c.id === t.column_id);
@@ -154,17 +261,38 @@ export function setupTaskPanel({ api, state, toast, confirm, board, openContent 
         </dd></div>
         <div class="task-prop"><dt>${icon("clock")}Entrega</dt><dd><span class="input-row"><input class="field__input field__input--sm" type="date" data-task-due="date" value="${esc(date)}"><input class="field__input field__input--sm task-time" type="time" data-task-due="time" value="${esc(time)}"></span>${due ? `<span class="due-pill due-pill--${esc(due.tone)}">${esc(due.label)}</span>` : ""}</dd></div>
         <div class="task-prop"><dt>${icon("target")}Prioridade</dt><dd><select class="field__input field__input--sm" data-task-field="priority">${options(Object.entries(TASK_PRIORITIES).map(([k, v]) => [k, v.label]), t.priority)}</select></dd></div>
-        <div class="task-prop"><dt>${icon("tag")}Etiquetas</dt><dd>${labelPicker(labelsOf(t))}</dd></div>
+        <div class="task-prop"><dt>${icon("tag")}Etiquetas</dt><dd>${labelPicker(labelsOf(t), { canAdd: true })}</dd></div>
         ${t.parent_id ? "" : `<div class="task-prop"><dt>${icon("users")}Cliente</dt><dd><select class="field__input field__input--sm" data-task-field="client_id"><option value="">Interno da agência</option>${options(visibleClients().concat(state.clients.filter((c) => !c.active && c.id === t.client_id)).map((c) => [c.id, c.name]), t.client_id || "")}</select></dd></div>`}
         ${t.client_id ? `<div class="task-prop"><dt>${icon("box")}Projeto</dt><dd><span class="input-row"><select class="field__input field__input--sm" data-task-field="project_id"><option value="">Sem projeto</option>${options(projects.map((p) => [p.id, p.name]), t.project_id || "")}</select>${state.can.edit ? `<button class="btn btn--ghost btn--sm" type="button" data-task-new-project>${icon("sparkle")}<span>Novo</span></button>` : ""}</span></dd></div>` : ""}
         ${t.content_id ? `<div class="task-prop"><dt>${icon("calendar")}Conteúdo</dt><dd><button class="link-btn" type="button" data-task-content="${esc(t.content_id)}">${icon("arrowRight")}<span>Abrir o conteúdo do calendário</span></button></dd></div>` : ""}
       </dl>
       <section class="detail"><h3 class="detail__title">Descrição</h3>
         <textarea class="field__input task-desc" data-task-field="description" rows="5" maxlength="10000" placeholder="Detalhes, referências, o que é esperado…">${esc(t.description || "")}</textarea></section>
-      ${subtasks.length ? `<section class="detail"><h3 class="detail__title">Subtarefas (${subtasks.filter((s) => s.status === "concluido").length}/${subtasks.length})</h3>
-        <ul class="subtask-list">${subtasks.map((s) => `<li><button class="subtask-row${s.status === "concluido" ? " is-done" : ""}" type="button" data-task-open="${esc(s.id)}">${icon(s.status === "concluido" ? "check" : "dot")}<span>${esc(s.title)}</span><span class="subtask-row__who">${(s.task_assignees || []).map((a) => esc(personName(state.team, a.user_id))).join(", ")}</span></button></li>`).join("")}</ul></section>` : ""}
-      <section class="detail"><h3 class="detail__title">Histórico</h3><div data-task-history><p class="field__hint">Carregando…</p></div></section>`;
+      ${t.parent_id ? "" : subtasksHtml(t, subtasks)}
+      <section class="detail"><h3 class="detail__title">Checklist <span class="detail__count" data-check-count></span></h3>
+        <div data-checklist>${checklistHtml()}</div>
+        <form class="inline-add" data-check-add novalidate><input class="field__input field__input--sm" name="body" maxlength="300" placeholder="+ Adicionar item" aria-label="Novo item do checklist" autocomplete="off"></form></section>
+      <section class="detail task-activity">
+        <div class="seg" role="tablist" aria-label="Atividade da demanda">
+          <button class="seg__btn" type="button" role="tab" data-activity-tab="comentarios" aria-selected="${activityTab === "comentarios"}">Comentários <span data-comment-count></span></button>
+          <button class="seg__btn" type="button" role="tab" data-activity-tab="historico" aria-selected="${activityTab === "historico"}">Histórico</button>
+        </div>
+        <div data-activity="comentarios" ${activityTab === "comentarios" ? "" : "hidden"}>
+          <div data-task-comments>${commentsHtml()}</div>
+          <form class="comment-form" data-task-comment-form novalidate>
+            <textarea class="field__input" name="body" rows="2" maxlength="5000" placeholder="Escreva um comentário. Use @ para chamar alguém da equipe." aria-label="Novo comentário"></textarea>
+            <p class="form-error" role="alert" hidden></p>
+            <div class="comment-form__actions"><span class="field__hint">${icon("lock")}Só a equipe vê · Ctrl+Enter envia</span><button class="btn btn--primary btn--sm" type="submit">${icon("send")}<span>Comentar</span></button></div>
+          </form>
+        </div>
+        <div data-activity="historico" ${activityTab === "historico" ? "" : "hidden"}><div data-task-history><p class="field__hint">Carregando…</p></div></div>
+      </section>`;
     autosize(body.querySelector(".task-title"));
+    const area = body.querySelector("[data-task-comment-form] textarea");
+    area.value = draft;
+    area.addEventListener("input", () => { draft = area.value; });
+    composer = attachMentions(area, () => mentionable(current));
+    paintCounts();
     loadHistory(t.id);
   }
   function autosize(area) { if (!area) return; area.style.height = "auto"; area.style.height = `${area.scrollHeight}px`; }
@@ -179,12 +307,13 @@ export function setupTaskPanel({ api, state, toast, confirm, board, openContent 
   }
 
   async function open(id) {
-    if (current?.id !== id) lastFlash = null;
+    if (current?.id !== id) { lastFlash = null; draft = ""; activity = { taskId: id, comments: null, checklist: null }; }
     try {
       const task = await api.getTask(id);
       current = task;
       board.upsert(task);
       render();
+      loadActivity(id);
       if (!drawer.open) drawer.showModal();
       autosize(body.querySelector(".task-title"));   // com o painel aberto a altura é a de verdade
     } catch (error) { toast(error.message, "error"); }
@@ -300,6 +429,190 @@ export function setupTaskPanel({ api, state, toast, confirm, board, openContent 
       try { await api.deleteTask(t.id); board.remove(t.id); closeDialog(drawer); toast("Demanda excluída"); } catch (error) { toast(error.message, "error"); }
     }
   });
+  /* ---------- Subtarefas ---------- */
+  on(body, "change", "[data-subtask-done]", async (event, box) => {
+    const sub = board.tasks().find((x) => x.id === box.dataset.subtaskDone);
+    if (!sub) return;
+    box.disabled = true;
+    try {
+      const saved = await api.updateTask(sub.id, sub.version, { status: box.checked ? "concluido" : "a_fazer" });
+      board.upsert({ ...sub, ...saved });
+      toast(box.checked ? `Subtarefa concluída: "${sub.title}"` : "Subtarefa reaberta");
+      render();
+    } catch (error) {
+      box.checked = !box.checked;
+      box.disabled = false;
+      toast(error.message, error.status === 409 ? "info" : "error");
+      if (error.status === 409) open(current.id);
+    }
+  });
+  on(body, "submit", "[data-subtask-add]", async (event, form) => {
+    event.preventDefault();
+    const title = form.elements.title.value.trim();
+    if (!title) { form.elements.title.focus(); return; }
+    const button = form.querySelector("[type=submit]");
+    setBusy(button, true);
+    try {
+      const who = form.elements.assignee.value;
+      const created = await api.createTask({ title, parent_id: current.id, due_date: form.elements.due_date.value, due_time: form.elements.due_date.value ? "18:00" : "" }, { assignees: who ? [who] : [] });
+      board.upsert(created);
+      toast(who && who !== me() ? `Subtarefa criada e entregue para ${personName(state.team, who)}` : "Subtarefa criada");
+      render();
+      body.querySelector("[data-subtask-add] [name=title]")?.focus();
+    } catch (error) { toast(error.message, "error"); setBusy(button, false); }
+  });
+
+  /* ---------- Checklist ---------- */
+  on(body, "submit", "[data-check-add]", async (event, form) => {
+    event.preventDefault();
+    const input = form.elements.body;
+    const text = input.value.trim();
+    if (!text || !current) return;
+    input.disabled = true;
+    try {
+      const item = await api.addChecklist(current.id, text);
+      activity.checklist = [...(activity.checklist || []), item];
+      input.value = "";
+      paintActivity();
+      syncCardCounts();
+    } catch (error) { toast(error.message, "error"); }
+    finally { input.disabled = false; input.focus(); }
+  });
+  on(body, "change", "[data-check-done]", async (event, box) => {
+    const id = box.dataset.checkDone;
+    try {
+      const saved = await api.updateChecklist(id, { done: box.checked });
+      activity.checklist = activity.checklist.map((i) => (i.id === id ? saved : i));
+      paintActivity();
+      syncCardCounts();
+    } catch (error) { box.checked = !box.checked; toast(error.message, "error"); }
+  });
+  on(body, "click", "[data-check-delete]", async (event, b) => {
+    const id = b.dataset.checkDelete;
+    try {
+      await api.deleteChecklist(id);
+      activity.checklist = activity.checklist.filter((i) => i.id !== id);
+      paintActivity();
+      syncCardCounts();
+    } catch (error) { toast(error.message, "error"); }
+  });
+
+  /* ---------- Comentários e histórico ---------- */
+  on(body, "click", "[data-activity-tab]", (event, b) => {
+    activityTab = b.dataset.activityTab;
+    body.querySelectorAll("[data-activity-tab]").forEach((x) => x.setAttribute("aria-selected", String(x === b)));
+    body.querySelectorAll("[data-activity]").forEach((x) => { x.hidden = x.dataset.activity !== activityTab; });
+  });
+  const sentLabel = (n) => (n ? ` · ${n === 1 ? "1 pessoa avisada" : `${n} pessoas avisadas`}` : "");
+  on(body, "submit", "[data-task-comment-form]", async (event, form) => {
+    event.preventDefault();
+    const area = form.elements.body;
+    const errorBox = form.querySelector(".form-error");
+    errorBox.hidden = true;
+    const text = area.value.trim();
+    if (!text) { errorBox.textContent = "Escreva o comentário."; errorBox.hidden = false; area.focus(); return; }
+    const mentions = composer.mentions(text);
+    const button = form.querySelector("[type=submit]");
+    setBusy(button, true);
+    try {
+      const saved = await api.addTaskComment(current.id, text, { mentions });
+      activity.comments = [...(activity.comments || []), saved];
+      area.value = ""; draft = "";
+      composer.clear();
+      paintActivity();
+      syncCardCounts();
+      toast(`Comentário enviado${sentLabel(saved.mentions?.length)}`);
+    } catch (error) { errorBox.textContent = error.message; errorBox.hidden = false; }
+    finally { setBusy(button, false); }
+  });
+  /** Formulário pequeno dentro do comentário (responder ou editar) */
+  function inlineForm(host, { value = "", label, mentions = [], onSubmit }) {
+    host.querySelector("[data-inline-comment]")?.remove();
+    host.insertAdjacentHTML("beforeend", `
+      <form class="comment-form comment-form--inline" data-inline-comment novalidate>
+        <textarea class="field__input" name="body" rows="2" maxlength="5000" aria-label="${esc(label)}">${esc(value)}</textarea>
+        <p class="form-error" role="alert" hidden></p>
+        <div class="comment-form__actions"><button class="btn btn--ghost btn--sm" type="button" data-inline-cancel>Cancelar</button><button class="btn btn--primary btn--sm" type="submit">${esc(label)}</button></div>
+      </form>`);
+    const form = host.querySelector("[data-inline-comment]");
+    const area = form.elements.body;
+    const helper = attachMentions(area, () => mentionable(current));
+    helper.preset(mentions.map((id) => [personName(state.team, id), id]));
+    area.focus();
+    area.setSelectionRange(area.value.length, area.value.length);
+    form.addEventListener("submit", async (event) => {
+      event.preventDefault();
+      const text = area.value.trim();
+      const errorBox = form.querySelector(".form-error");
+      if (!text) { errorBox.textContent = "Escreva o comentário."; errorBox.hidden = false; return; }
+      const button = form.querySelector("[type=submit]");
+      setBusy(button, true);
+      try { await onSubmit(text, helper.mentions(text)); } catch (error) { errorBox.textContent = error.message; errorBox.hidden = false; setBusy(button, false); }
+    });
+    form.querySelector("[data-inline-cancel]").addEventListener("click", () => form.remove());
+  }
+  on(body, "click", "[data-comment-reply]", (event, b) => {
+    const thread = body.querySelector(`[data-comment="${b.dataset.commentReply}"] > .tcomment__main`);
+    if (!thread) return;
+    inlineForm(thread, { label: "Responder", onSubmit: async (text, mentions) => {
+      const saved = await api.addTaskComment(current.id, text, { mentions, parentId: b.dataset.commentReply });
+      activity.comments = [...activity.comments, saved];
+      paintActivity();
+      syncCardCounts();
+      toast(`Resposta enviada${sentLabel(saved.mentions?.length)}`);
+    } });
+  });
+  on(body, "click", "[data-comment-edit]", (event, b) => {
+    const c = activity.comments.find((x) => x.id === b.dataset.commentEdit);
+    const main = body.querySelector(`[data-comment="${c?.id}"] > .tcomment__main`);
+    if (!c || !main) return;
+    inlineForm(main, { value: c.body, label: "Salvar", mentions: c.mentions || [], onSubmit: async (text, mentions) => {
+      const saved = await api.editTaskComment(c.id, text, mentions);
+      activity.comments = activity.comments.map((x) => (x.id === c.id ? saved : x));
+      paintActivity();
+      toast("Comentário editado (o texto anterior fica guardado)");
+    } });
+  });
+  on(body, "click", "[data-comment-delete]", async (event, b) => {
+    const c = activity.comments.find((x) => x.id === b.dataset.commentDelete);
+    if (!c) return;
+    const ok = await confirm({ title: "Apagar este comentário?", text: c.author_id === me() ? "O texto some para a equipe; fica só o registro de que houve um comentário apagado." : `Você vai apagar o comentário de ${c.author_name || "outra pessoa"}. O texto some para a equipe; fica o registro.`, confirmLabel: "Apagar comentário" });
+    if (!ok) return;
+    try {
+      const saved = await api.deleteTaskComment(c.id);
+      activity.comments = activity.comments.map((x) => (x.id === c.id ? saved : x));
+      paintActivity();
+      syncCardCounts();
+      toast("Comentário apagado");
+    } catch (error) { toast(error.message, "error"); }
+  });
+  on(body, "click", "[data-comment-versions]", async (event, b) => {
+    const box = body.querySelector(`[data-versions-of="${b.dataset.commentVersions}"]`);
+    if (!box) return;
+    if (!box.hidden) { box.hidden = true; return; }
+    try {
+      const edits = await api.commentEdits(b.dataset.commentVersions);
+      box.innerHTML = edits.length ? `<p class="field__hint">Antes:</p><ul>${edits.map((e) => `<li><span class="tcomment__old">${esc(e.body)}</span> <span class="field__optional">· trocado em ${esc(stampLabel(e.edited_at))}</span></li>`).join("")}</ul>` : '<p class="field__hint">Sem versões anteriores.</p>';
+      box.hidden = false;
+    } catch (error) { toast(error.message, "error"); }
+  });
+
+  /* ---------- Etiqueta nova (qualquer pessoa da equipe) ---------- */
+  on(body, "click", "[data-label-new]", async () => {
+    const name = window.prompt("Nome da nova etiqueta (até 30 caracteres):");
+    if (!name || !current) return;
+    try {
+      const label = await api.createLabel({ name, color: "roxo" });
+      board.addLabel(label);
+      const next = [...labelsOf(current), label.id];
+      await api.setTaskLabels(current.id, next, labelsOf(current));
+      current = { ...current, task_labels: next.map((label_id) => ({ label_id })) };
+      board.upsert(current);
+      toast(`Etiqueta "${label.name}" criada`);
+      render();
+    } catch (error) { toast(error.status === 409 ? "Já existe uma etiqueta com esse nome." : error.message, "error"); }
+  });
+
   drawer.addEventListener("close", () => { current = null; });
 
   return { openNew, open, current: () => current };

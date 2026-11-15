@@ -4,18 +4,22 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <!-- Só arquivos deste site; dados só do Supabase do painel; nada embutido no HTML -->
-  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data: blob: https:; media-src 'self' blob: https:; font-src 'self'; connect-src 'self' https://peieimwpkrattuldmjux.supabase.co; frame-src https://www.youtube-nocookie.com https://player.vimeo.com https://www.tiktok.com https://drive.google.com https://www.instagram.com; object-src 'none'; base-uri 'self'; form-action 'none'">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data: blob: https:; media-src 'self' blob: https:; font-src 'self'; connect-src 'self' https://peieimwpkrattuldmjux.supabase.co; worker-src 'self'; manifest-src 'self'; frame-src https://www.youtube-nocookie.com https://player.vimeo.com https://www.tiktok.com https://drive.google.com https://www.instagram.com; object-src 'none'; base-uri 'self'; form-action 'none'">
   <meta name="referrer" content="no-referrer">
   <meta name="robots" content="noindex, nofollow">
   <title>Painel da agência · Digital Galaxy</title>
   <meta name="theme-color" content="#F5F3FA">
   <link rel="icon" href="../images/logo/favicon.svg" type="image/svg+xml">
+  <link rel="manifest" href="manifest.webmanifest">
+  <link rel="apple-touch-icon" href="../images/logo/apple-touch-icon.png">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-title" content="Painel DG">
   <link rel="preload" href="../fonts/sora-latin-400-normal.woff2" as="font" type="font/woff2" crossorigin>
   <link rel="preload" href="../fonts/sora-latin-600-normal.woff2" as="font" type="font/woff2" crossorigin>
   <!-- Mesmos tokens e componentes do portal do cliente -->
-  <link rel="stylesheet" href="../css/style.css?v=8083d4a8ab">
-  <link rel="stylesheet" href="css/admin.css?v=8083d4a8ab">
-  <script type="module" src="js/main.js?v=8083d4a8ab"></script>
+  <link rel="stylesheet" href="../css/style.css?v=5024e0ed17">
+  <link rel="stylesheet" href="css/admin.css?v=5024e0ed17">
+  <script type="module" src="js/main.js?v=5024e0ed17"></script>
 </head>
 <body class="admin">
   <!-- Tela de entrada: aparece enquanto ninguém estiver logado -->
@@ -161,6 +165,7 @@
           <p class="view__text"><span data-board-count></span> · arraste os cards entre as colunas, clique para ver tudo. Atalho: N cria uma demanda.</p>
         </div>
         <div class="view__buttons">
+          <button class="btn btn--ghost" type="button" data-action="board-labels" data-needs="admin" data-icon="tag">Etiquetas</button>
           <button class="btn btn--ghost" type="button" data-action="board-columns" data-needs="admin" data-icon="layers">Colunas</button>
           <button class="btn btn--primary" type="button" data-action="new-task" data-icon="sparkle">Nova demanda</button>
         </div>
@@ -938,6 +943,30 @@
         <button class="btn btn--ghost" type="button" data-col-add data-icon="sparkle">Nova coluna</button>
         <button class="btn btn--primary" type="button" data-action="close-modal">Pronto</button>
       </div>
+    </div>
+  </dialog>
+
+  <!-- Etiquetas das demandas (só administrador; js/views/board.js) -->
+  <dialog class="modal modal--wide" id="labels-modal" aria-labelledby="labels-modal-title">
+    <div class="modal__form">
+      <div class="modal__head">
+        <span class="modal__icon modal__icon--brand" data-icon="tag"></span>
+        <div>
+          <h2 class="modal__title" id="labels-modal-title">Etiquetas</h2>
+          <p class="modal__text">Etiqueta diz o tipo do trabalho (Reels, Design…). Não confunda com prioridade, etapa ou prazo, que têm campo próprio. Arquivar tira das escolhas sem mexer nas demandas que já têm. Salva sozinho.</p>
+        </div>
+        <button class="icon-btn modal__close" type="button" data-action="close-modal" aria-label="Fechar" data-icon="close"></button>
+      </div>
+      <ul class="labelrows" data-labels></ul>
+      <form class="labelrow labelrow--new" data-label-add novalidate>
+        <span class="visually-hidden">Nova etiqueta</span>
+        <input class="field__input" name="name" maxlength="30" placeholder="Nova etiqueta" aria-label="Nome da nova etiqueta" required>
+        <select class="field__input" name="color" aria-label="Cor da nova etiqueta">
+          <option value="roxo">Roxo</option><option value="azul">Azul</option><option value="verde">Verde</option><option value="amarelo">Amarelo</option><option value="laranja">Laranja</option><option value="vermelho">Vermelho</option><option value="rosa">Rosa</option><option value="cinza">Cinza</option>
+        </select>
+        <button class="btn btn--ghost" type="submit" data-icon="sparkle">Criar</button>
+      </form>
+      <div class="modal__actions"><button class="btn btn--primary" type="button" data-action="close-modal">Pronto</button></div>
     </div>
   </dialog>
 

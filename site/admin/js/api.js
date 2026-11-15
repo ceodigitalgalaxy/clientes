@@ -2,10 +2,10 @@
    Valida os dados antes de enviar (domain/rules.js); o banco confere de novo
    com as próprias regras e só aceita membros da equipe (RLS). */
 
-import { validateClient, validateContent, validateContentFilters, parseUsername, passwordProblem, CONTENT_STATUS, PRODUCTION_STATUS, isUuid, validateAd, validateAdFilters, AD_LIMITS, validateBrandKit, validateBatch, validateMember } from "./domain/rules.js?v=8083d4a8ab";
-import { validateTask, isId, TASK_STATUS, COLORS } from "./domain/tasks.js?v=8083d4a8ab";
-import { ALERT_DEFAULTS, validateAlertSettings } from "./domain/deadlines.js?v=8083d4a8ab";
-import { UPLOAD_LIMITS, fileName, fileProblem, resizeImage } from "../../js/lib/storage.js?v=8083d4a8ab";
+import { validateClient, validateContent, validateContentFilters, parseUsername, passwordProblem, CONTENT_STATUS, PRODUCTION_STATUS, isUuid, validateAd, validateAdFilters, AD_LIMITS, validateBrandKit, validateBatch, validateMember } from "./domain/rules.js?v=5024e0ed17";
+import { validateTask, isId, TASK_STATUS, COLORS } from "./domain/tasks.js?v=5024e0ed17";
+import { ALERT_DEFAULTS, validateAlertSettings } from "./domain/deadlines.js?v=5024e0ed17";
+import { UPLOAD_LIMITS, fileName, fileProblem, resizeImage } from "../../js/lib/storage.js?v=5024e0ed17";
 
 export class ApiError extends Error {
   constructor(status, message, fields) { super(message); this.status = status; this.fields = fields || {}; }
@@ -38,7 +38,19 @@ function requireId(id) {
   return id;
 }
 
-export function createApi({ store, onSessionLost, access = null, storage = null, team = null }) {
+function commentText(body) {
+  const text = String(body || "").trim();
+  if (!text) throw new ApiError(422, "Escreva o comentário.", { body: "Escreva o comentário." });
+  if (text.length > 5000) throw new ApiError(422, "Comentário longo demais (até 5.000 caracteres).", { body: "Até 5.000 caracteres." });
+  return text;
+}
+function checklistText(body) {
+  const text = String(body || "").trim();
+  if (!text || text.length > 300) throw new ApiError(422, "Item do checklist: de 1 a 300 caracteres.");
+  return text;
+}
+
+export function createApi({ store, onSessionLost, access = null, storage = null, team = null, push = null }) {
   /** Erros viram ApiError; sessão encerrada também leva de volta ao login */
   const guard = (fn) => async (...args) => {
     try {
@@ -474,6 +486,31 @@ export function createApi({ store, onSessionLost, access = null, storage = null,
       if (!COLORS[data.color]) throw new ApiError(422, "Escolha a cor.");
       return store.createLabel({ name, color: data.color });
     }),
+    /** Administrador renomeia, troca a cor ou arquiva/restaura a etiqueta */
+    updateLabel: guard((id, data) => {
+      const value = {};
+      if ("name" in data) { value.name = String(data.name || "").trim(); if (!value.name || value.name.length > 30) throw new ApiError(422, "Nome da etiqueta: de 1 a 30 caracteres."); }
+      if ("color" in data) { value.color = data.color; if (!COLORS[value.color]) throw new ApiError(422, "Cor inválida."); }
+      if ("archived" in data) value.archived_at = data.archived ? new Date().toISOString() : null;
+      return store.updateLabel(requireId(id), value);
+    }),
+    listTaskComments: guard((taskId) => store.listTaskComments(requireId(taskId))),
+    addTaskComment: guard((taskId, body, { mentions = [], parentId = null } = {}) => {
+      const text = commentText(body);
+      return store.addTaskComment({ task_id: requireId(taskId), body: text, mentions: [...new Set(mentions)].filter(isUuid), ...(parentId ? { parent_id: requireId(parentId) } : {}) });
+    }),
+    editTaskComment: guard((id, body, mentions = []) => store.updateTaskComment(requireId(id), { body: commentText(body), mentions: [...new Set(mentions)].filter(isUuid) })),
+    deleteTaskComment: guard((id) => store.updateTaskComment(requireId(id), { deleted_at: new Date().toISOString() })),
+    commentEdits: guard((id) => store.listCommentEdits(requireId(id))),
+    listChecklist: guard((taskId) => store.listChecklist(requireId(taskId))),
+    addChecklist: guard((taskId, body) => store.addChecklist({ task_id: requireId(taskId), body: checklistText(body) })),
+    updateChecklist: guard((id, data) => {
+      const value = {};
+      if ("done" in data) value.done = Boolean(data.done);
+      if ("body" in data) value.body = checklistText(data.body);
+      return store.updateChecklist(requireId(id), value);
+    }),
+    deleteChecklist: guard((id) => store.deleteChecklist(requireId(id))),
     listProjects: guard(() => store.listProjects()),
     createProject: guard((clientId, name) => {
       const text = String(name || "").trim();
@@ -488,6 +525,14 @@ export function createApi({ store, onSessionLost, access = null, storage = null,
       return store.addComment({ content_id: requireId(contentId), body: text, mentions: [...new Set(mentions)].filter(isUuid) });
     }),
     deleteComment: guard((id) => store.deleteComment(requireId(id))),
+    /* Avisos no celular (Web Push): a chave pública vem da função; o aparelho é gravado pelo banco (só o próprio) */
+    pushKey: guard(() => callFunction(push, { action: "chave" })),
+    pushTest: guard(() => callFunction(push, { action: "teste" })),
+    pushSubscribe: guard(({ endpoint, p256dh, auth, agent }) => {
+      if (!/^https:\/\//.test(String(endpoint || "")) || !p256dh || !auth) throw new ApiError(422, "Este navegador não entregou os dados para os avisos.");
+      return store.approvalRpc("push_subscribe", { p_endpoint: endpoint, p_p256dh: p256dh, p_auth: auth, p_agent: String(agent || "").slice(0, 300) });
+    }),
+    pushUnsubscribe: guard((endpoint) => store.approvalRpc("push_unsubscribe", { p_endpoint: String(endpoint || "") })),
     listNotifications: guard((limit) => store.listNotifications(limit)),
     markNotificationsRead: guard((ids = null) => store.markNotificationsRead(ids ? ids.filter(isUuid) : null)),
     listClients: guard(() => store.listClients()),

@@ -94,7 +94,8 @@ const signIn = async () => {
 const cell = (date) => `.acal__cell[data-cal-day="${date}"]`;
 
 /* ============================== Computador ============================== */
-page = await newPage({ viewport: { width: 1440, height: 1000 } }, "computador");
+// Tela alta: o mês inteiro cabe, então arrastar entre semanas funciona em qualquer dia do mês
+page = await newPage({ viewport: { width: 1440, height: 1700 } }, "computador");
 
 await step("Conteúdos abre no calendário do mês, com cores e legenda", async () => {
   await page.goto(`${ORIGIN}/admin/#/conteudos`);

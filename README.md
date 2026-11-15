@@ -64,9 +64,24 @@ A seção **Demandas** é o quadro de trabalho da equipe, separado do calendári
 - **Filtros:** cliente (ou só internas), pessoa ("Só as minhas"), projeto, etiqueta e busca; ficam guardados no navegador.
 - **Demanda interna** (sem cliente): só quem criou, os responsáveis e os administradores enxergam.
 - **Ligada ao conteúdo:** ao cadastrar um conteúdo, **Criar demanda de produção** (marcado) cria a demanda junto, com o mesmo cliente, responsáveis e prazo. Quando o cliente pede ajuste, a demanda vai sozinha para **Ajustes solicitados**; quando aguarda o cliente, para **Aguardando cliente**; com o conteúdo final aprovado, para **Concluído**. Conteúdos antigos não ganham demanda automaticamente.
+- **Subtarefas e delegação:** no painel da demanda, **+ Nova subtarefa** com responsável (só quem enxerga o cliente) e entrega. Entregar uma subtarefa para alguém não troca o responsável da demanda; quem recebe é avisado no sininho, e quem criou a demanda (e os responsáveis dela) é avisado quando a subtarefa é concluída. Marcar a caixinha conclui.
+- **Checklist** em cada demanda ou subtarefa; o card mostra o progresso (ex.: 1/2), as subtarefas e quantos comentários há.
+- **Comentários da demanda** (só a equipe vê, nunca vão para o cliente): **@menção** (só aparece quem enxerga a demanda), **Responder**, **Editar** o próprio (fica "editado" e o texto anterior guardado) e **Apagar** (autor ou administrador; some o texto, fica o registro). A aba **Histórico** mostra só os eventos automáticos.
+- **Etiquetas:** o administrador renomeia, troca a cor, arquiva e cria em **Etiquetas**; qualquer pessoa cria uma nova pelo painel da demanda (**Nova etiqueta**). Arquivada some das escolhas e continua nas demandas que já têm.
+- **Avisos** (sininho): demanda passada para você, menção, comentário numa demanda sua e subtarefa concluída; clicar abre a demanda.
 - **Edição ao mesmo tempo:** cada demanda tem versão; se outra pessoa salvou antes, o painel avisa e recarrega a versão nova, sem gravar por cima.
 
 Tudo conferido no banco (migração `20261116120000_gestao_de_demandas.sql`): colaborador só vê e cria demandas dos clientes liberados, só coloca como responsável quem enxerga o cliente, e não mexe em colunas nem etiquetas oficiais.
+
+### Avisos no celular (notificações push)
+
+O painel pode ser instalado como aplicativo (ícone na tela de início) e mandar os avisos do sininho para o celular ou computador, mesmo com o painel fechado. Cada pessoa ativa no próprio aparelho: **sininho → Ativar avisos neste aparelho** (o navegador pede a permissão e chega um aviso de teste).
+
+- **Android / computador (Chrome, Edge):** é só ativar.
+- **iPhone (iOS 16.4+):** a Apple exige o painel na Tela de Início: no Safari, Compartilhar → "Adicionar à Tela de Início", abrir pelo ícone e ativar.
+- **O que chega:** demanda ou subtarefa passada para você, menção, comentário numa demanda sua, subtarefa concluída, pedido de ajuste do cliente, **entrega nas próximas 24 h** e **demanda atrasada** (os dois últimos saem de hora em hora, das 8h às 20h, uma vez por prazo). Tocar no aviso abre o painel direto no item (o login continua sendo exigido).
+- **Privacidade:** o aviso leva só um resumo curto e vai cifrado para o aparelho; sair do painel desliga os avisos daquele aparelho; outra pessoa que entrar no mesmo aparelho não herda os avisos. **Desativar** e **Enviar um teste** ficam no mesmo lugar. O cliente nunca recebe nada disso.
+- **Como funciona:** migração `20261118120000_avisos_no_celular.sql` (aparelhos em `push_subscriptions`; gatilho em `notifications` chama, via `pg_net`, a função `supabase/functions/avisos-push`, que envia uma vez só; avisos de prazo por `pg_cron`). A chave de envio (VAPID) é gerada pela função e fica só no Vault do banco, junto com o segredo do gancho (que nunca sai de lá: cada chamada leva um código de uso único, próprio daquele aviso): nada disso vai para o site, para o repositório nem precisa ser digitado por ninguém. Publicar a função: `supabase functions deploy avisos-push --no-verify-jwt`.
 
 ### Criar usuários da equipe (e, se preferir, de clientes) pelo computador
 
@@ -207,6 +222,8 @@ Para publicar uma mudança na função: `supabase functions deploy acesso-client
 | `agency_member_clients` | Clientes liberados para cada colaborador |
 | `content_assignees`, `content_events` | Responsáveis de cada conteúdo e o histórico de mudanças (quem fez e quando) |
 | `tasks`, `task_assignees`, `task_labels`, `task_events` | Demandas do quadro (subtarefa por `parent_id`, cliente opcional = interna, ligação opcional a um conteúdo, etapa oficial + coluna, prioridade, entrega com hora, posição, arquivamento e `version`), responsáveis, etiquetas e histórico |
+| `task_comments`, `task_comment_edits`, `task_checklist` | Comentários das demandas (resposta, menção, editado/apagado) com o texto anterior de cada edição, e o checklist |
+| `push_subscriptions` | Aparelhos em que cada pessoa da equipe ativou os avisos (cada um vê só os próprios; grava só por `push_subscribe`/`push_unsubscribe`) |
 | `board_columns`, `labels`, `projects` | Colunas do quadro (cada uma ligada a uma etapa oficial), etiquetas coloridas e projetos de cada cliente |
 | `client_members` | Login de cada cliente no portal, ligado a **um** cliente (preenchida pelo `equipe.mjs criar-cliente`) |
 | `ads`, `ad_assets` | Anúncios pagos e o criativo de cada um (bucket privado `ad-media` ou links). Status e versão só mudam pela função `ad_transition` (equipe) e `portal_ad_decide` (cliente); um gatilho recusa mudanças diretas e edição enquanto o cliente avalia |
@@ -233,6 +250,9 @@ PLAYWRIGHT=$P node admin/test/approvals-e2e.mjs    # central de aprovação: lot
 PLAYWRIGHT=$P node admin/test/inicio-e2e.mjs      # Início, menu ⋯, comentários com @menção e avisos (computador e celular)
 PLAYWRIGHT=$P node admin/test/calendario-e2e.mjs   # calendário (mês, semana, dia, cores, arrastar) e o painel no celular
 PLAYWRIGHT=$P node admin/test/demandas-e2e.mjs    # gestão de demandas: quadro, criar, arrastar, painel, edição simultânea, colunas, conteúdo → demanda, permissões, celular
+PLAYWRIGHT=$P node admin/test/demandas2-e2e.mjs   # demandas etapa 2: subtarefas delegadas, checklist, comentários (menção, resposta, edição, apagar), etiquetas, avisos, permissões
+node admin/test/push.test.mjs                     # avisos no celular: cifra do aviso, assinatura, gancho do banco, uma vez só, receptor (sw.js)
+PLAYWRIGHT=$P node admin/test/push-e2e.mjs        # avisos no celular pela tela: ativar, receber, tocar e abrir, sair, outro usuário, iPhone, manifesto
 PLAYWRIGHT=$P node admin/test/equipe-e2e.mjs      # equipe: criar colaborador, demanda com prazo, o que ele vê e o que o servidor recusa, desativar
 PLAYWRIGHT=$P node admin/test/ads-e2e.mjs         # aprovação de anúncios: rascunho → envio → alterações → nova versão → aprovação
 PLAYWRIGHT=$P UX_SHOTS=pasta node admin/test/ux-shots.mjs   # só capturas do portal (computador e celular) para revisão visual

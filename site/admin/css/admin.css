@@ -1225,3 +1225,97 @@ body:not(.can-send) .row__pick { visibility: hidden; }
   .colrow .check, .colrow__move { grid-column: 2 / -1; }
   .colrow--head { display: none; }
 }
+
+/* ---------- Gestão de demandas, etapa 2: subtarefas, checklist, comentários, etiquetas ---------- */
+.mention-anchor { position: relative; display: block; }
+.seg button[aria-selected="true"] { color: #fff; background: var(--brand); }
+.detail__count { margin-left: 4px; font-size: 13px; font-weight: 600; color: var(--text-muted); }
+.avatar--xs { width: 22px; height: 22px; font-size: 9px; }
+.icon-btn--sm { width: 30px; height: 30px; min-height: 30px; border-color: transparent; background: none; }
+.icon-btn--sm .icon { width: 14px; height: 14px; }
+.label-add { display: inline-flex; align-items: center; gap: 4px; min-height: 28px; padding: 0 10px; border: 1px dashed var(--line); border-radius: 999px; background: none; font: inherit; font-size: 12px; font-weight: 600; color: var(--text-muted); cursor: pointer; }
+.label-add .icon { width: 12px; height: 12px; }
+@media (hover: hover) { .label-add:hover { border-color: var(--brand); color: var(--brand); } }
+.label-add:focus-visible { outline: none; box-shadow: var(--ring); }
+
+.subtasks { display: grid; gap: 2px; margin: 0 0 10px; padding: 0; list-style: none; }
+.subtask { display: grid; grid-template-columns: 28px minmax(0, 1fr) auto; align-items: center; gap: 8px; min-height: 42px; padding: 2px 8px 2px 4px; border-radius: 10px; }
+@media (hover: hover) { .subtask:hover { background: var(--surface-muted); } }
+.subtask__check { display: grid; place-items: center; width: 28px; height: 28px; cursor: pointer; }
+.subtask__check input, .check-item input { width: 18px; height: 18px; accent-color: var(--brand); cursor: pointer; }
+.subtask__title { min-width: 0; padding: 4px 0; border: 0; background: none; font: inherit; font-size: 14px; font-weight: 500; text-align: left; color: var(--text); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; cursor: pointer; }
+@media (hover: hover) { .subtask__title:hover { color: var(--brand); text-decoration: underline; } }
+.subtask__title:focus-visible { outline: none; box-shadow: var(--ring); border-radius: 4px; }
+.subtask.is-done .subtask__title { color: var(--text-muted); text-decoration: line-through; }
+.subtask__meta { display: inline-flex; align-items: center; gap: 6px; font-size: 12px; }
+.subtask__meta .avatar + .avatar { margin-left: -8px; }
+.subtask-add { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 170px) auto; gap: 6px; }
+.subtask-add [name=title] { grid-column: 1 / -1; }
+.subtask-add [name=assignee] { grid-column: 1; }
+.inline-add { margin-top: 6px; }
+.inline-add .field__input, .subtask-add .field__input { min-height: 38px; font-size: 14px; }
+.inline-add .field__input:not(:focus), .subtask-add [name=title]:not(:focus) { border-style: dashed; background: transparent; }
+
+.checklist { display: grid; gap: 2px; margin: 0; padding: 0; list-style: none; }
+.check-item { display: flex; align-items: center; justify-content: space-between; gap: 8px; min-height: 38px; padding: 0 4px 0 8px; border-radius: 8px; }
+@media (hover: hover) { .check-item:hover { background: var(--surface-muted); } }
+.check-item .check { flex: 1; min-width: 0; font-size: 14px; }
+.check-item .check span { overflow-wrap: anywhere; }
+.check-item.is-done .check span { color: var(--text-muted); text-decoration: line-through; }
+.check-item .icon-btn { opacity: 0.55; }
+@media (hover: hover) { .check-item:hover .icon-btn { opacity: 1; } }
+
+.task-activity .seg { display: flex; width: 100%; margin-bottom: 14px; }
+.task-activity .seg button { flex: 1 1 0; white-space: nowrap; padding: 0 10px; }
+.tcomments { display: grid; gap: 12px; margin: 0 0 14px; padding: 0; list-style: none; }
+.tcomments--replies { margin: 10px 0 0; padding-left: 4px; border-left: 2px solid var(--line); gap: 10px; }
+.tcomment { display: grid; grid-template-columns: 32px minmax(0, 1fr); gap: 10px; }
+.tcomments--replies .tcomment { grid-template-columns: 26px minmax(0, 1fr); padding-left: 8px; }
+.tcomment > .avatar { width: 32px; height: 32px; font-size: 12px; }
+.tcomments--replies .tcomment > .avatar { width: 26px; height: 26px; font-size: 10px; }
+.tcomment__main { min-width: 0; }
+.tcomment__meta { font-size: 12px; color: var(--text-muted); }
+.tcomment__meta b { color: var(--text); }
+.tcomment__edited { font-size: 12px; color: var(--text-muted); text-decoration: underline dotted; }
+.tcomment__body { margin-top: 4px; padding: 10px 12px; border: 1px solid var(--line); border-radius: 4px 14px 14px 14px; background: var(--surface-muted); font-size: 14px; line-height: 1.5; overflow-wrap: anywhere; }
+.tcomment--mine > .tcomment__main > .tcomment__body { background: var(--brand-soft); border-color: #E2D5FB; }
+.tcomment__body--gone { font-style: italic; color: var(--text-muted); background: none; border-style: dashed; }
+.tcomment__actions { display: flex; flex-wrap: wrap; gap: 12px; margin-top: 4px; font-size: 12px; }
+.tcomment__actions .link-btn { font-size: 12px; }
+.tcomment__versions { margin-top: 6px; padding: 8px 10px; border-radius: 8px; background: var(--surface-muted); font-size: 13px; }
+.tcomment__versions ul { margin: 4px 0 0; padding-left: 16px; }
+.tcomment__old { color: var(--text-muted); text-decoration: line-through; }
+.comment-form--inline { margin-top: 8px; }
+.comment-form--inline .comment-form__actions { justify-content: flex-end; }
+.comment-form__actions .field__hint { display: inline-flex; align-items: center; gap: 4px; }
+.comment-form__actions .field__hint .icon { width: 12px; height: 12px; }
+
+#labels-modal { width: min(760px, calc(100vw - 32px)); max-width: none; }
+.labelrows { display: grid; gap: 8px; margin: 0 0 12px; padding: 0; list-style: none; }
+.labelrow { display: grid; grid-template-columns: minmax(0, 150px) minmax(0, 1fr) minmax(0, 130px) 90px auto; align-items: center; gap: 8px; }
+.labelrow .field__input { min-height: 38px; font-size: 14px; }
+.labelrow .label-chip { justify-self: start; max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.labelrow.is-archived { opacity: 0.55; }
+.labelrow__used { font-size: 12px; color: var(--text-muted); }
+.labelrow--new { grid-template-columns: minmax(0, 1fr) minmax(0, 130px) auto; padding-top: 12px; border-top: 1px solid var(--line); }
+
+@media (max-width: 768px) {
+  .subtask-add { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); }
+  .subtask-add .btn { grid-column: 1 / -1; }
+  .subtask { grid-template-columns: 28px minmax(0, 1fr); }
+  .subtask__meta { grid-column: 2; }
+  .labelrow { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); }
+  .labelrow .label-chip, .labelrow__used { display: none; }
+  .labelrow--new { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); }
+  .labelrow--new .btn { grid-column: 1 / -1; }
+}
+
+/* ---------- Avisos no celular (bloco no pé do painel de avisos) ---------- */
+.inbox__push { display: grid; gap: 10px; padding: 14px 16px; border-top: 1px solid var(--line); background: var(--surface-muted); font-size: 13px; }
+.inbox__push:empty { display: none; }
+.inbox__push-text { display: flex; gap: 8px; align-items: flex-start; line-height: 1.45; color: var(--text-muted); }
+.inbox__push-text b { color: var(--text); }
+.inbox__push-text .icon { flex: none; width: 16px; height: 16px; margin-top: 2px; }
+.inbox__push--ativo .inbox__push-text .icon { color: var(--aprovado); }
+.inbox__push-actions { display: flex; gap: 16px; padding-left: 24px; }
+.inbox__push .btn { justify-self: start; margin-left: 24px; }
