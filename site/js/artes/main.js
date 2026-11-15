@@ -6,13 +6,13 @@
    A arte é desenhada no navegador (engine.js) e baixada em PNG.
    ========================================================================== */
 
-import { SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY } from "../config.js?v=e12983126e";
-import { createAuth } from "../lib/auth.js?v=e12983126e";
-import { createSupabaseRepository } from "../data/supabase-repository.js?v=e12983126e";
-import { icon, brandMark } from "../lib/icons.js?v=e12983126e";
-import { $, esc } from "../lib/dom.js?v=e12983126e";
-import { createEngine, FORMATS, CAMPAIGNS, STATUS, MODELS, STYLES, isMoney, formatPhone } from "./engine.js?v=e12983126e";
-import { imageFromBlob, imageFromUrl, removeBackgroundSmart, thumbnail } from "./photos.js?v=e12983126e";
+import { SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY } from "../config.js?v=37b1301fd1";
+import { createAuth } from "../lib/auth.js?v=37b1301fd1";
+import { createSupabaseRepository } from "../data/supabase-repository.js?v=37b1301fd1";
+import { icon, brandMark } from "../lib/icons.js?v=37b1301fd1";
+import { $, esc } from "../lib/dom.js?v=37b1301fd1";
+import { createEngine, FORMATS, CAMPAIGNS, STATUS, MODELS, STYLES, isMoney, formatPhone } from "./engine.js?v=37b1301fd1";
+import { imageFromBlob, imageFromUrl, removeBackgroundSmart, thumbnail } from "./photos.js?v=37b1301fd1";
 
 const auth = createAuth({ url: SUPABASE_URL, apiKey: SUPABASE_PUBLISHABLE_KEY, kind: "cliente" });
 const repo = createSupabaseRepository({ url: SUPABASE_URL, apiKey: SUPABASE_PUBLISHABLE_KEY, auth });

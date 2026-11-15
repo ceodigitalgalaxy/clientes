@@ -5,18 +5,18 @@
       que parece repetido (desmarcado). Miniatura da referência em cada linha.
    3. Importar os marcados de uma vez (tudo ou nada). */
 
-import { $, esc, on } from "../../../js/lib/dom.js?v=e12983126e";
-import { icon } from "../../../js/lib/icons.js?v=e12983126e";
-import { timeLabel } from "../../../js/lib/dates.js?v=e12983126e";
-import { typeBadge } from "../../../js/ui/badges.js?v=e12983126e";
-import { describeMedia, mediaCover, coverHtml } from "../../../js/ui/media.js?v=e12983126e";
-import { NETWORKS, CONTENT_STATUS } from "../domain/rules.js?v=e12983126e";
-import { readSpreadsheet } from "../lib/spreadsheet.js?v=e12983126e";
-import { mapRows, COLUMN_LABELS } from "../domain/import.js?v=e12983126e";
-import { mapAdRows, AD_COLUMN_LABELS } from "../domain/import-ads.js?v=e12983126e";
-import { AD_FORMATS, platformLabel } from "../domain/rules.js?v=e12983126e";
-import { setBusy } from "../ui/dialogs.js?v=e12983126e";
-import { stateBlock } from "../ui/states.js?v=e12983126e";
+import { $, esc, on } from "../../../js/lib/dom.js?v=37b1301fd1";
+import { icon } from "../../../js/lib/icons.js?v=37b1301fd1";
+import { timeLabel } from "../../../js/lib/dates.js?v=37b1301fd1";
+import { typeBadge } from "../../../js/ui/badges.js?v=37b1301fd1";
+import { describeMedia, mediaCover, coverHtml } from "../../../js/ui/media.js?v=37b1301fd1";
+import { NETWORKS, CONTENT_STATUS } from "../domain/rules.js?v=37b1301fd1";
+import { readSpreadsheet } from "../lib/spreadsheet.js?v=37b1301fd1";
+import { mapRows, COLUMN_LABELS } from "../domain/import.js?v=37b1301fd1";
+import { mapAdRows, AD_COLUMN_LABELS } from "../domain/import-ads.js?v=37b1301fd1";
+import { AD_FORMATS, platformLabel } from "../domain/rules.js?v=37b1301fd1";
+import { setBusy } from "../ui/dialogs.js?v=37b1301fd1";
+import { stateBlock } from "../ui/states.js?v=37b1301fd1";
 
 const shortDate = (iso) => (iso ? iso.split("-").reverse().join("/") : "—");
 

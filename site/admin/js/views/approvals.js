@@ -13,16 +13,16 @@
    O banco confere tudo de novo (funções approval_* e RLS).
    ========================================================================== */
 
-import { $, esc, on } from "../../../js/lib/dom.js?v=e12983126e";
-import { icon } from "../../../js/lib/icons.js?v=e12983126e";
-import { monthLabel, timeLabel, stampLabel, todayISO, longDayLabel } from "../../../js/lib/dates.js?v=e12983126e";
-import { typeBadge } from "../../../js/ui/badges.js?v=e12983126e";
-import { APPROVAL_STATUS, APPROVAL_MODES, BATCH_STATUS, APPROVAL_EVENTS, isPending, approvalUrl, whatsappMessage } from "../../../js/domain/approvals.js?v=e12983126e";
-import { NETWORKS, validateBatch } from "../domain/rules.js?v=e12983126e";
-import { closeDialog, wireDialog, showFieldErrors, setBusy } from "../ui/dialogs.js?v=e12983126e";
-import { stateBlock, loadingCards, button } from "../ui/states.js?v=e12983126e";
-import { buildApprovalReport, reportFileName } from "../ui/approval-report.js?v=e12983126e";
-import { kebab } from "../ui/menu.js?v=e12983126e";
+import { $, esc, on } from "../../../js/lib/dom.js?v=37b1301fd1";
+import { icon } from "../../../js/lib/icons.js?v=37b1301fd1";
+import { monthLabel, timeLabel, stampLabel, todayISO, longDayLabel } from "../../../js/lib/dates.js?v=37b1301fd1";
+import { typeBadge } from "../../../js/ui/badges.js?v=37b1301fd1";
+import { APPROVAL_STATUS, APPROVAL_MODES, BATCH_STATUS, APPROVAL_EVENTS, isPending, approvalUrl, whatsappMessage } from "../../../js/domain/approvals.js?v=37b1301fd1";
+import { NETWORKS, validateBatch } from "../domain/rules.js?v=37b1301fd1";
+import { closeDialog, wireDialog, showFieldErrors, setBusy } from "../ui/dialogs.js?v=37b1301fd1";
+import { stateBlock, loadingCards, button } from "../ui/states.js?v=37b1301fd1";
+import { buildApprovalReport, reportFileName } from "../ui/approval-report.js?v=37b1301fd1";
+import { kebab } from "../ui/menu.js?v=37b1301fd1";
 
 const POLL_MS = 30000;
 const options = (entries, placeholder) => `${placeholder !== undefined ? `<option value="">${esc(placeholder)}</option>` : ""}${entries.map(([v, l]) => `<option value="${esc(v)}">${esc(l)}</option>`).join("")}`;

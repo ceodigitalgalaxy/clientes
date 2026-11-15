@@ -17,8 +17,8 @@
    A política de conteúdo (CSP) das páginas libera só esses players.
    ========================================================================== */
 
-import { esc } from "../lib/dom.js?v=e12983126e";
-import { icon } from "../lib/icons.js?v=e12983126e";
+import { esc } from "../lib/dom.js?v=37b1301fd1";
+import { icon } from "../lib/icons.js?v=37b1301fd1";
 
 const VIDEO_FILE = /\.(mp4|webm|ogv|ogg|m4v|mov)$/i;
 const YOUTUBE_ID = /^[A-Za-z0-9_-]{11}$/;

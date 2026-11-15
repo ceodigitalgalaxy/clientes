@@ -1,18 +1,18 @@
 /* Seção Conteúdos: filtros, lista, detalhes, cadastro, edição e exclusão */
 
-import { $, esc, on } from "../../../js/lib/dom.js?v=e12983126e";
-import { icon } from "../../../js/lib/icons.js?v=e12983126e";
-import { longDayLabel, timeLabel, todayISO, stampLabel, addDays } from "../../../js/lib/dates.js?v=e12983126e";
-import { typeBadge } from "../../../js/ui/badges.js?v=e12983126e";
-import { renderMedia, wireMediaFallbacks } from "../../../js/ui/media.js?v=e12983126e";
-import { PRIORITIES } from "../domain/rules.js?v=e12983126e";
-import { CONTENT_STATUS, CLIENT_VISIBLE_STATUS, APPROVAL_STATUS, PRODUCTION_STATUS, NETWORKS, FORMATS, LIMITS, validateContent, validateContentFilters } from "../domain/rules.js?v=e12983126e";
-import { closeDialog, wireDialog, showFieldErrors, setBusy } from "../ui/dialogs.js?v=e12983126e";
-import { stateBlock, loadingRows, button } from "../ui/states.js?v=e12983126e";
-import { reviewSections, mountReview } from "./content-review.js?v=e12983126e";
-import { describeMedia, mediaCover, coverHtml } from "../../../js/ui/media.js?v=e12983126e";
-import { kebab } from "../ui/menu.js?v=e12983126e";
-import { CAL_MODES, BOARD_COLUMNS, renderCalendar, calendarRange, stepCursor, calendarTitle, attentionItems, renderAttention } from "./contents-calendar.js?v=e12983126e";
+import { $, esc, on } from "../../../js/lib/dom.js?v=37b1301fd1";
+import { icon } from "../../../js/lib/icons.js?v=37b1301fd1";
+import { longDayLabel, timeLabel, todayISO, stampLabel, addDays } from "../../../js/lib/dates.js?v=37b1301fd1";
+import { typeBadge } from "../../../js/ui/badges.js?v=37b1301fd1";
+import { renderMedia, wireMediaFallbacks } from "../../../js/ui/media.js?v=37b1301fd1";
+import { PRIORITIES } from "../domain/rules.js?v=37b1301fd1";
+import { CONTENT_STATUS, CLIENT_VISIBLE_STATUS, APPROVAL_STATUS, PRODUCTION_STATUS, NETWORKS, FORMATS, LIMITS, validateContent, validateContentFilters } from "../domain/rules.js?v=37b1301fd1";
+import { closeDialog, wireDialog, showFieldErrors, setBusy } from "../ui/dialogs.js?v=37b1301fd1";
+import { stateBlock, loadingRows, button } from "../ui/states.js?v=37b1301fd1";
+import { reviewSections, mountReview } from "./content-review.js?v=37b1301fd1";
+import { describeMedia, mediaCover, coverHtml } from "../../../js/ui/media.js?v=37b1301fd1";
+import { kebab } from "../ui/menu.js?v=37b1301fd1";
+import { CAL_MODES, BOARD_COLUMNS, renderCalendar, calendarRange, stepCursor, calendarTitle, attentionItems, renderAttention } from "./contents-calendar.js?v=37b1301fd1";
 
 const shortDate = (iso) => iso.split("-").reverse().join("/");
 const statusChip = (status) => `<span class="content-status cs--${esc(status)}">${esc(CONTENT_STATUS[status]?.label || status)}</span>`;
@@ -368,8 +368,12 @@ export function setupContents({ api, state, toast, confirm, navigate }) {
           <div class="comment-form__actions"><span class="field__hint">Quem for mencionado recebe um aviso.</span><button class="btn btn--primary btn--sm" type="submit">${icon("send")}<span>Comentar</span></button></div>
         </form>
       </section>
-      <section class="detail task-history"><h3 class="detail__title">Histórico da demanda</h3><div data-task-history><p class="field__hint">Carregando…</p></div></section>`;
-    loadTaskHistory(content.id);
+      <details class="detail history-toggle" data-history-toggle="conteudo">
+        <summary class="history-toggle__summary">${icon("clock")}<span>Histórico</span><span class="history-toggle__hint">quem fez cada mudança</span></summary>
+        <div data-task-history><p class="field__hint">Carregando…</p></div>
+      </details>`;
+    // O histórico fica fechado e só é buscado quando a pessoa abre
+    drawer.querySelector("[data-history-toggle]")?.addEventListener("toggle", (event) => { if (event.target.open && !event.target.dataset.loaded) { event.target.dataset.loaded = "1"; loadTaskHistory(content.id); } });
     loadComments(content);
     // Arte final e aprovação: um bloco novo a cada abertura (os eventos ficam presos a ele)
     const review = document.createElement("div");

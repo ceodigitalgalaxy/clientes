@@ -253,8 +253,13 @@ await step("Histórico da demanda mostra quem fez cada mudança", async () => {
   await admin.click(`.row [data-view-content="${tarefaId}"]`);
   await admin.waitForSelector("#content-drawer .task-box");
   await admin.waitForFunction(() => /Ana Designer/.test(document.querySelector("#content-drawer")?.textContent || "") && /Histórico/.test(document.querySelector("#content-drawer").textContent));
-  const text = await admin.textContent("#content-drawer");
+  // O histórico fica fechado até a pessoa abrir
+  assert.equal(await admin.isVisible("#content-drawer [data-task-history]"), false, "histórico fechado");
+  await admin.click("#content-drawer .history-toggle__summary");
+  await admin.waitForSelector("#content-drawer [data-task-history] .history__item");
+  const text = await admin.textContent("#content-drawer [data-task-history]");
   assert.match(text, /Equipe DG/);
+  assert.match(text, /Ana Designer/);
   await shot(admin, "eq06-historico");
   await admin.keyboard.press("Escape");
 });

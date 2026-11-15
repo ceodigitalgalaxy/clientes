@@ -7,7 +7,7 @@
    Sem dependências: roda no navegador e no Node.
    ========================================================================== */
 
-import { APPROVAL_STATUS, PRODUCTION_STATUS, statusFromPair, pairFromStatus } from "../../../js/domain/approvals.js?v=e12983126e";
+import { APPROVAL_STATUS, PRODUCTION_STATUS, statusFromPair, pairFromStatus } from "../../../js/domain/approvals.js?v=37b1301fd1";
 export { APPROVAL_STATUS, PRODUCTION_STATUS, statusFromPair, pairFromStatus };
 
 /** Situação no calendário (coluna antiga "status", calculada da aprovação + produção) */
@@ -243,11 +243,11 @@ export function validateMember(input = {}) {
 }
 
 /* Regras de usuário e senha: as mesmas do portal do cliente (site/js/domain/accounts.js) */
-export { USERNAME_LIMITS, PASSWORD_LIMITS, normalizeUsername, parseUsername, loginEmail, usernameFromEmail, accountKind, passwordProblem } from "../../../js/domain/accounts.js?v=e12983126e";
+export { USERNAME_LIMITS, PASSWORD_LIMITS, normalizeUsername, parseUsername, loginEmail, usernameFromEmail, accountKind, passwordProblem } from "../../../js/domain/accounts.js?v=37b1301fd1";
 
 /* ---------- Anúncios ---------- */
-export { AD_STAGES, AD_STATUS, AD_CLIENT_STATUS, AD_PLATFORMS, AD_OBJECTIVES, AD_FORMATS, AD_CTAS, AD_LIMITS, AD_EVENTS, platformLabel, adCanSend, adSendBlock } from "../../../js/domain/ads.js?v=e12983126e";
-import { AD_STAGES as STAGES_OF_ADS, AD_STATUS as STATUS_OF_ADS, AD_PLATFORMS as PLATFORMS_OF_ADS, AD_OBJECTIVES as OBJECTIVES_OF_ADS, AD_FORMATS as FORMATS_OF_ADS, AD_LIMITS as L } from "../../../js/domain/ads.js?v=e12983126e";
+export { AD_STAGES, AD_STATUS, AD_CLIENT_STATUS, AD_PLATFORMS, AD_OBJECTIVES, AD_FORMATS, AD_CTAS, AD_LIMITS, AD_EVENTS, platformLabel, adCanSend, adSendBlock } from "../../../js/domain/ads.js?v=37b1301fd1";
+import { AD_STAGES as STAGES_OF_ADS, AD_STATUS as STATUS_OF_ADS, AD_PLATFORMS as PLATFORMS_OF_ADS, AD_OBJECTIVES as OBJECTIVES_OF_ADS, AD_FORMATS as FORMATS_OF_ADS, AD_LIMITS as L } from "../../../js/domain/ads.js?v=37b1301fd1";
 
 const isHttpUrl = (value) => { try { return ["http:", "https:"].includes(new URL(value).protocol); } catch { return false; } };
 

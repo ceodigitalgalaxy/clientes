@@ -66,7 +66,7 @@ A seção **Demandas** é o quadro de trabalho da equipe, separado do calendári
 - **Ligada ao conteúdo:** ao cadastrar um conteúdo, **Criar demanda de produção** (marcado) cria a demanda junto, com o mesmo cliente, responsáveis e prazo. Quando o cliente pede ajuste, a demanda vai sozinha para **Ajustes solicitados**; quando aguarda o cliente, para **Aguardando cliente**; com o conteúdo final aprovado, para **Concluído**. Conteúdos antigos não ganham demanda automaticamente.
 - **Subtarefas e delegação:** no painel da demanda, **+ Nova subtarefa** com responsável (só quem enxerga o cliente) e entrega. Entregar uma subtarefa para alguém não troca o responsável da demanda; quem recebe é avisado no sininho, e quem criou a demanda (e os responsáveis dela) é avisado quando a subtarefa é concluída. Marcar a caixinha conclui.
 - **Checklist** em cada demanda ou subtarefa; o card mostra o progresso (ex.: 1/2), as subtarefas e quantos comentários há.
-- **Comentários da demanda** (só a equipe vê, nunca vão para o cliente): **@menção** (só aparece quem enxerga a demanda), **Responder**, **Editar** o próprio (fica "editado" e o texto anterior guardado) e **Apagar** (autor ou administrador; some o texto, fica o registro). A aba **Histórico** mostra só os eventos automáticos.
+- **Comentários da demanda** (só a equipe vê, nunca vão para o cliente): **@menção** (só aparece quem enxerga a demanda), **Responder**, **Editar** o próprio (fica "editado" e o texto anterior guardado) e **Apagar** (autor ou administrador; some o texto, fica o registro). O **Histórico** (só eventos automáticos) fica fechado no fim do painel e só abre quando a pessoa toca; vale também para o detalhe do conteúdo.
 - **Etiquetas:** o administrador renomeia, troca a cor, arquiva e cria em **Etiquetas**; qualquer pessoa cria uma nova pelo painel da demanda (**Nova etiqueta**). Arquivada some das escolhas e continua nas demandas que já têm.
 - **Avisos** (sininho): demanda passada para você, menção, comentário numa demanda sua e subtarefa concluída; clicar abre a demanda.
 - **Minhas demandas:** tudo o que está com a pessoa num lugar só (demandas e subtarefas do quadro e conteúdos do calendário), por prazo: atrasadas, hoje e amanhã, próximos 7 dias, mais adiante, sem data. Demanda recém-passada aparece marcada como **Nova** até ser aberta; a etapa muda ali mesmo. Conteúdo com demanda de produção aparece uma vez só (como a demanda, com o atalho "Ver o conteúdo"). O cartão **Minhas demandas** do Início segue a mesma regra.
@@ -260,6 +260,7 @@ PLAYWRIGHT=$P node admin/test/equipe-e2e.mjs      # equipe: criar colaborador, d
 PLAYWRIGHT=$P node admin/test/ads-e2e.mjs         # aprovação de anúncios: rascunho → envio → alterações → nova versão → aprovação
 PLAYWRIGHT=$P UX_SHOTS=pasta node admin/test/ux-shots.mjs   # só capturas do portal (computador e celular) para revisão visual
 PLAYWRIGHT=$P UX_SHOTS=pasta node admin/test/ux-approval-shots.mjs   # só capturas da página pública de aprovação (lista, detalhe, calendário)
+PLAYWRIGHT=$P UX_SHOTS=pasta node admin/test/ux-mobile-shots.mjs   # só capturas do painel INTEIRO no celular (Início, Minhas, quadro, demanda, calendário, aprovações…), com rolagem lateral e alvos pequenos
 PLAYWRIGHT=$P UX_SHOTS=pasta node admin/test/ux-admin-shots.mjs   # só capturas do painel no celular, com a medida de rolagem lateral
 ```
 

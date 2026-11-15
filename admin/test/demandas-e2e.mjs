@@ -147,6 +147,9 @@ await step("Abrir o card: tudo editável no painel, salva sozinho e registra no 
   await page.fill('[data-task-field="description"]', "Usar as fotos novas do panetone.");
   await page.locator('[data-task-field="description"]').blur();
   await page.waitForFunction(() => document.querySelector("[data-save-state]")?.textContent === "Salvo ✓");
+  // Histórico fechado até abrir
+  assert.equal(await page.isVisible("[data-task-history]"), false, "histórico começa fechado");
+  await page.click("#task-body .history-toggle__summary");
   await page.waitForFunction(() => /Prioridade: Urgente/.test(document.querySelector("[data-task-history]")?.textContent || ""));
   assert.equal(byTitle("Arte do cardápio de Natal").description, "Usar as fotos novas do panetone.");
   await shot("03-painel-demanda");

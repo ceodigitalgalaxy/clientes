@@ -84,8 +84,9 @@ await step("Cria a demanda e abre o painel com Subtarefas, Checklist e Comentár
   await page.click("[data-task-new] [data-open-after]");
   await panelReady();
   for (const title of ["Subtarefas", "Checklist"]) assert.ok(await page.isVisible(`#task-body .detail__title:has-text("${title}")`), title);
-  assert.ok(await page.isVisible('[data-activity-tab="comentarios"]'));
-  assert.ok(await page.isVisible('[data-activity-tab="historico"]'));
+  assert.ok(await page.isVisible("[data-task-comment-form]"), "comentários à vista");
+  assert.ok(await page.isVisible("#task-body .history-toggle__summary"), "histórico fechado, com o botão para abrir");
+  assert.equal(await page.isVisible("[data-task-history]"), false);
 });
 
 await step("Subtarefa entregue para outra pessoa: avisa ela e o responsável da demanda continua o mesmo", async () => {
@@ -158,12 +159,13 @@ await step("Editar o próprio comentário guarda o texto anterior", async () => 
   assert.equal(fake.tasks.comments[0].body, "Oi @Ana Designer, pode separar as fotos até sexta?");
 });
 
-await step("Histórico separado dos comentários", async () => {
-  await page.click('[data-activity-tab="historico"]');
-  await page.waitForSelector('[data-activity="historico"]:not([hidden]) .history__item');
-  assert.equal(await page.isVisible("[data-task-comment-form]"), false);
+await step("Histórico separado dos comentários e fechado até abrir", async () => {
+  await page.click("#task-body .history-toggle__summary");
+  await page.waitForSelector("[data-task-history] .history__item");
   assert.match(await page.textContent("[data-task-history]"), /Demanda criada/);
-  await page.click('[data-activity-tab="comentarios"]');
+  assert.equal((await page.$$eval("[data-task-history] .history__title", (n) => n.map((x) => x.textContent))).some((t) => /pode separar/.test(t)), false, "comentário não se mistura com o histórico");
+  await page.click("#task-body .history-toggle__summary");
+  await page.waitForSelector("[data-task-history]", { state: "hidden" });
 });
 
 await step("Etiquetas (administrador): renomear, arquivar e criar; arquivada some das escolhas", async () => {

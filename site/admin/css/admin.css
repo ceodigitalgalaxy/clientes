@@ -34,6 +34,9 @@
 /* Tela de entrada, botão carregando e aviso de formulário: em site/css/style.css (comuns ao portal) */
 
 /* Estrutura das seções */
+/* Margem lateral: o painel não carrega o responsive.css do portal, então ajusta aqui (48 → 32 → 16 px) */
+@media (max-width: 1280px) { :root { --gutter: 32px; } }
+@media (max-width: 768px) { :root { --gutter: 16px; } }
 .admin-main { padding-top: 40px; padding-bottom: 80px; max-width: calc(1280px + var(--gutter) * 2); }
 .view__head { display: flex; align-items: flex-end; justify-content: space-between; gap: 24px; margin-bottom: 24px; }
 .view__title { font-family: var(--font-display); font-size: 32px; font-weight: 600; line-height: 1.2; letter-spacing: -0.01em; }
@@ -1302,8 +1305,7 @@ body:not(.can-send) .row__pick { visibility: hidden; }
 @media (max-width: 768px) {
   .subtask-add { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); }
   .subtask-add .btn { grid-column: 1 / -1; }
-  .subtask { grid-template-columns: 28px minmax(0, 1fr); }
-  .subtask__meta { grid-column: 2; }
+  .subtask__meta .due-pill { font-size: 11px; }
   .labelrow { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); }
   .labelrow .label-chip, .labelrow__used { display: none; }
   .labelrow--new { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); }
@@ -1328,3 +1330,42 @@ body:not(.can-send) .row__pick { visibility: hidden; }
 .new-chip { display: inline-flex; align-items: center; min-height: 20px; padding: 0 8px; border-radius: 999px; font-size: 11px; font-weight: 700; color: #fff; background: var(--brand); vertical-align: 1px; }
 .task-card__link { display: inline-flex; align-items: center; gap: 4px; font-size: 12px; }
 .task-card__link .icon { width: 12px; height: 12px; }
+
+/* ---------- Histórico recolhido (demanda e conteúdo): só aparece se a pessoa abrir ---------- */
+.history-toggle { border: 1px solid var(--line); border-radius: var(--radius-lg); background: var(--surface); }
+.history-toggle__summary { display: flex; align-items: center; gap: 8px; min-height: 48px; padding: 0 16px; font-size: 14px; font-weight: 600; color: var(--text); cursor: pointer; list-style: none; border-radius: var(--radius-lg); }
+.history-toggle__summary::-webkit-details-marker { display: none; }
+.history-toggle__summary::after { content: ""; width: 8px; height: 8px; margin-left: auto; border-right: 2px solid var(--text-muted); border-bottom: 2px solid var(--text-muted); transform: rotate(45deg) translateY(-2px); transition: transform 160ms var(--ease); }
+.history-toggle[open] > .history-toggle__summary::after { transform: rotate(-135deg) translateY(-2px); }
+.history-toggle__summary .icon { width: 16px; height: 16px; color: var(--text-muted); }
+.history-toggle__hint { font-size: 12px; font-weight: 400; color: var(--text-muted); }
+@media (hover: hover) { .history-toggle__summary:hover { background: var(--surface-muted); } }
+.history-toggle__summary:focus-visible { outline: none; box-shadow: var(--ring); }
+.history-toggle > [data-task-history] { padding: 4px 16px 16px; }
+.task-labels-edit { margin-top: 8px; }
+.task-people [data-labels-now] { display: inline-flex; flex-wrap: wrap; gap: 6px; }
+
+/* ---------- Celular: telas mais enxutas ---------- */
+@media (max-width: 768px) {
+  /* Cabeçalho da tela: título e ações secundárias compactas na mesma faixa */
+  .view__head { flex-direction: row; flex-wrap: wrap; align-items: center; }
+  .view__head > div:first-child { flex: 1 1 auto; min-width: 0; }
+  .view__buttons { gap: 8px; flex-wrap: wrap; }
+  .view__buttons .btn--ghost, .view__head > .btn--ghost { min-height: 40px; padding: 0 12px; font-size: 13px; }
+  /* Minhas: o seletor de etapa/produção fica numa linha só, sem esticar o cartão */
+  .task-card { gap: 10px; padding: 12px 14px; }
+  .task-card__prod { display: flex; align-items: center; gap: 10px; }
+  .task-card__prod .field__label { margin: 0; font-size: 12px; color: var(--text-muted); white-space: nowrap; }
+  .task-card__prod .field__input { flex: 1; min-height: 42px; }
+  .task-card__title { font-size: 15px; }
+  /* Painel da demanda e do conteúdo: menos espaço vazio */
+  .history-toggle__hint { display: none; }
+  /* Tela vazia com o próprio botão de criar: some o botão flutuante (não fica um por cima do outro) */
+  .view:has(.state .btn--primary) .view__head > .btn--primary,
+  .view:has(.state .btn--primary) .view__buttons > .btn--primary { display: none; }
+}
+
+/* Nova subtarefa: responsável, entrega e "Adicionar" só aparecem quando a pessoa começa (menos ruído no painel) */
+.subtask-add:not(:focus-within):has([name=title]:placeholder-shown) > :not([name=title]) { display: none; }
+/* Descrição vazia não ocupa meia tela */
+.task-desc:placeholder-shown { height: 88px; }

@@ -4,9 +4,9 @@
    Sempre pelas regras de ui/media.js (imagem proporcional, players oficiais,
    aviso + link quando não dá para mostrar). */
 
-import { esc } from "../lib/dom.js?v=e12983126e";
-import { icon } from "../lib/icons.js?v=e12983126e";
-import { renderMedia, mediaFallback } from "./media.js?v=e12983126e";
+import { esc } from "../lib/dom.js?v=37b1301fd1";
+import { icon } from "../lib/icons.js?v=37b1301fd1";
+import { renderMedia, mediaFallback } from "./media.js?v=37b1301fd1";
 
 const emptyArt = (activity) => {
   const noArt = ["campanha", "acao", "gravacao", "reuniao"].includes(activity.type);

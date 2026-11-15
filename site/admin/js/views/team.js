@@ -4,14 +4,14 @@
    (a chave secreta fica no servidor). Nome, função, perfil, clientes e
    permissões são gravados direto no banco, que só deixa o administrador. */
 
-import { $, esc, on } from "../../../js/lib/dom.js?v=e12983126e";
-import { icon } from "../../../js/lib/icons.js?v=e12983126e";
-import { ROLES, validateMember, parseUsername } from "../domain/rules.js?v=e12983126e";
-import { closeDialog, wireDialog, showFieldErrors, setBusy } from "../ui/dialogs.js?v=e12983126e";
-import { stateBlock, loadingCards } from "../ui/states.js?v=e12983126e";
-import { generatePassword } from "./access.js?v=e12983126e";
-import { daysUntil } from "./contents.js?v=e12983126e";
-import { deadlineOf, isOpenTask } from "./tasks.js?v=e12983126e";
+import { $, esc, on } from "../../../js/lib/dom.js?v=37b1301fd1";
+import { icon } from "../../../js/lib/icons.js?v=37b1301fd1";
+import { ROLES, validateMember, parseUsername } from "../domain/rules.js?v=37b1301fd1";
+import { closeDialog, wireDialog, showFieldErrors, setBusy } from "../ui/dialogs.js?v=37b1301fd1";
+import { stateBlock, loadingCards } from "../ui/states.js?v=37b1301fd1";
+import { generatePassword } from "./access.js?v=37b1301fd1";
+import { daysUntil } from "./contents.js?v=37b1301fd1";
+import { deadlineOf, isOpenTask } from "./tasks.js?v=37b1301fd1";
 
 const PANEL_URL = "https://clientes.digitalgalaxy.com.br/admin/";
 
