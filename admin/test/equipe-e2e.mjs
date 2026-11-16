@@ -150,6 +150,7 @@ await step("Conteúdo com responsável, prazo interno e prioridade", async () =>
   await admin.selectOption('#content-modal [name="network"]', "instagram");
   await admin.selectOption('#content-modal [name="format"]', "post");
   await admin.check(`#content-modal [name="assignee"][value="${anaId}"]`);
+  await admin.$$eval("#content-modal details[data-fold]", (d) => d.forEach((x) => { x.open = true; }));
   await admin.fill('#content-modal [name="due_date"]', iso(tomorrow));
   await admin.selectOption('#content-modal [name="priority"]', "alta");
   await shot(admin, "eq03-form-tarefa");
@@ -216,6 +217,7 @@ await step("No formulário, os status de aprovação ficam travados para quem n�
   await colab.waitForSelector("#content-modal[open]");
   assert.equal(await colab.isDisabled('#content-modal [name="approval_status"]'), true);
   assert.equal(await colab.isDisabled('#content-modal [name="final_status"]'), true);
+  await colab.$$eval("#content-modal details[data-fold]", (d) => d.forEach((x) => { x.open = true; }));
   await colab.fill('#content-modal [name="caption"]', "Legenda escrita pela Ana");
   await colab.click("#content-modal [type=submit]");
   await colab.waitForSelector("#content-modal", { state: "hidden" });

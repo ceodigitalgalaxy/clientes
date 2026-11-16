@@ -88,6 +88,7 @@ for (const [title, who, due, client] of [["Campanha de Natal da padaria", ana.id
   await page.fill("[data-task-new] [name=title]", title);
   await page.fill("[data-task-new] [name=due_date]", due);
   if (who !== admin.id) { await page.click("[data-task-new] .pick-person:has-text('Bruna Admin')"); await page.click(`[data-task-new] .pick-person:has([value="${who}"])`); }
+  await page.click("[data-task-new] [data-new-more] summary");
   await page.click('[data-task-new] .pick-label:has-text("Design")');
   await page.click("[data-task-new] [data-open-after]");
   await page.waitForSelector("#task-drawer[open] .task-props");

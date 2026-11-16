@@ -731,7 +731,7 @@ body.admin:not(.is-ready) { visibility: hidden; }
 .status-tab--ajustes:not([aria-selected="true"]) .status-tab__n { color: var(--ajustes-ink); background: var(--ajustes-soft); }
 
 /* Cards de anúncio */
-.ad-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 16px; }
+.ad-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(260px, 100%), 1fr)); gap: 16px; }
 .ad-grid:has(> .state), .ad-grid:has(> .skeleton-card), .ad-grid:has(> .ads-empty), .ad-grid:has(> .load-error) { display: block; }
 .ad-grid > .skeleton-card + .skeleton-card { margin-top: 16px; }
 .ad-card { position: relative; border: 1px solid var(--line); border-radius: var(--radius-lg); background: var(--surface); box-shadow: var(--shadow-card); overflow: hidden; transition: transform 200ms var(--ease), box-shadow 200ms var(--ease), border-color 200ms var(--ease); }

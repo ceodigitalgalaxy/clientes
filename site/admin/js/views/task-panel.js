@@ -5,14 +5,14 @@
      ("Salvo ✓"). Se outra pessoa salvou antes, avisa e recarrega (version).
    O banco confere quem pode ver, criar, editar, delegar e arquivar. */
 
-import { $, esc, on } from "../../../js/lib/dom.js?v=6303f0a5a4";
-import { icon } from "../../../js/lib/icons.js?v=6303f0a5a4";
-import { stampLabel } from "../../../js/lib/dates.js?v=6303f0a5a4";
-import { TASK_STATUS, TASK_PRIORITIES, dueParts, dueState, VIDEO_FORMATS, VIDEO_FORMAT_SHORT, EDIT_CHECKLIST, linkHost } from "../domain/tasks.js?v=6303f0a5a4";
-import { closeDialog, wireDialog, showFieldErrors, setBusy } from "../ui/dialogs.js?v=6303f0a5a4";
-import { kebab } from "../ui/menu.js?v=6303f0a5a4";
-import { attachMentions, mentionHtml } from "../ui/mentions.js?v=6303f0a5a4";
-import { seesClient, personName, clientDotClass } from "./contents.js?v=6303f0a5a4";
+import { $, esc, on } from "../../../js/lib/dom.js?v=2b29946461";
+import { icon } from "../../../js/lib/icons.js?v=2b29946461";
+import { stampLabel } from "../../../js/lib/dates.js?v=2b29946461";
+import { TASK_STATUS, TASK_PRIORITIES, dueParts, dueState, VIDEO_FORMATS, VIDEO_FORMAT_SHORT, EDIT_CHECKLIST, linkHost } from "../domain/tasks.js?v=2b29946461";
+import { closeDialog, wireDialog, showFieldErrors, setBusy } from "../ui/dialogs.js?v=2b29946461";
+import { kebab } from "../ui/menu.js?v=2b29946461";
+import { attachMentions, mentionHtml } from "../ui/mentions.js?v=2b29946461";
+import { seesClient, personName, clientDotClass } from "./contents.js?v=2b29946461";
 
 const initials = (name) => String(name || "?").trim().split(/\s+/).slice(0, 2).map((w) => w[0]).join("").toUpperCase();
 const options = (entries, selected = "") => entries.map(([v, l]) => `<option value="${esc(v)}"${v === (selected ?? "") ? " selected" : ""}>${esc(l)}</option>`).join("");
@@ -70,6 +70,17 @@ export function setupTaskPanel({ api, state, toast, confirm, board, openContent 
   }
 
   /* ---------------- Nova demanda (criação rápida) ---------------- */
+  const isoOf = (d) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+  /** Atalhos de prazo: hoje, amanhã e a próxima sexta (quando não é hoje nem amanhã) */
+  function quickDays() {
+    const d = new Date();
+    const out = [["Hoje", isoOf(d)]];
+    d.setDate(d.getDate() + 1); out.push(["Amanhã", isoOf(d)]);
+    const friday = new Date(); friday.setDate(friday.getDate() + ((5 - friday.getDay() + 7) % 7 || 7));
+    if (!out.some(([, iso]) => iso === isoOf(friday))) out.push(["Sexta", isoOf(friday)]);
+    const week = new Date(); week.setDate(week.getDate() + 7); out.push(["Em 1 semana", isoOf(week)]);
+    return out;
+  }
   function openNew(preset = {}) {
     if (preset.kind === "edicao") { openEditRequest(preset); return; }
     current = null;
@@ -79,20 +90,29 @@ export function setupTaskPanel({ api, state, toast, confirm, board, openContent 
     body.innerHTML = `
       <form class="task-new" data-task-new novalidate>
         <label class="field"><span class="visually-hidden">Título</span>
-          <input class="task-new__title" name="title" maxlength="200" placeholder="O que precisa ser feito?" autocomplete="off" required></label>
-        <div class="form-grid">
-          <label class="field"><span class="field__label">Cliente</span>
-            <select class="field__input" name="client_id"><option value="">Interno da agência</option>${options(visibleClients().map((c) => [c.id, c.name]), clientId)}</select></label>
-          <div class="field"><span class="field__label">Entrega</span>
-            <span class="input-row"><input class="field__input" type="date" name="due_date" value="${esc(preset.due_date || "")}"><input class="field__input task-time" type="time" name="due_time" value="${esc(preset.due_time || "")}"></span></div>
-        </div>
-        <fieldset class="field"><legend class="field__label">Responsáveis</legend><div data-new-people>${peoplePicker(clientId, preset.assignees || [state.me?.user_id].filter(Boolean))}</div></fieldset>
-        <label class="field"><span class="field__label">Descrição <span class="field__optional">(opcional)</span></span>
-          <textarea class="field__input" name="description" rows="3" maxlength="10000" placeholder="Detalhes, referências, o que é esperado…"></textarea></label>
-        <fieldset class="field"><legend class="field__label">Etiquetas <span class="field__optional">(opcional)</span></legend>${labelPicker(preset.labels || [])}</fieldset>
+          <input class="task-new__title" name="title" maxlength="200" placeholder="O que precisa ser feito?" autocomplete="off" value="${esc(preset.title || "")}" required></label>
+        ${preset.parent_id ? "" : `<div class="kind-pick" role="group" aria-label="Tipo de demanda">
+          <button class="kind-chip is-on" type="button" aria-pressed="true">${icon("check")}Tarefa</button>
+          <button class="kind-chip" type="button" data-new-kind="edicao" aria-pressed="false">${icon("play")}Edição de vídeo</button>
+          ${state.can.edit ? `<button class="kind-chip" type="button" data-new-kind="conteudo" aria-pressed="false">${icon("calendar")}Post do calendário</button>` : ""}
+        </div>`}
+        <label class="field"><span class="field__label">Cliente</span>
+          <select class="field__input" name="client_id"><option value="">Interno da agência</option>${options(visibleClients().map((c) => [c.id, c.name]), clientId)}</select></label>
+        <fieldset class="field"><legend class="field__label">Para quem</legend><div data-new-people>${peoplePicker(clientId, preset.assignees || [state.me?.user_id].filter(Boolean))}</div></fieldset>
+        <div class="field"><span class="field__label">Prazo</span>
+          <div class="due-quick" role="group" aria-label="Atalhos de prazo">${quickDays().map(([label, iso]) => `<button class="kind-chip" type="button" data-due-quick="${esc(iso)}" aria-pressed="${preset.due_date === iso}">${esc(label)}</button>`).join("")}</div>
+          <span class="input-row"><input class="field__input" type="date" name="due_date" value="${esc(preset.due_date || "")}" aria-label="Data"><input class="field__input task-time" type="time" name="due_time" value="${esc(preset.due_time || "")}" aria-label="Hora"></span></div>
+        <details class="form-fold" data-new-more>
+          <summary class="form-fold__head"><span class="form-fold__icon">${icon("list")}</span><span class="form-fold__title">Mais detalhes</span><span class="form-fold__hint">descrição e etiquetas</span></summary>
+          <div class="form-fold__body task-new__more">
+            <label class="field"><span class="field__label">Descrição</span>
+              <textarea class="field__input" name="description" rows="3" maxlength="10000" placeholder="Detalhes, referências, o que é esperado…"></textarea></label>
+            <fieldset class="field"><legend class="field__label">Etiquetas</legend>${labelPicker(preset.labels || [])}</fieldset>
+          </div>
+        </details>
         <p class="form-error" role="alert" hidden></p>
         <div class="task-new__actions">
-          <span class="field__hint">Enter cria. Prioridade, projeto e o resto você completa depois.</span>
+          <span class="field__hint">Prioridade, subtarefas e checklist você completa depois.</span>
           <button class="btn btn--ghost" type="submit" value="open" data-open-after>Criar e abrir</button>
           <button class="btn btn--primary" type="submit" value="close">${icon("check")}<span>Criar demanda</span></button>
         </div>
@@ -116,9 +136,12 @@ export function setupTaskPanel({ api, state, toast, confirm, board, openContent 
     const clientId = preset.client_id ?? "";
     body.innerHTML = `
       <form class="task-new task-new--edit" data-edit-new novalidate>
-        <p class="edit-new__intro">${icon("play")}O editor recebe na hora (aviso no celular e em Minhas), abre a pasta, entrega o vídeo aqui e você aprova ou pede ajuste.</p>
         <label class="field"><span class="visually-hidden">Título</span>
           <input class="task-new__title" name="title" maxlength="200" placeholder="Qual vídeo? Ex.: Reels da fornada de domingo" autocomplete="off" value="${esc(preset.title || "")}" required></label>
+        <div class="kind-pick" role="group" aria-label="Tipo de demanda">
+          <button class="kind-chip" type="button" data-edit-kind="tarefa" aria-pressed="false">${icon("check")}Tarefa</button>
+          <button class="kind-chip is-on" type="button" aria-pressed="true">${icon("play")}Edição de vídeo</button>
+        </div>
         <div class="form-grid">
           <label class="field"><span class="field__label">Cliente</span>
             <select class="field__input" name="client_id"><option value="">Interno da agência</option>${options(visibleClients().map((c) => [c.id, c.name]), clientId)}</select></label>
@@ -127,21 +150,26 @@ export function setupTaskPanel({ api, state, toast, confirm, board, openContent 
         </div>
         <label class="field"><span class="field__label">Pasta do Drive com os brutos</span>
           <input class="field__input" name="drive_url" type="url" inputmode="url" maxlength="1000" placeholder="https://drive.google.com/drive/folders/…" autocomplete="off" value="${esc(preset.drive_url || "")}" required>
-          <span class="field__hint">Cole o link de compartilhamento da pasta e confira se o editor tem acesso a ela.</span></label>
+          <span class="field__hint">Confira se o editor tem acesso à pasta.</span></label>
+        <label class="field"><span class="field__label">O que fazer</span>
+          <textarea class="field__input" name="description" rows="3" maxlength="10000" placeholder="Ex.: abrir com a fornada saindo do forno, legenda nas falas, logo no final.">${esc(preset.description || "")}</textarea></label>
         <div class="form-grid">
           <label class="field"><span class="field__label">Formato</span>
             <select class="field__input" name="video_format"><option value="">Escolha</option>${options(Object.entries(VIDEO_FORMATS), preset.video_format || "")}</select></label>
-          <label class="field"><span class="field__label">Duração <span class="field__optional">(opcional)</span></span>
-            <input class="field__input" name="video_duration" maxlength="40" placeholder="Ex.: até 30 s" value="${esc(preset.video_duration || "")}"></label>
+          <div class="field"><span class="field__label">Prazo</span>
+            <span class="input-row"><input class="field__input" type="date" name="due_date" value="${esc(preset.due_date || "")}" aria-label="Data"><input class="field__input task-time" type="time" name="due_time" value="${esc(preset.due_time || "18:00")}" aria-label="Hora"></span></div>
         </div>
-        <label class="field"><span class="field__label">O que fazer</span>
-          <textarea class="field__input" name="description" rows="4" maxlength="10000" placeholder="Ex.: abrir com a fornada saindo do forno, legenda em todas as falas, trilha animada, logo no final, CTA &quot;Peça já pelo WhatsApp&quot;.">${esc(preset.description || "")}</textarea></label>
-        <label class="field"><span class="field__label">Vídeo de referência <span class="field__optional">(opcional)</span></span>
-          <input class="field__input" name="reference_url" type="url" inputmode="url" maxlength="1000" placeholder="https://www.instagram.com/reel/…" autocomplete="off"></label>
-        <div class="field"><span class="field__label">Entrega</span>
-          <span class="input-row"><input class="field__input" type="date" name="due_date" value="${esc(preset.due_date || "")}"><input class="field__input task-time" type="time" name="due_time" value="${esc(preset.due_time || "18:00")}"></span></div>
-        <fieldset class="field"><legend class="field__label">Checklist do editor <span class="field__optional">(desmarque o que não precisa)</span></legend>
-          <div class="pick-checks">${EDIT_CHECKLIST.map((item) => `<label class="check"><input type="checkbox" name="check_item" value="${esc(item)}" checked><span>${esc(item)}</span></label>`).join("")}</div></fieldset>
+        <details class="form-fold" data-new-more>
+          <summary class="form-fold__head"><span class="form-fold__icon">${icon("list")}</span><span class="form-fold__title">Mais detalhes</span><span class="form-fold__hint">duração, referência e checklist</span></summary>
+          <div class="form-fold__body task-new__more">
+            <label class="field"><span class="field__label">Duração</span>
+              <input class="field__input" name="video_duration" maxlength="40" placeholder="Ex.: até 30 s" value="${esc(preset.video_duration || "")}"></label>
+            <label class="field"><span class="field__label">Vídeo de referência</span>
+              <input class="field__input" name="reference_url" type="url" inputmode="url" maxlength="1000" placeholder="https://www.instagram.com/reel/…" autocomplete="off"></label>
+            <fieldset class="field"><legend class="field__label">Checklist do editor <span class="field__optional">(desmarque o que não precisa)</span></legend>
+              <div class="pick-checks">${EDIT_CHECKLIST.map((item) => `<label class="check"><input type="checkbox" name="check_item" value="${esc(item)}" checked><span>${esc(item)}</span></label>`).join("")}</div></fieldset>
+          </div>
+        </details>
         <p class="form-error" role="alert" hidden></p>
         <div class="task-new__actions">
           <button class="btn btn--primary" type="submit">${icon("send")}<span>Enviar para o editor</span></button>
@@ -151,6 +179,10 @@ export function setupTaskPanel({ api, state, toast, confirm, board, openContent 
     if (!drawer.open) drawer.showModal();
     body.querySelector(preset.title ? "[name=drive_url]" : "[name=title]").focus();
   }
+  on(body, "click", "[data-edit-new] [data-edit-kind]", (event, b) => {
+    const form = b.closest("form");
+    openNew({ title: form.elements.title.value.trim(), client_id: form.elements.client_id.value, due_date: form.elements.due_date.value, due_time: form.elements.due_time.value, content_id: form.elements.content_id.value || undefined, assignees: form.elements.editor.value ? [form.elements.editor.value] : undefined });
+  });
   on(body, "change", "[data-edit-new] [name=client_id]", (event, select) => {
     const box = body.querySelector("[data-edit-editor]");
     box.innerHTML = editorOptions(select.value, box.value || lastEditor());
@@ -178,6 +210,23 @@ export function setupTaskPanel({ api, state, toast, confirm, board, openContent 
     } finally { saving = false; setBusy(submit, false); }
   });
 
+  on(body, "click", "[data-task-new] [data-due-quick]", (event, b) => {
+    const form = b.closest("form");
+    form.elements.due_date.value = b.dataset.dueQuick;
+    if (!form.elements.due_time.value) form.elements.due_time.value = "18:00";
+    form.querySelectorAll("[data-due-quick]").forEach((x) => x.setAttribute("aria-pressed", String(x === b)));
+  });
+  on(body, "input", "[data-task-new] [name=due_date]", (event, input) => {
+    input.form.querySelectorAll("[data-due-quick]").forEach((x) => x.setAttribute("aria-pressed", String(x.dataset.dueQuick === input.value)));
+  });
+  // Trocar o tipo: leva o que já foi escrito para o formulário certo
+  on(body, "click", "[data-task-new] [data-new-kind]", (event, b) => {
+    const form = b.closest("form");
+    const carry = { title: form.elements.title.value.trim(), client_id: form.elements.client_id.value, due_date: form.elements.due_date.value, due_time: form.elements.due_time.value, content_id: form.elements.content_id.value || undefined };
+    if (b.dataset.newKind === "edicao") { openEditRequest(carry); return; }
+    closeDialog(drawer);
+    document.dispatchEvent(new CustomEvent("new-content-request", { detail: { client_id: carry.client_id, title: carry.title, scheduled_date: carry.due_date } }));
+  });
   on(body, "change", "[data-task-new] [name=client_id]", (event, select) => {
     const chosen = [...body.querySelectorAll("[data-task-new] [name=assignee]:checked")].map((b) => b.value);
     body.querySelector("[data-new-people]").innerHTML = peoplePicker(select.value, chosen);

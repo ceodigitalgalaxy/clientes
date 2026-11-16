@@ -101,6 +101,7 @@ async function adminCreate(data) {
   await admin.waitForSelector("#content-modal:not([open])", { state: "attached" });
   await admin.click('.view__head [data-action="new-content"]');
   await admin.selectOption('#content-modal [name="client_id"]', { label: data.client });
+  await admin.$$eval("#content-modal details[data-fold]", (d) => d.forEach((x) => { x.open = true; }));
   for (const [name, value] of withPair(data)) {
     if (name === "client") continue;
     const el = admin.locator(`#content-modal [name="${name}"]`).first();
@@ -112,6 +113,7 @@ async function adminCreate(data) {
 async function adminEdit(title, changes) {
   await admin.click(`.row:has-text("${title}") [data-edit-content]`);
   await admin.waitForSelector("#content-modal[open]");
+  await admin.$$eval("#content-modal details[data-fold]", (d) => d.forEach((x) => { x.open = true; }));
   for (const [name, value] of Object.entries(changes)) await admin.fill(`#content-modal [name="${name}"]`, value);
   await admin.click("#content-modal [type=submit]");
   await admin.waitForSelector("#content-modal:not([open])", { state: "attached" });
@@ -227,6 +229,7 @@ await step("Detalhes (etapa da ideia): ideia, como vai ser, objetivo e observaç
 await step("Enviado para a aprovação final: o painel aberto passa a mostrar a legenda", async () => {
   await admin.click('.row:has-text("Pão de fermentação natural") [data-edit-content]');
   await admin.waitForSelector("#content-modal[open]");
+  await admin.$$eval("#content-modal details[data-fold]", (d) => d.forEach((x) => { x.open = true; }));
   await admin.selectOption('#content-modal [name="final_status"]', "aguardando_aprovacao");
   await admin.click("#content-modal [type=submit]");
   await admin.waitForSelector("#content-modal:not([open])", { state: "attached" });

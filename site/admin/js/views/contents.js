@@ -1,18 +1,18 @@
 /* Seção Conteúdos: filtros, lista, detalhes, cadastro, edição e exclusão */
 
-import { $, esc, on } from "../../../js/lib/dom.js?v=6303f0a5a4";
-import { icon } from "../../../js/lib/icons.js?v=6303f0a5a4";
-import { longDayLabel, timeLabel, todayISO, stampLabel, addDays } from "../../../js/lib/dates.js?v=6303f0a5a4";
-import { typeBadge } from "../../../js/ui/badges.js?v=6303f0a5a4";
-import { renderMedia, wireMediaFallbacks } from "../../../js/ui/media.js?v=6303f0a5a4";
-import { PRIORITIES } from "../domain/rules.js?v=6303f0a5a4";
-import { CONTENT_STATUS, CLIENT_VISIBLE_STATUS, APPROVAL_STATUS, PRODUCTION_STATUS, NETWORKS, FORMATS, LIMITS, validateContent, validateContentFilters } from "../domain/rules.js?v=6303f0a5a4";
-import { closeDialog, wireDialog, showFieldErrors, setBusy } from "../ui/dialogs.js?v=6303f0a5a4";
-import { stateBlock, loadingRows, button } from "../ui/states.js?v=6303f0a5a4";
-import { reviewSections, mountReview } from "./content-review.js?v=6303f0a5a4";
-import { describeMedia, mediaCover, coverHtml } from "../../../js/ui/media.js?v=6303f0a5a4";
-import { kebab } from "../ui/menu.js?v=6303f0a5a4";
-import { CAL_MODES, BOARD_COLUMNS, renderCalendar, calendarRange, stepCursor, calendarTitle, attentionItems, renderAttention } from "./contents-calendar.js?v=6303f0a5a4";
+import { $, esc, on } from "../../../js/lib/dom.js?v=2b29946461";
+import { icon } from "../../../js/lib/icons.js?v=2b29946461";
+import { longDayLabel, timeLabel, todayISO, stampLabel, addDays } from "../../../js/lib/dates.js?v=2b29946461";
+import { typeBadge } from "../../../js/ui/badges.js?v=2b29946461";
+import { renderMedia, wireMediaFallbacks } from "../../../js/ui/media.js?v=2b29946461";
+import { PRIORITIES } from "../domain/rules.js?v=2b29946461";
+import { CONTENT_STATUS, CLIENT_VISIBLE_STATUS, APPROVAL_STATUS, PRODUCTION_STATUS, NETWORKS, FORMATS, LIMITS, validateContent, validateContentFilters } from "../domain/rules.js?v=2b29946461";
+import { closeDialog, wireDialog, showFieldErrors, setBusy } from "../ui/dialogs.js?v=2b29946461";
+import { stateBlock, loadingRows, button } from "../ui/states.js?v=2b29946461";
+import { reviewSections, mountReview } from "./content-review.js?v=2b29946461";
+import { describeMedia, mediaCover, coverHtml } from "../../../js/ui/media.js?v=2b29946461";
+import { kebab } from "../ui/menu.js?v=2b29946461";
+import { CAL_MODES, BOARD_COLUMNS, renderCalendar, calendarRange, stepCursor, calendarTitle, attentionItems, renderAttention } from "./contents-calendar.js?v=2b29946461";
 
 const shortDate = (iso) => iso.split("-").reverse().join("/");
 const statusChip = (status) => `<span class="content-status cs--${esc(status)}">${esc(CONTENT_STATUS[status]?.label || status)}</span>`;
@@ -401,6 +401,45 @@ export function setupContents({ api, state, toast, confirm, navigate }) {
   }
   const syncCaption = () => { captionCount.textContent = `${form.elements.caption.value.length.toLocaleString("pt-BR")} de ${LIMITS.caption.toLocaleString("pt-BR")} caracteres`; };
 
+  /* Seções que abrem com um toque: só o essencial fica à vista; o resto mostra um resumo no título */
+  const folds = [...form.querySelectorAll("details[data-fold]")];
+  const filled = (el) => !el.disabled && el.type !== "checkbox" && el.type !== "radio" && el.type !== "hidden" && String(el.value || "").trim() !== "";
+  function foldHint(fold) {
+    const f = form.elements;
+    if (fold.dataset.fold === "prazo") {
+      const parts = [];
+      if (f.due_date.value) parts.push(`até ${f.due_date.value.split("-").reverse().slice(0, 2).join("/")}`);
+      if (f.priority.value && f.priority.value !== "media") parts.push(PRIORITIES[f.priority.value]?.label.toLowerCase());
+      return parts.join(" · ");
+    }
+    if (fold.dataset.fold === "status") {
+      return [`Ideia: ${APPROVAL_STATUS[f.approval_status.value]?.label || "rascunho"}`, f.final_status.value && f.final_status.value !== "rascunho" ? `Final: ${APPROVAL_STATUS[f.final_status.value]?.label}` : "", f.production_status.value ? PRODUCTION_STATUS[f.production_status.value]?.label : ""].filter(Boolean).join(" · ").toLowerCase().replace(/^i/, "I");
+    }
+    const n = [...fold.querySelectorAll("input, textarea")].filter(filled).length;
+    return n ? `${n} ${n === 1 ? "preenchido" : "preenchidos"}` : "";
+  }
+  const syncFoldHints = () => folds.forEach((fold) => { fold.querySelector("[data-fold-hint]").textContent = foldHint(fold); });
+  /** Formato decide o que faz sentido pedir (stories não tem legenda nem hashtags) e como chamar o roteiro */
+  const PLAN_LABEL = { reels: "Roteiro do vídeo (cenas, falas, duração)", carrossel: "O que vai em cada slide", stories: "Sequência dos stories", post: "Como vai ser a imagem" };
+  function syncFormat() {
+    const format = form.elements.format.value;
+    form.querySelectorAll("[data-not-for]").forEach((field) => {
+      const control = field.querySelector("input, textarea, select");
+      field.hidden = field.dataset.notFor.split(" ").includes(format) && !String(control?.value || "").trim();
+    });
+    form.querySelector("[data-plan-label]").textContent = PLAN_LABEL[format] || "Roteiro / como vai ser";
+    form.querySelector("[data-art-label]").textContent = format === "reels" ? "Texto na tela" : "Texto na arte";
+  }
+  /** Erro dentro de uma seção fechada: abre a seção para a pessoa ver */
+  function showErrors(fields, message = "") {
+    showFieldErrors(form, fields, message);
+    const bad = form.querySelector("[aria-invalid=true]");
+    const fold = bad?.closest("details[data-fold]");
+    if (fold) { fold.open = true; bad.focus(); }
+  }
+  form.addEventListener("input", syncFoldHints);
+  form.addEventListener("change", syncFoldHints);
+
   let afterSave = null;   // quem abriu o formulário quer saber do conteúdo salvo (ex.: lote de aprovação)
   function openForm(content = null, preset = null) {
     afterSave = preset?.onSaved || null;
@@ -423,6 +462,7 @@ export function setupContents({ api, state, toast, confirm, navigate }) {
       form.elements.scheduled_date.value = todayISO();
       form.elements.client_id.value = preset?.client_id || form.elements.client_id.value;
       if (preset?.scheduled_date) form.elements.scheduled_date.value = preset.scheduled_date;
+      if (preset?.title) form.elements.title.value = preset.title;
       form.elements.approval_status.value = "rascunho";
       form.elements.final_status.value = "rascunho";
       form.elements.production_status.value = "";
@@ -437,6 +477,10 @@ export function setupContents({ api, state, toast, confirm, navigate }) {
     renderAssigneePicks();
     syncMediaKind();
     syncCaption();
+    syncFormat();
+    syncFoldHints();
+    // Novo: tudo recolhido. Editando: abre o que já tem conteúdo (status fica no resumo do título)
+    folds.forEach((fold) => { fold.open = Boolean(content) && fold.dataset.fold !== "status" && fold.dataset.fold !== "prazo" && [...fold.querySelectorAll("input, textarea")].some(filled); });
     if (drawer.open) closeDialog(drawer);
     dialog.showModal();
     (content ? form.elements.title : form.elements.client_id.value ? form.elements.title : form.elements.client_id).focus();
@@ -456,8 +500,10 @@ export function setupContents({ api, state, toast, confirm, navigate }) {
     pickedAssignees = new Set([...form.querySelectorAll("[name=assignee]:checked")].map((b) => b.value));
     renderAssigneePicks();
   });
+  // Vindo do "Nova demanda" com o tipo "Post do calendário"
+  document.addEventListener("new-content-request", (event) => openForm(null, { ...event.detail, client_id: event.detail.client_id || undefined }));
   form.elements.media_url.addEventListener("input", syncMediaKind);
-  form.elements.format.addEventListener("change", () => { if (!editing?.media_kind) { form.elements.media_kind.value = ""; syncMediaKind(); } });
+  form.elements.format.addEventListener("change", () => { syncFormat(); if (!editing?.media_kind) { form.elements.media_kind.value = ""; syncMediaKind(); } });
   form.elements.caption.addEventListener("input", syncCaption);
 
   form.addEventListener("submit", async (event) => {
@@ -471,7 +517,7 @@ export function setupContents({ api, state, toast, confirm, navigate }) {
     if (form.elements.client_id.disabled) data.client_id = editing.client_id;
     if (!state.can.send) { data.approval_status = editing?.approval_status || "rascunho"; data.final_status = editing?.final_status || "rascunho"; }
     const { errors } = validateContent(data);
-    if (Object.keys(errors).length) { showFieldErrors(form, errors); return; }
+    if (Object.keys(errors).length) { showErrors(errors); return; }
     saving = true;
     setBusy(submit, true);
     try {
@@ -491,7 +537,7 @@ export function setupContents({ api, state, toast, confirm, navigate }) {
       const callback = afterSave; afterSave = null;
       if (callback) await callback(saved); else await load();
     } catch (error) {
-      showFieldErrors(form, error.fields || {}, error.message);
+      showErrors(error.fields || {}, error.message);
     } finally {
       saving = false;
       setBusy(submit, false);

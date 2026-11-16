@@ -7,12 +7,12 @@
    O administrador (e quem edita tudo) pode ver as demandas de outra pessoa.
    Dá para mudar a etapa ali mesmo e abrir o item. */
 
-import { $, esc, on } from "../../../js/lib/dom.js?v=6303f0a5a4";
-import { icon } from "../../../js/lib/icons.js?v=6303f0a5a4";
-import { PRODUCTION_STATUS, PRIORITIES } from "../domain/rules.js?v=6303f0a5a4";
-import { TASK_STATUS, TASK_PRIORITIES, dueParts, dueState, VIDEO_FORMAT_SHORT, linkHost } from "../domain/tasks.js?v=6303f0a5a4";
-import { stateBlock, loadingRows } from "../ui/states.js?v=6303f0a5a4";
-import { dueChip, priorityChip, daysUntil, personName } from "./contents.js?v=6303f0a5a4";
+import { $, esc, on } from "../../../js/lib/dom.js?v=2b29946461";
+import { icon } from "../../../js/lib/icons.js?v=2b29946461";
+import { PRODUCTION_STATUS, PRIORITIES } from "../domain/rules.js?v=2b29946461";
+import { TASK_STATUS, TASK_PRIORITIES, dueParts, dueState, VIDEO_FORMAT_SHORT, linkHost } from "../domain/tasks.js?v=2b29946461";
+import { stateBlock, loadingRows } from "../ui/states.js?v=2b29946461";
+import { dueChip, priorityChip, daysUntil, personName } from "./contents.js?v=2b29946461";
 
 const FORMAT_SHORT = { post: "Post", carrossel: "Carrossel", reels: "Reels", stories: "Stories", video: "Vídeo" };
 const shortDate = (iso) => (iso ? iso.split("-").reverse().slice(0, 2).join("/") : "—");

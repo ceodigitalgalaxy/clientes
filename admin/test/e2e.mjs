@@ -86,6 +86,7 @@ const withPair = (data) => {
   return Object.entries({ ...rest, approval_status: pair.approval_status, production_status: pair.production_status || "" });
 };
 const fillContent = async (data) => {
+  await page.$$eval("#content-modal details[data-fold]", (d) => d.forEach((x) => { x.open = true; }));   // seções recolhidas
   for (const [name, value] of withPair(data)) {
     const el = page.locator(`#content-modal [name="${name}"]`).first();
     const tag = await el.evaluate((n) => n.tagName);
@@ -261,6 +262,7 @@ await step("Editar conteúdo (sobe a versão)", async () => {
   await page.click('#content-drawer [data-edit-content]');
   await page.waitForSelector("#content-modal[open]");
   assert.equal(await page.inputValue('#content-modal [name="scheduled_time"]'), "10:30");
+  await page.$$eval("#content-modal details[data-fold]", (d) => d.forEach((x) => { x.open = true; }));
   await page.fill('#content-modal [name="caption"]', "Chegou o pão de fermentação natural!");
   await page.fill('#content-modal [name="idea"]', "Mostrar a primeira fornada do dia");
   await page.fill('#content-modal [name="content_plan"]', "1. Forno abrindo\n2. Pães na vitrine");

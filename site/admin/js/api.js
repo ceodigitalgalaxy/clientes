@@ -2,10 +2,10 @@
    Valida os dados antes de enviar (domain/rules.js); o banco confere de novo
    com as próprias regras e só aceita membros da equipe (RLS). */
 
-import { validateClient, validateContent, validateContentFilters, parseUsername, passwordProblem, CONTENT_STATUS, PRODUCTION_STATUS, isUuid, validateAd, validateAdFilters, AD_LIMITS, validateBrandKit, validateBatch, validateMember } from "./domain/rules.js?v=6303f0a5a4";
-import { validateTask, isId, TASK_STATUS, COLORS, httpsUrl } from "./domain/tasks.js?v=6303f0a5a4";
-import { ALERT_DEFAULTS, validateAlertSettings } from "./domain/deadlines.js?v=6303f0a5a4";
-import { UPLOAD_LIMITS, fileName, fileProblem, resizeImage } from "../../js/lib/storage.js?v=6303f0a5a4";
+import { validateClient, validateContent, validateContentFilters, parseUsername, passwordProblem, CONTENT_STATUS, PRODUCTION_STATUS, isUuid, validateAd, validateAdFilters, AD_LIMITS, validateBrandKit, validateBatch, validateMember } from "./domain/rules.js?v=2b29946461";
+import { validateTask, isId, TASK_STATUS, COLORS, httpsUrl } from "./domain/tasks.js?v=2b29946461";
+import { ALERT_DEFAULTS, validateAlertSettings } from "./domain/deadlines.js?v=2b29946461";
+import { UPLOAD_LIMITS, fileName, fileProblem, resizeImage } from "../../js/lib/storage.js?v=2b29946461";
 
 export class ApiError extends Error {
   constructor(status, message, fields) { super(message); this.status = status; this.fields = fields || {}; }

@@ -12,7 +12,7 @@
      e a encerra no Supabase.
    ========================================================================== */
 
-import { parseUsername, loginEmail, usernameFromEmail, accountKind } from "../domain/accounts.js?v=6303f0a5a4";
+import { parseUsername, loginEmail, usernameFromEmail, accountKind } from "../domain/accounts.js?v=2b29946461";
 
 const STORAGE_KEYS = { equipe: "dg-painel-sessao", cliente: "dg-portal-sessao" };
 const RENEW_BEFORE_MS = 60_000;   // renova o token 1 minuto antes de vencer

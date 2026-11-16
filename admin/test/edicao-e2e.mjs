@@ -95,6 +95,7 @@ await step("Pedido de edição pelo quadro: formulário guiado, link inseguro re
   await page.selectOption("[data-edit-new] [name=editor]", caio.id);
   await page.fill("[data-edit-new] [name=drive_url]", "javascript:alert(1)");
   await page.selectOption("[data-edit-new] [name=video_format]", "9_16");
+  await page.click("[data-edit-new] [data-new-more] summary");
   await page.fill("[data-edit-new] [name=video_duration]", "até 45 s");
   await page.fill("[data-edit-new] [name=description]", "Abrir com a fachada, legenda em todas as falas, trilha leve, logo no final.");
   await page.fill("[data-edit-new] [name=due_date]", plus(3));

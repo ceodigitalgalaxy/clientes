@@ -17,9 +17,9 @@
   <link rel="preload" href="../fonts/sora-latin-400-normal.woff2" as="font" type="font/woff2" crossorigin>
   <link rel="preload" href="../fonts/sora-latin-600-normal.woff2" as="font" type="font/woff2" crossorigin>
   <!-- Mesmos tokens e componentes do portal do cliente -->
-  <link rel="stylesheet" href="../css/style.css?v=6303f0a5a4">
-  <link rel="stylesheet" href="css/admin.css?v=6303f0a5a4">
-  <script type="module" src="js/main.js?v=6303f0a5a4"></script>
+  <link rel="stylesheet" href="../css/style.css?v=2b29946461">
+  <link rel="stylesheet" href="css/admin.css?v=2b29946461">
+  <script type="module" src="js/main.js?v=2b29946461"></script>
 </head>
 <body class="admin">
   <!-- Tela de entrada: aparece enquanto ninguém estiver logado -->
@@ -500,7 +500,6 @@
         <span class="modal__icon modal__icon--brand" data-icon="calendar"></span>
         <div>
           <h2 class="modal__title" id="content-modal-title">Novo conteúdo</h2>
-          <p class="modal__text">O cliente vê o planejamento na aprovação da ideia e a produção só na aprovação final.</p>
         </div>
         <button class="icon-btn modal__close" type="button" data-action="close-modal" aria-label="Fechar" data-icon="close"></button>
       </div>
@@ -510,11 +509,11 @@
           <select class="field__input" name="client_id" required></select>
         </label>
         <label class="field form-grid__wide">
-          <span class="field__label">Título da publicação</span>
+          <span class="field__label">Título</span>
           <input class="field__input" name="title" maxlength="160" autocomplete="off" required>
         </label>
         <label class="field">
-          <span class="field__label">Data programada</span>
+          <span class="field__label">Publica em</span>
           <input class="field__input" name="scheduled_date" type="date" required>
         </label>
         <label class="field">
@@ -522,110 +521,130 @@
           <input class="field__input" name="scheduled_time" type="time">
         </label>
         <label class="field">
-          <span class="field__label">Rede social</span>
+          <span class="field__label">Rede</span>
           <select class="field__input" name="network" required></select>
         </label>
         <label class="field">
           <span class="field__label">Formato</span>
           <select class="field__input" name="format" required></select>
         </label>
-        <p class="form-section form-section--task form-grid__wide"><b>Tarefa</b> <span class="field__optional">· só a equipe vê</span></p>
         <fieldset class="field form-grid__wide" data-assignees-field>
-          <legend class="field__label">Responsáveis <span class="field__optional">(um ou mais)</span></legend>
+          <legend class="field__label">Quem faz</legend>
           <div class="assignee-picks" data-assignees></div>
         </fieldset>
-        <label class="field">
-          <span class="field__label">Prazo interno <span class="field__optional">(entrega da equipe)</span></span>
-          <input class="field__input" name="due_date" type="date">
-        </label>
-        <label class="field">
-          <span class="field__label">Prioridade</span>
-          <select class="field__input" name="priority">
-            <option value="baixa">Baixa</option>
-            <option value="media" selected>Média</option>
-            <option value="alta">Alta</option>
-            <option value="urgente">Urgente</option>
-          </select>
-        </label>
-        <label class="check form-grid__wide" data-make-task><input type="checkbox" name="make_task" checked><span><b>Criar demanda de produção</b> · vira um card na Gestão de demandas, com os mesmos responsáveis e prazo</span></label>
-        <p class="form-section form-section--plan form-grid__wide"><b>1. Planejamento</b> <span class="field__optional">· o cliente vê no link de aprovação da ideia</span></p>
-        <label class="field form-grid__wide">
-          <span class="field__label">Descrição da ideia <span class="field__optional">(opcional)</span></span>
-          <textarea class="field__input field__input--area" name="idea" rows="2" maxlength="2000" placeholder="Ex.: Mostrar a primeira fornada do dia saindo do forno."></textarea>
-        </label>
-        <label class="field form-grid__wide">
-          <span class="field__label">Roteiro / como vai ser <span class="field__optional">(opcional)</span></span>
-          <textarea class="field__input field__input--area" name="content_plan" rows="4" maxlength="4000" placeholder="Cenas do vídeo, slides do carrossel ou o que aparece na imagem. Ex.:&#10;1. Close do forno abrindo&#10;2. Pães indo para a vitrine&#10;Duração: 15 s · música animada"></textarea>
-        </label>
-        <label class="field form-grid__wide">
-          <span class="field__label">Observações do planejamento <span class="field__optional">(opcional)</span></span>
-          <textarea class="field__input field__input--area" name="planning_notes" rows="2" maxlength="2000" aria-describedby="planning-notes-hint"></textarea>
-          <span class="field__hint" id="planning-notes-hint">O cliente lê junto com a ideia, no link de aprovação do planejamento.</span>
-        </label>
-        <label class="field">
-          <span class="field__label">Objetivo estratégico <span class="field__optional">(opcional · só a equipe vê)</span></span>
-          <input class="field__input" name="objective" maxlength="500" autocomplete="off" placeholder="Ex.: Trazer movimento de manhã cedo">
-        </label>
-        <label class="field">
-          <span class="field__label">Pilar editorial <span class="field__optional">(opcional · só a equipe vê)</span></span>
-          <input class="field__input" name="pillar" maxlength="80" autocomplete="off" placeholder="Ex.: Bastidores, Produto, Dicas">
-        </label>
 
-        <p class="form-section form-section--final form-grid__wide"><b>2. Produção</b> <span class="field__optional">· fica só com a equipe até você enviar para a aprovação final</span></p>
-        <label class="field form-grid__wide">
-          <span class="field__label">Texto na arte <span class="field__optional">(opcional)</span></span>
-          <textarea class="field__input field__input--area" name="art_text" rows="2" maxlength="1000" placeholder="O que vai escrito na imagem ou na tela. Ex.: Saiu agora! Pão quentinho até as 9h"></textarea>
-        </label>
-        <label class="field form-grid__wide">
-          <span class="field__label">Legenda <span class="field__optional">(opcional)</span></span>
-          <textarea class="field__input field__input--area" name="caption" rows="5" maxlength="2200" aria-describedby="caption-count"></textarea>
-          <span class="field__hint" id="caption-count">0 de 2.200 caracteres</span>
-        </label>
-        <label class="field form-grid__wide">
-          <span class="field__label">Hashtags <span class="field__optional">(opcional)</span></span>
-          <input class="field__input" name="hashtags" maxlength="1000" autocomplete="off" placeholder="#padaria #paoquentinho">
-        </label>
-        <label class="field">
-          <span class="field__label">Chamada para ação (CTA) <span class="field__optional">(opcional)</span></span>
-          <input class="field__input" name="cta" maxlength="200" autocomplete="off" placeholder="Ex.: Peça pelo WhatsApp">
-        </label>
-        <label class="field">
-          <span class="field__label">Observações para o cliente <span class="field__optional">(opcional)</span></span>
-          <textarea class="field__input field__input--area" name="client_notes" rows="2" maxlength="2000" aria-describedby="client-notes-hint"></textarea>
-          <span class="field__hint" id="client-notes-hint">Aparecem na aprovação final.</span>
-        </label>
-        <p class="field__hint form-grid__wide">A arte, o vídeo e os arquivos entram depois de salvar, nos detalhes do conteúdo ("Arquivos e materiais").</p>
+        <details class="form-fold form-grid__wide" data-fold="prazo">
+          <summary class="form-fold__head"><span class="form-fold__icon" data-icon="clock"></span><span class="form-fold__title">Prazo da equipe e prioridade</span><span class="form-fold__hint" data-fold-hint></span></summary>
+          <div class="form-grid form-fold__body">
+            <label class="field">
+              <span class="field__label">Prazo interno</span>
+              <input class="field__input" name="due_date" type="date">
+            </label>
+            <label class="field">
+              <span class="field__label">Prioridade</span>
+              <select class="field__input" name="priority">
+                <option value="baixa">Baixa</option>
+                <option value="media" selected>Média</option>
+                <option value="alta">Alta</option>
+                <option value="urgente">Urgente</option>
+              </select>
+            </label>
+            <label class="check form-grid__wide" data-make-task><input type="checkbox" name="make_task" checked><span><b>Criar demanda de produção</b> · vira um card no quadro, com os mesmos responsáveis e prazo</span></label>
+          </div>
+        </details>
 
-        <p class="form-section form-section--internal form-grid__wide"><b>3. Interno e status</b> <span class="field__optional">· só a equipe vê</span></p>
-        <label class="field form-grid__wide">
-          <span class="field__label">Referência <span class="field__optional">(opcional)</span></span>
-          <input class="field__input" name="media_url" type="url" inputmode="url" placeholder="https://" autocomplete="off" spellcheck="false" aria-describedby="media-hint">
-          <span class="field__hint" id="media-hint">Imagem: link direto do arquivo. Vídeo: YouTube, Vimeo, TikTok, Google Drive, post ou reel público do Instagram, ou arquivo .mp4/.webm. Outros links aparecem só como link.</span>
-        </label>
-        <fieldset class="field form-grid__wide radio-row" data-media-kind>
-          <legend class="field__label">Tipo da mídia</legend>
-          <label class="check"><input type="radio" name="media_kind" value="image"><span>Imagem</span></label>
-          <label class="check"><input type="radio" name="media_kind" value="video"><span>Vídeo</span></label>
-        </fieldset>
-        <label class="field form-grid__wide">
-          <span class="field__label">Observações internas <span class="field__optional">(opcional)</span></span>
-          <textarea class="field__input field__input--area" name="internal_notes" rows="3" maxlength="4000" aria-describedby="internal-notes-hint"></textarea>
-          <span class="field__hint" id="internal-notes-hint">Nunca aparecem para o cliente.</span>
-        </label>
-        <label class="field">
-          <span class="field__label">Aprovação da ideia</span>
-          <select class="field__input" name="approval_status" required aria-describedby="approval-status-hint"></select>
-          <span class="field__hint" id="approval-status-hint">O cliente decide pelo link do planejamento.</span>
-        </label>
-        <label class="field">
-          <span class="field__label">Aprovação final</span>
-          <select class="field__input" name="final_status" required aria-describedby="final-status-hint"></select>
-          <span class="field__hint" id="final-status-hint">O cliente decide pelo link do conteúdo final.</span>
-        </label>
-        <label class="field">
-          <span class="field__label">Produção <span class="field__optional">(opcional)</span></span>
-          <select class="field__input" name="production_status"></select>
-        </label>
+        <details class="form-fold form-grid__wide" data-fold="ideia">
+          <summary class="form-fold__head"><span class="form-fold__icon" data-icon="lightbulb"></span><span class="form-fold__title">Ideia e roteiro</span><span class="form-fold__hint" data-fold-hint></span></summary>
+          <div class="form-grid form-fold__body">
+            <p class="field__hint form-grid__wide">O cliente vê na aprovação da ideia (menos objetivo e pilar).</p>
+            <label class="field form-grid__wide">
+              <span class="field__label">A ideia</span>
+              <textarea class="field__input field__input--area" name="idea" rows="2" maxlength="2000" placeholder="Ex.: Mostrar a primeira fornada do dia saindo do forno."></textarea>
+            </label>
+            <label class="field form-grid__wide">
+              <span class="field__label" data-plan-label>Roteiro / como vai ser</span>
+              <textarea class="field__input field__input--area" name="content_plan" rows="4" maxlength="4000" placeholder="Ex.:&#10;1. Close do forno abrindo&#10;2. Pães indo para a vitrine"></textarea>
+            </label>
+            <label class="field form-grid__wide">
+              <span class="field__label">Observações para o cliente sobre a ideia</span>
+              <textarea class="field__input field__input--area" name="planning_notes" rows="2" maxlength="2000"></textarea>
+            </label>
+            <label class="field">
+              <span class="field__label">Objetivo <span class="field__optional">· só a equipe</span></span>
+              <input class="field__input" name="objective" maxlength="500" autocomplete="off" placeholder="Ex.: Movimento de manhã cedo">
+            </label>
+            <label class="field">
+              <span class="field__label">Pilar <span class="field__optional">· só a equipe</span></span>
+              <input class="field__input" name="pillar" maxlength="80" autocomplete="off" placeholder="Ex.: Bastidores, Produto">
+            </label>
+          </div>
+        </details>
+
+        <details class="form-fold form-grid__wide" data-fold="texto">
+          <summary class="form-fold__head"><span class="form-fold__icon" data-icon="type"></span><span class="form-fold__title">Texto e legenda</span><span class="form-fold__hint" data-fold-hint></span></summary>
+          <div class="form-grid form-fold__body">
+            <p class="field__hint form-grid__wide">Só vai ao cliente na aprovação final. A arte e o vídeo entram depois de salvar, em "Arquivos e materiais".</p>
+            <label class="field form-grid__wide">
+              <span class="field__label" data-art-label>Texto na arte</span>
+              <textarea class="field__input field__input--area" name="art_text" rows="2" maxlength="1000" placeholder="O que vai escrito na imagem ou na tela."></textarea>
+            </label>
+            <label class="field form-grid__wide" data-not-for="stories">
+              <span class="field__label">Legenda</span>
+              <textarea class="field__input field__input--area" name="caption" rows="5" maxlength="2200" aria-describedby="caption-count"></textarea>
+              <span class="field__hint" id="caption-count">0 de 2.200 caracteres</span>
+            </label>
+            <label class="field form-grid__wide" data-not-for="stories">
+              <span class="field__label">Hashtags</span>
+              <input class="field__input" name="hashtags" maxlength="1000" autocomplete="off" placeholder="#padaria #paoquentinho">
+            </label>
+            <label class="field">
+              <span class="field__label">Chamada para ação</span>
+              <input class="field__input" name="cta" maxlength="200" autocomplete="off" placeholder="Ex.: Peça pelo WhatsApp">
+            </label>
+            <label class="field">
+              <span class="field__label">Observações para o cliente</span>
+              <textarea class="field__input field__input--area" name="client_notes" rows="2" maxlength="2000"></textarea>
+            </label>
+          </div>
+        </details>
+
+        <details class="form-fold form-grid__wide" data-fold="interno">
+          <summary class="form-fold__head"><span class="form-fold__icon" data-icon="lock"></span><span class="form-fold__title">Referência e notas internas</span><span class="form-fold__hint" data-fold-hint></span></summary>
+          <div class="form-grid form-fold__body">
+            <label class="field form-grid__wide">
+              <span class="field__label">Referência</span>
+              <input class="field__input" name="media_url" type="url" inputmode="url" placeholder="https://" autocomplete="off" spellcheck="false" aria-describedby="media-hint">
+              <span class="field__hint" id="media-hint">Link de imagem, YouTube, Vimeo, TikTok, Google Drive ou Instagram público.</span>
+            </label>
+            <fieldset class="field form-grid__wide radio-row" data-media-kind>
+              <legend class="field__label">Tipo da mídia</legend>
+              <label class="check"><input type="radio" name="media_kind" value="image"><span>Imagem</span></label>
+              <label class="check"><input type="radio" name="media_kind" value="video"><span>Vídeo</span></label>
+            </fieldset>
+            <label class="field form-grid__wide">
+              <span class="field__label">Observações internas <span class="field__optional">· nunca aparecem para o cliente</span></span>
+              <textarea class="field__input field__input--area" name="internal_notes" rows="3" maxlength="4000"></textarea>
+            </label>
+          </div>
+        </details>
+
+        <details class="form-fold form-grid__wide" data-fold="status">
+          <summary class="form-fold__head"><span class="form-fold__icon" data-icon="check"></span><span class="form-fold__title">Status</span><span class="form-fold__hint" data-fold-hint></span></summary>
+          <div class="form-grid form-fold__body">
+            <label class="field">
+              <span class="field__label">Aprovação da ideia</span>
+              <select class="field__input" name="approval_status" required></select>
+            </label>
+            <label class="field">
+              <span class="field__label">Aprovação final</span>
+              <select class="field__input" name="final_status" required></select>
+            </label>
+            <label class="field">
+              <span class="field__label">Produção</span>
+              <select class="field__input" name="production_status"></select>
+            </label>
+          </div>
+        </details>
       </div>
       <p class="form-error" role="alert" hidden></p>
       <div class="modal__actions">

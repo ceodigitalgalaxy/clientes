@@ -102,6 +102,7 @@ await step("+ Nova demanda: painel lateral com cliente, responsável, entrega e 
   await page.fill("[data-task-new] [name=due_date]", plus(2));
   await page.fill("[data-task-new] [name=due_time]", "15:00");
   await page.click(`[data-task-new] .pick-person:has([value="${ana.id}"])`);
+  await page.click("[data-task-new] [data-new-more] summary");
   await page.click('[data-task-new] .pick-label:has-text("Design")');
   await shot("01-nova-demanda");
   await page.click("[data-task-new] .btn--primary[type=submit]");
@@ -309,6 +310,46 @@ await step("Celular: quadro rola de lado dentro dele, sem estourar a página", a
   const box = await page.$eval("#task-drawer", (d) => Math.round(d.getBoundingClientRect().width));
   assert.ok(box <= 390, `painel com ${box}px`);
   await shot("06-celular-painel");
+});
+
+await step("Celular: nenhum campo com letra menor que 16px (o iPhone daria zoom e deslocaria a tela)", async () => {
+  await page.click('#task-drawer [data-action="close-drawer"]');
+  await page.waitForSelector("#task-drawer:not([open])", { state: "attached" });
+  const tiny = await page.$$eval("input:not([type=checkbox]):not([type=radio]):not([type=hidden]), select, textarea", (n) => n.filter((x) => x.offsetParent && parseFloat(getComputedStyle(x).fontSize) < 16).map((x) => x.name || x.className));
+  assert.deepEqual(tiny, []);
+});
+
+await step("Nova demanda pede só o essencial: tipo, cliente, para quem e prazo com atalhos", async () => {
+  await page.locator('[data-action="new-task"]:visible').first().click();
+  await page.waitForSelector("#task-drawer[open] [data-task-new]");
+  assert.equal(await page.isVisible("[data-task-new] [name=description]"), false, "descrição em Mais detalhes");
+  assert.equal(await page.isVisible("[data-task-new] .pick-label"), false, "etiquetas em Mais detalhes");
+  await page.fill("[data-task-new] [name=title]", "Vídeo do aniversário da padaria");
+  await page.click('[data-task-new] [data-due-quick]:has-text("Amanhã")');
+  assert.equal(await page.inputValue("[data-task-new] [name=due_date]"), plus(1));
+  assert.equal(await page.inputValue("[data-task-new] [name=due_time]"), "18:00");
+  // Trocar para edição de vídeo leva o que já foi escrito
+  await page.click('[data-task-new] [data-new-kind="edicao"]');
+  await page.waitForSelector("[data-edit-new]");
+  assert.equal(await page.inputValue("[data-edit-new] [name=title]"), "Vídeo do aniversário da padaria");
+  assert.equal(await page.inputValue("[data-edit-new] [name=due_date]"), plus(1));
+  assert.equal(await page.isVisible("[data-edit-new] [name=check_item]"), false, "checklist em Mais detalhes");
+  await page.click('[data-edit-new] [data-edit-kind="tarefa"]');
+  await page.waitForSelector("[data-task-new]");
+  assert.equal(await page.inputValue("[data-task-new] [name=title]"), "Vídeo do aniversário da padaria");
+  // Ou virar post do calendário
+  await page.click('[data-task-new] [data-new-kind="conteudo"]');
+  await page.waitForSelector("#content-modal[open]");
+  assert.equal(await page.inputValue('#content-modal [name="title"]'), "Vídeo do aniversário da padaria");
+  assert.equal(await page.inputValue('#content-modal [name="scheduled_date"]'), plus(1));
+  assert.equal(await page.locator("#content-modal details[data-fold][open]").count(), 0, "seções extras recolhidas");
+  await page.selectOption('#content-modal [name="format"]', "stories");
+  await page.click('#content-modal [data-fold="texto"] summary');
+  assert.equal(await page.isVisible('#content-modal [name="caption"]'), false, "stories não tem legenda");
+  assert.match(await page.textContent('#content-modal [data-fold="ideia"]'), /Sequência dos stories/);
+  await page.fill('#content-modal [name="art_text"]', "Hoje tem bolo!");
+  assert.match(await page.textContent('#content-modal [data-fold="texto"] [data-fold-hint]'), /1 preenchido/);
+  await page.click('#content-modal [data-action="close-modal"]');
 });
 
 await step("Sem erros no console", async () => {

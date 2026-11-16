@@ -486,7 +486,8 @@ await step("Do conteúdo: 'Enviar para aprovação final' cria o lote final; sem
   await admin.goto(`${ORIGIN}/admin/#/conteudos`);
   await admin.click(`.row [data-edit-content="${c2.id}"]`);
   await admin.waitForSelector("#content-modal[open]");
-  assert.match(await admin.textContent("#content-modal"), /1\. Planejamento.*2\. Produção.*3\. Interno/s);
+  assert.match(await admin.textContent("#content-modal"), /Ideia e roteiro.*Texto e legenda.*Referência e notas internas/s);
+  await admin.$$eval("#content-modal details[data-fold]", (d) => d.forEach((x) => { x.open = true; }));
   await shot(admin, "ap12-formulario", { fullPage: false });
   await admin.fill('#content-modal [name="caption"]', "Café especial + pão na chapa por R$ 9,90.");
   await admin.fill('#content-modal [name="hashtags"]', "#cafedamanha #padaria");
