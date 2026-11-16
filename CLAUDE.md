@@ -34,6 +34,7 @@ Site estático, sem build (HTML, CSS e módulos ES nativos), no mesmo padrão do
 - O calendário é o elemento principal do portal do cliente. No painel da agência há gestão de demandas, comentários internos e avisos (só para a equipe); nada disso vai para o cliente.
 
 ## Visual
+- **Painel enxuto** (padrão desde nov/2026): nada de parágrafo explicativo embaixo do título; no máximo uma contagem curta (`.view__count`). A conta fica num botão com a inicial (`[data-me-toggle]` → `#me-pop` com nome, perfil e `[data-action="sign-out"]`). Ações secundárias vão no "⋯" (`kebab`; no quadro, `[data-board-settings]` com Etiquetas e Colunas). Filtros do quadro recolhidos atrás de "Filtros" no celular. Propriedade vazia não aparece (ex.: prazo e prioridade média no detalhe do conteúdo). Minhas em linhas compactas (`.task-card__name` + uma linha de meta + etapa à direita); o Início não repete em "Também precisam de atenção" o que já está em "Minhas demandas".
 - Tema claro e arejado com a identidade da marca: roxo #5A1AC7 / #3B008E, lilás #B794FF, Sora no texto e Orbitron ("Galaxy") nos títulos grandes, símbolo da Digital Galaxy no topo.
 - Cores por tipo de atividade nas classes `.type--<tipo>` (variáveis `--t`, `--t-soft`, `--t-ink`); status: aguardando (âmbar), aprovado (verde), ajustes (coral).
 - Espaçamentos em múltiplos de 8px; textos de apoio em 12px. Caixa alta só em títulos (aqui, nenhum).

@@ -8,13 +8,13 @@
    - "+ Adicionar" no pé de cada coluna cria na hora, já naquela coluna.
    Mostra só as demandas principais; as subtarefas contam no card. */
 
-import { $, esc, on } from "../../../js/lib/dom.js?v=f5b3406042";
-import { icon } from "../../../js/lib/icons.js?v=f5b3406042";
-import { TASK_STATUS, TASK_PRIORITIES, COLORS, dueState } from "../domain/tasks.js?v=f5b3406042";
-import { closeDialog, wireDialog } from "../ui/dialogs.js?v=f5b3406042";
-import { stateBlock } from "../ui/states.js?v=f5b3406042";
-import { avatars, clientDotClass } from "./contents.js?v=f5b3406042";
-import { setupTaskPanel } from "./task-panel.js?v=f5b3406042";
+import { $, esc, on } from "../../../js/lib/dom.js?v=6303f0a5a4";
+import { icon } from "../../../js/lib/icons.js?v=6303f0a5a4";
+import { TASK_STATUS, TASK_PRIORITIES, COLORS, dueState } from "../domain/tasks.js?v=6303f0a5a4";
+import { closeDialog, wireDialog } from "../ui/dialogs.js?v=6303f0a5a4";
+import { stateBlock } from "../ui/states.js?v=6303f0a5a4";
+import { avatars, clientDotClass } from "./contents.js?v=6303f0a5a4";
+import { setupTaskPanel } from "./task-panel.js?v=6303f0a5a4";
 
 const FILTER_KEY = "dg-painel-quadro-filtros";
 const options = (entries, selected = "") => entries.map(([v, l]) => `<option value="${esc(v)}"${v === selected ? " selected" : ""}>${esc(l)}</option>`).join("");
@@ -54,8 +54,11 @@ export function setupBoard({ api, state, toast, confirm, openContent }) {
   /* ---------------- Filtros ---------------- */
   function renderBar() {
     const people = state.team.filter((m) => m.active !== false);
+    const active = ["client", "person", "project", "label"].filter((k) => filters[k]).length;
+    bar.classList.toggle("is-open", barOpen);
     bar.innerHTML = `
-      <label class="board-search">${icon("eye")}<span class="visually-hidden">Buscar</span><input class="field__input" type="search" name="q" placeholder="Buscar demanda" value="${esc(filters.q || "")}"></label>
+      <label class="board-search">${icon("search")}<span class="visually-hidden">Buscar</span><input class="field__input" type="search" name="q" placeholder="Buscar demanda" value="${esc(filters.q || "")}"></label>
+      <button class="btn btn--ghost btn--sm board-bar__toggle${active ? " is-on" : ""}" type="button" data-board-filters aria-expanded="${barOpen}">${icon("filter")}Filtros${active ? ` <b>${active}</b>` : ""}</button>
       <select class="field__input" name="client" aria-label="Cliente"><option value="">Toda a agência</option><option value="interno"${filters.client === "interno" ? " selected" : ""}>Interno da agência</option>${options(state.clients.filter((c) => c.active).map((c) => [c.id, c.name]), filters.client)}</select>
       <select class="field__input" name="person" aria-label="Pessoa"><option value="">Todas as pessoas</option><option value="me"${filters.person === "me" ? " selected" : ""}>Só as minhas</option>${options(people.map((m) => [m.user_id, m.name || m.username]), filters.person)}</select>
       <select class="field__input" name="project" aria-label="Projeto"><option value="">Todos os projetos</option>${options(projects.filter((p) => !p.archived_at && (!filters.client || filters.client === p.client_id)).map((p) => [p.id, `${p.name} · ${clientName(p.client_id)}`]), filters.project)}</select>
@@ -66,6 +69,8 @@ export function setupBoard({ api, state, toast, confirm, openContent }) {
   on(bar, "change", "select", (event, el) => { filters[el.name] = el.value; if (el.name === "client") filters.project = ""; saveFilters(); renderBar(); render(); });
   let typing = null;
   on(bar, "input", "[name=q]", (event, el) => { clearTimeout(typing); typing = setTimeout(() => { filters.q = el.value; saveFilters(); render(); }, 150); });
+  let barOpen = false;   // no celular os filtros ficam recolhidos atrás do botão "Filtros"
+  on(bar, "click", "[data-board-filters]", () => { barOpen = !barOpen; renderBar(); });
   on(bar, "click", "[data-board-clear]", () => { filters = {}; saveFilters(); renderBar(); render(); });
 
   function matches(t) {

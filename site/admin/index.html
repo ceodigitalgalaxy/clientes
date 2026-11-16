@@ -17,9 +17,9 @@
   <link rel="preload" href="../fonts/sora-latin-400-normal.woff2" as="font" type="font/woff2" crossorigin>
   <link rel="preload" href="../fonts/sora-latin-600-normal.woff2" as="font" type="font/woff2" crossorigin>
   <!-- Mesmos tokens e componentes do portal do cliente -->
-  <link rel="stylesheet" href="../css/style.css?v=f5b3406042">
-  <link rel="stylesheet" href="css/admin.css?v=f5b3406042">
-  <script type="module" src="js/main.js?v=f5b3406042"></script>
+  <link rel="stylesheet" href="../css/style.css?v=6303f0a5a4">
+  <link rel="stylesheet" href="css/admin.css?v=6303f0a5a4">
+  <script type="module" src="js/main.js?v=6303f0a5a4"></script>
 </head>
 <body class="admin">
   <!-- Tela de entrada: aparece enquanto ninguém estiver logado -->
@@ -48,10 +48,6 @@
   <div class="app" id="app" hidden>
   <a class="skip-link" href="#conteudo">Pular para o conteúdo</a>
 
-  <div class="admin-bar">
-    <span data-icon="lock">Uso interno da agência. Acesso só com usuário e senha da equipe.</span>
-  </div>
-
   <header class="topbar">
     <div class="container topbar__inner">
       <div class="topbar__brands">
@@ -76,8 +72,14 @@
           <button class="icon-btn inbox-toggle" type="button" data-action="toggle-inbox" aria-expanded="false" aria-controls="inbox" aria-label="Avisos" data-icon="bell"><span class="nav-badge inbox-badge" data-inbox-count hidden></span></button>
           <div class="inbox" id="inbox" role="region" aria-label="Avisos" hidden></div>
         </div>
-        <span class="user-menu__name" id="user-name" data-icon="user"></span>
-        <button class="link-btn user-menu__out" type="button" data-action="sign-out" data-icon="logout">Sair</button>
+        <div class="me-wrap">
+          <button class="me-btn" type="button" data-me-toggle aria-expanded="false" aria-controls="me-pop" aria-label="Sua conta"><span class="me-btn__av" data-me-initials></span></button>
+          <div class="me-pop" id="me-pop" hidden>
+            <span class="user-menu__name" id="user-name" data-icon="user"></span>
+            <span class="me-pop__role" data-me-role></span>
+            <button class="me-pop__out" type="button" data-action="sign-out" data-icon="logout">Sair do painel</button>
+          </div>
+        </div>
       </div>
     </div>
   </header>
@@ -88,10 +90,9 @@
       <div class="view__head">
         <div>
           <h1 class="view__title" id="conteudos-title">Conteúdos</h1>
-          <p class="view__text">O que for cadastrado aqui aparece no calendário do cliente quando o status chegar a "Aguardando aprovação".</p>
         </div>
         <div class="view__buttons">
-          <a class="btn btn--ghost" href="#/importar" data-needs="edit" data-icon="download">Importar planilha</a>
+          <a class="btn btn--ghost" href="#/importar" data-needs="edit" data-icon="download" title="Importar planilha">Importar</a>
           <button class="btn btn--primary" type="button" data-action="new-content" data-icon="sparkle" data-needs="edit">Novo conteúdo</button>
         </div>
       </div>
@@ -161,13 +162,18 @@
     <section class="view view--wide" id="view-gestao" data-view="gestao" aria-labelledby="gestao-title" hidden>
       <div class="view__head">
         <div>
-          <h1 class="view__title" id="gestao-title">Gestão de demandas</h1>
-          <p class="view__text"><span data-board-count></span> · arraste os cards entre as colunas, clique para ver tudo. Atalho: N cria uma demanda.</p>
+          <h1 class="view__title" id="gestao-title">Demandas</h1>
+          <p class="view__count" data-board-count></p>
         </div>
         <div class="view__buttons">
           <button class="btn btn--ghost" type="button" data-action="new-edit-request" data-icon="play">Pedido de edição</button>
-          <button class="btn btn--ghost" type="button" data-action="board-labels" data-needs="admin" data-icon="tag">Etiquetas</button>
-          <button class="btn btn--ghost" type="button" data-action="board-columns" data-needs="admin" data-icon="layers">Colunas</button>
+          <div class="kebab" data-needs="admin">
+            <button class="icon-btn kebab__toggle" type="button" data-menu-toggle data-board-settings aria-haspopup="menu" aria-expanded="false" aria-label="Configurar o quadro" title="Configurar o quadro" data-icon="more"></button>
+            <div class="menu" role="menu" hidden>
+              <button class="menu__item" type="button" role="menuitem" data-action="board-labels" data-icon="tag">Etiquetas</button>
+              <button class="menu__item" type="button" role="menuitem" data-action="board-columns" data-icon="layers">Colunas</button>
+            </div>
+          </div>
           <button class="btn btn--primary" type="button" data-action="new-task" data-icon="sparkle">Nova demanda</button>
         </div>
       </div>
@@ -192,7 +198,7 @@
       <div class="view__head">
         <div>
           <h1 class="view__title" id="demandas-title">Minhas demandas</h1>
-          <p class="view__text">Tudo o que está com você (demandas, subtarefas e conteúdos), do prazo mais apertado para o mais folgado. Chega aqui na hora em que alguém te passa.</p>
+          <p class="view__count" data-mine-count></p>
         </div>
       </div>
       <div class="task-summary" id="task-summary" aria-live="polite"></div>
@@ -204,7 +210,6 @@
       <div class="view__head">
         <div>
           <h1 class="view__title" id="equipe-title">Equipe</h1>
-          <p class="view__text">Quem entra no painel, o que cada pessoa vê e pode fazer, e a carga de demandas de cada uma.</p>
         </div>
         <button class="btn btn--primary" type="button" data-action="new-member" data-icon="sparkle">Nova pessoa</button>
       </div>
@@ -216,7 +221,6 @@
       <div class="view__head">
         <div>
           <h1 class="view__title" id="anuncios-title">Aprovação de anúncios</h1>
-          <p class="view__text">Criativos de anúncios pagos. Rascunhos ficam só com a equipe; ao enviar, o anúncio aparece na aba "Anúncios" do cliente.</p>
         </div>
         <button class="btn btn--primary" type="button" data-action="new-ad" data-icon="sparkle">Novo anúncio</button>
       </div>
@@ -254,7 +258,6 @@
       <div class="view__head">
         <div>
           <h1 class="view__title" id="aprovacoes-title">Aprovações de Conteúdo</h1>
-          <p class="view__text">Monte o lote do mês, gere o link e envie pelo WhatsApp. O cliente aprova sem login e as respostas aparecem aqui.</p>
         </div>
         <div class="view__buttons">
           <button class="btn btn--ghost notif-btn" type="button" data-action="toggle-notifications" aria-expanded="false" aria-controls="approval-notifications" data-icon="bell">Avisos<span class="nav-badge" data-notif-count hidden></span></button>
@@ -279,7 +282,6 @@
       <div class="view__head">
         <div>
           <h1 class="view__title" id="clientes-title">Clientes</h1>
-          <p class="view__text">Cada cliente tem um identificador único. Os conteúdos ficam sempre ligados a um cliente.</p>
         </div>
         <button class="btn btn--primary" type="button" data-action="new-client" data-icon="user">Novo cliente</button>
       </div>

@@ -411,7 +411,7 @@ await step("Sessão encerrada no servidor volta para a entrada e limpa os dados 
 await step("Sair encerra a sessão (e continua fora depois de recarregar)", async () => {
   await signIn(TEAM.username, TEAM.password);
   await page.waitForSelector("#app:not([hidden])");
-  await page.click('[data-action="sign-out"]');
+  await page.click("[data-me-toggle]"); await page.click('[data-action="sign-out"]');
   await page.waitForSelector("#login:not([hidden])");
   assert.equal(await page.textContent("#login .form-error"), "Você saiu do painel.");
   assert.equal(await sessionStored(), null);
@@ -449,7 +449,7 @@ await step("Celular: lista e formulário cabem na tela", async () => {
   await page.setViewportSize({ width: 390, height: 844 });
   await page.reload();
   await page.waitForSelector(".row[data-row]");
-  await page.click('[data-action="sign-out"]');
+  await page.click("[data-me-toggle]"); await page.click('[data-action="sign-out"]');
   await page.waitForSelector("#login:not([hidden])");
   const loginOverflow = await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth);
   assert.ok(loginOverflow <= 0, `entrada com rolagem lateral de ${loginOverflow}px`);

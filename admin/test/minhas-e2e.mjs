@@ -65,7 +65,7 @@ const signIn = async (p, user, pass) => {
   await p.click("#login-form [type=submit]");
   await p.waitForSelector("#app:not([hidden])");
 };
-const card = (p, title) => p.locator(`#task-list .task-card:has(.task-card__title:text-is("${title}"))`);
+const card = (p, title) => p.locator(`#task-list .task-card:has(.task-card__name:text-is("${title}"))`);
 const byTitle = (title) => fake.tasks.all().find((t) => t.title === title);
 
 const bruna = await newPage({ viewport: { width: 1440, height: 1000 } }, "bruna");
@@ -103,9 +103,9 @@ await step("Sem a Ana fazer nada, a demanda aparece em Minhas dela (marcada como
   await toastSays(page, /Bruna Admin te passou uma demanda: Post do Dia dos Pais/);
   const c = card(page, "Post do Dia dos Pais");
   assert.ok(await c.locator(".new-chip").isVisible(), "marcada como Nova");
-  assert.match(await c.textContent(), /Demanda · Padaria Central/);
+  assert.match(await c.textContent(), /Padaria Central/);
   assert.match(await c.textContent(), /Amanhã · 15:00/);
-  assert.match(await page.textContent('.task-group:has(.task-card__title:text-is("Post do Dia dos Pais")) .task-group__title'), /Hoje e amanhã/);
+  assert.match(await page.textContent('.task-group:has(.task-card__name:text-is("Post do Dia dos Pais")) .task-group__title'), /Hoje e amanhã/);
   assert.ok(await card(page, "Carrossel de pães").isVisible(), "o conteúdo continua junto");
   assert.equal(await page.textContent('[data-route="demandas"] [data-my-tasks]'), "1", "contador do menu");
   await shot(page, "minhas-01-chegou");
@@ -123,7 +123,7 @@ await step("Subtarefa delegada chega na hora quando o aviso do celular chega", a
   // O aviso push chegou no aparelho: o receptor avisa o painel aberto (aqui, simulado)
   await page.evaluate(() => navigator.serviceWorker.dispatchEvent(new MessageEvent("message", { data: { type: "novo-aviso" } })));
   await card(page, "Fotos do pai com o pão").waitFor({ timeout: 4000 });
-  assert.match(await card(page, "Fotos do pai com o pão").textContent(), /Subtarefa · Padaria Central/);
+  assert.match(await card(page, "Fotos do pai com o pão").textContent(), /Padaria Central[^·]*· Subtarefa/);
   assert.match(await card(page, "Fotos do pai com o pão").textContent(), /em "Post do Dia dos Pais"/);
 });
 
@@ -133,7 +133,7 @@ await step("Abrir a demanda tira o \"Nova\" e marca o aviso como lido", async ()
   assert.equal(await page.inputValue(".task-title"), "Post do Dia dos Pais");
   await page.click('#task-drawer [data-action="close-drawer"]');
   await page.waitForSelector("#task-drawer:not([open])", { state: "attached" });
-  await page.waitForFunction(() => !document.querySelector('#task-list .task-card.is-new .task-card__title')?.textContent?.includes("Dia dos Pais"));
+  await page.waitForFunction(() => !document.querySelector('#task-list .task-card.is-new .task-card__name')?.textContent?.includes("Dia dos Pais"));
   const t = byTitle("Post do Dia dos Pais");
   assert.ok(store.listNotifications(ana.id).filter((n) => n.task_id === t.id).every((n) => n.read_at), "avisos daquela demanda lidos");
 });
@@ -145,7 +145,7 @@ await step("Mudar a etapa ali mesmo grava no quadro; concluída sai de Minhas", 
   assert.equal(byTitle("Post do Dia dos Pais").status, "em_andamento");
   await page.selectOption(`[data-task-status="${t.id}"]`, "concluido");
   await toastSays(page, /concluída/);
-  await page.waitForFunction(() => ![...document.querySelectorAll("#task-list .task-card__title")].some((n) => n.textContent === "Post do Dia dos Pais"));
+  await page.waitForFunction(() => ![...document.querySelectorAll("#task-list .task-card__name")].some((n) => n.textContent === "Post do Dia dos Pais"));
   assert.equal(byTitle("Post do Dia dos Pais").status, "concluido");
   await shot(page, "minhas-02-etapa");
 });

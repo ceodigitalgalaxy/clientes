@@ -171,7 +171,7 @@ await step("Histórico separado dos comentários e fechado até abrir", async ()
 await step("Etiquetas (administrador): renomear, arquivar e criar; arquivada some das escolhas", async () => {
   await page.click('#task-drawer [data-action="close-drawer"]');
   await page.waitForSelector("#task-drawer:not([open])", { state: "attached" });
-  await page.click('#view-gestao [data-action="board-labels"]');
+  await page.click("#view-gestao [data-board-settings]"); await page.click('#view-gestao [data-action="board-labels"]');
   await page.waitForSelector("#labels-modal[open] .labelrow");
   const reels = page.locator('#labels-modal .labelrow:has([data-label-field="name"][value="Reels"])');
   await reels.locator('[data-label-field="name"]').fill("Reels e vídeos");

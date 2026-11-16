@@ -9,31 +9,31 @@
    O banco aplica as mesmas regras (RLS): esconder a tela não é a proteção.
    ========================================================================== */
 
-import { $, on } from "../../js/lib/dom.js?v=f5b3406042";
-import { icon, brandMark } from "../../js/lib/icons.js?v=f5b3406042";
-import { toast } from "../../js/ui/toast.js?v=f5b3406042";
-import { SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY } from "../../js/config.js?v=f5b3406042";
-import { createAuth } from "../../js/lib/auth.js?v=f5b3406042";
-import { createStorage } from "../../js/lib/storage.js?v=f5b3406042";
-import { createSupabaseStore } from "./data/store.js?v=f5b3406042";
-import { createApi } from "./api.js?v=f5b3406042";
-import { validateContentFilters } from "./domain/rules.js?v=f5b3406042";
-import { createConfirm, showFieldErrors, setBusy } from "./ui/dialogs.js?v=f5b3406042";
-import { setupClients } from "./views/clients.js?v=f5b3406042";
-import { setupContents } from "./views/contents.js?v=f5b3406042";
-import { setupAccess } from "./views/access.js?v=f5b3406042";
-import { setupImport } from "./views/import.js?v=f5b3406042";
-import { setupAds } from "./views/ads.js?v=f5b3406042";
-import { setupBrand } from "./views/brand.js?v=f5b3406042";
-import { setupApprovals } from "./views/approvals.js?v=f5b3406042";
-import { setupTeam } from "./views/team.js?v=f5b3406042";
-import { setupTasks } from "./views/tasks.js?v=f5b3406042";
-import { setupBoard } from "./views/board.js?v=f5b3406042";
-import { formatFromContent } from "./domain/tasks.js?v=f5b3406042";
-import { setupHome } from "./views/home.js?v=f5b3406042";
-import { setupInbox } from "./views/inbox.js?v=f5b3406042";
-import { setupPush } from "./views/push.js?v=f5b3406042";
-import { wireMenus } from "./ui/menu.js?v=f5b3406042";
+import { $, on } from "../../js/lib/dom.js?v=6303f0a5a4";
+import { icon, brandMark } from "../../js/lib/icons.js?v=6303f0a5a4";
+import { toast } from "../../js/ui/toast.js?v=6303f0a5a4";
+import { SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY } from "../../js/config.js?v=6303f0a5a4";
+import { createAuth } from "../../js/lib/auth.js?v=6303f0a5a4";
+import { createStorage } from "../../js/lib/storage.js?v=6303f0a5a4";
+import { createSupabaseStore } from "./data/store.js?v=6303f0a5a4";
+import { createApi } from "./api.js?v=6303f0a5a4";
+import { validateContentFilters } from "./domain/rules.js?v=6303f0a5a4";
+import { createConfirm, showFieldErrors, setBusy } from "./ui/dialogs.js?v=6303f0a5a4";
+import { setupClients } from "./views/clients.js?v=6303f0a5a4";
+import { setupContents } from "./views/contents.js?v=6303f0a5a4";
+import { setupAccess } from "./views/access.js?v=6303f0a5a4";
+import { setupImport } from "./views/import.js?v=6303f0a5a4";
+import { setupAds } from "./views/ads.js?v=6303f0a5a4";
+import { setupBrand } from "./views/brand.js?v=6303f0a5a4";
+import { setupApprovals } from "./views/approvals.js?v=6303f0a5a4";
+import { setupTeam } from "./views/team.js?v=6303f0a5a4";
+import { setupTasks } from "./views/tasks.js?v=6303f0a5a4";
+import { setupBoard } from "./views/board.js?v=6303f0a5a4";
+import { formatFromContent } from "./domain/tasks.js?v=6303f0a5a4";
+import { setupHome } from "./views/home.js?v=6303f0a5a4";
+import { setupInbox } from "./views/inbox.js?v=6303f0a5a4";
+import { setupPush } from "./views/push.js?v=6303f0a5a4";
+import { wireMenus } from "./ui/menu.js?v=6303f0a5a4";
 
 /* O painel não abre dentro de outro site (proteção contra clique disfarçado).
    A página fica invisível até esta checagem (veja .admin em admin.css). */
@@ -278,6 +278,8 @@ async function enterApp() {
   document.body.classList.toggle("can-send", state.can.send);
   buildMobileNav();
   $("#user-name").lastChild.textContent = me.name || user.name;
+  $("[data-me-initials]").textContent = initialsOf(me.name || user.name);
+  $("[data-me-role]").textContent = state.can.admin ? "Administrador" : me.job_title || "Equipe";
   [, state.alerts] = await Promise.all([loadTeam(), api.alertSettings()]);
   loginScreen.hidden = true;
   app.hidden = false;
@@ -319,6 +321,17 @@ loginForm.addEventListener("submit", async (event) => {
     setBusy(submit, false);
   }
 });
+
+/* Menu da conta (inicial no topo): nome, perfil e Sair */
+const initialsOf = (name) => String(name || "?").trim().split(/\s+/).slice(0, 2).map((w) => w[0]).join("").toUpperCase() || "?";
+function setMeMenu(open) {
+  const btn = $("[data-me-toggle]");
+  $("#me-pop").hidden = !open;
+  btn.setAttribute("aria-expanded", String(open));
+}
+on(document, "click", "[data-me-toggle]", () => setMeMenu($("#me-pop").hidden));
+document.addEventListener("click", (event) => { if (!event.target.closest?.(".me-wrap")) setMeMenu(false); });
+document.addEventListener("keydown", (event) => { if (event.key === "Escape" && !$("#me-pop").hidden) { setMeMenu(false); $("[data-me-toggle]").focus(); } });
 
 on(document, "click", '[data-action="sign-out"]', async () => {
   await push.beforeSignOut();

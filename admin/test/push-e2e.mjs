@@ -172,12 +172,12 @@ await step("Tocar no aviso com o painel fechado abre direto na demanda (e o ende
   await page.goto(`${ORIGIN}/admin/?abrir=demanda.${taskId}`);
   await page.waitForSelector("#task-drawer[open] .task-props");
   assert.equal(await page.inputValue(".task-title"), "Arte do cardápio de Natal");
-  assert.equal(new URL(page.url()).search, "");
+  await page.waitForFunction(() => location.search === "", null, { timeout: 4000 });
   // Endereço mexido não abre nada nem quebra
   await page.goto(`${ORIGIN}/admin/?abrir=demanda.<script>alert(1)</script>`);
   await page.waitForSelector("#app:not([hidden])");
+  await page.waitForFunction(() => location.search === "", null, { timeout: 4000 });
   assert.equal(await page.locator("#task-drawer[open]").count(), 0);
-  assert.equal(new URL(page.url()).search, "");
 });
 
 await step("Recarregar mantém ativado; \"Enviar um teste\" manda de novo", async () => {
@@ -191,14 +191,14 @@ await step("Recarregar mantém ativado; \"Enviar um teste\" manda de novo", asyn
 });
 
 await step("Sair desliga os avisos deste aparelho; outra pessoa no mesmo aparelho não herda", async () => {
-  await page.click('[data-action="sign-out"]');
+  await page.click("[data-me-toggle]"); await page.click('[data-action="sign-out"]');
   await page.waitForSelector("#login:not([hidden])");
   assert.equal(fake.pushSubs.length, 0, "saiu: o servidor não manda mais para este aparelho");
   await signIn("caio.video", "Senha-do-Caio-123");
   await openBell();
   assert.ok(await page.isVisible('[data-push="ativar"]'), "o Caio precisa ativar por conta própria");
   assert.equal(fake.pushSubs.length, 0);
-  await page.click('[data-action="sign-out"]');
+  await page.click("[data-me-toggle]"); await page.click('[data-action="sign-out"]');
   await page.waitForSelector("#login:not([hidden])");
   await signIn("ana.design", "Senha-da-Ana-123");
   await openBell();

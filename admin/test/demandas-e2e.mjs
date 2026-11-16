@@ -195,7 +195,7 @@ await step("Filtros por cliente e por pessoa", async () => {
 });
 
 await step("Colunas personalizáveis (administrador): renomear mantém a etapa oficial", async () => {
-  await page.click('#view-gestao [data-action="board-columns"]');
+  await page.click("#view-gestao [data-board-settings]"); await page.click('#view-gestao [data-action="board-columns"]');
   await page.waitForSelector("#columns-modal[open] .colrow");
   const row = page.locator('#columns-modal .colrow:has([data-col-field="status"] option[selected][value="em_revisao"])');
   await row.locator('[data-col-field="name"]').fill("Revisão interna");
@@ -260,7 +260,7 @@ await step("Colaboradora vê só as demandas dos clientes dela e cria demanda in
   const titles = await page.$$eval(".tcard__title", (n) => n.map((x) => x.textContent));
   assert.ok(titles.includes("Arte do cardápio de Natal (v2)"));
   assert.ok(!titles.includes("Roteiro do vídeo institucional"), "a interna de outra pessoa não aparece");
-  assert.equal(await page.isVisible('#view-gestao [data-action="board-columns"]'), false, "colunas são do administrador");
+  assert.equal(await page.isVisible("#view-gestao [data-board-settings]"), false, "colunas são do administrador");
   const clients = await page.$$eval("#board-bar [name=client] option", (o) => o.map((x) => x.textContent));
   assert.ok(!clients.includes("Estúdio Luz"));
   await page.keyboard.press("n");

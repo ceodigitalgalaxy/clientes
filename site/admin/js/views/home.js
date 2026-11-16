@@ -5,14 +5,14 @@
      recente, em cartões compactos (clicar abre o conteúdo).
    Tudo vem do banco já recortado pelas permissões (cada um vê os clientes dele). */
 
-import { $, esc, on } from "../../../js/lib/dom.js?v=f5b3406042";
-import { icon } from "../../../js/lib/icons.js?v=f5b3406042";
-import { todayISO, addDays, longDayLabel, monthLabel, stampLabel, timeLabel } from "../../../js/lib/dates.js?v=f5b3406042";
-import { alertTone, nearestDeadline, daysFrom } from "../domain/deadlines.js?v=f5b3406042";
-import { stateBlock } from "../ui/states.js?v=f5b3406042";
-import { avatars, eventText, clientDotClass } from "./contents.js?v=f5b3406042";
-import { toneLabels, attentionItems } from "./contents-calendar.js?v=f5b3406042";
-import { dueParts, dueState } from "../domain/tasks.js?v=f5b3406042";
+import { $, esc, on } from "../../../js/lib/dom.js?v=6303f0a5a4";
+import { icon } from "../../../js/lib/icons.js?v=6303f0a5a4";
+import { todayISO, addDays, longDayLabel, monthLabel, stampLabel, timeLabel } from "../../../js/lib/dates.js?v=6303f0a5a4";
+import { alertTone, nearestDeadline, daysFrom } from "../domain/deadlines.js?v=6303f0a5a4";
+import { stateBlock } from "../ui/states.js?v=6303f0a5a4";
+import { avatars, eventText, clientDotClass } from "./contents.js?v=6303f0a5a4";
+import { toneLabels, attentionItems } from "./contents-calendar.js?v=6303f0a5a4";
+import { dueParts, dueState } from "../domain/tasks.js?v=6303f0a5a4";
 
 const WITH_CLIENT = ["aguardando_aprovacao", "reenviado"];
 const DONE = ["agendado", "publicado"];
@@ -68,20 +68,22 @@ export function setupHome({ api, state, navigate, openContent, openTask, openFor
     const linked = new Set(boardTasks.filter((t) => t.content_id && !t.parent_id && (t.task_assignees || []).some((a) => a.user_id === me)).map((t) => t.content_id));
     const mineContents = open.filter((c) => (c.assignees || []).includes(me) && !linked.has(c.id)).map((c) => {
       const n = daysFrom(today, nearestDeadline(c));
-      return { key: `${nearestDeadline(c) || "9999"}`, html: () => item(c, { when: c.due_date || c.scheduled_date ? `${whenLabel(n)} · ${shortDay(nearestDeadline(c))}` : "Sem data", tone: toneOf(c) }) };
+      return { id: c.id, key: `${nearestDeadline(c) || "9999"}`, html: () => item(c, { when: c.due_date || c.scheduled_date ? `${whenLabel(n)} · ${shortDay(nearestDeadline(c))}` : "Sem data", tone: toneOf(c) }) };
     });
     const mineTasks = boardTasks.filter((t) => t.status !== "concluido" && (t.task_assignees || []).some((a) => a.user_id === me)).map((t) => {
       const due = dueState(t.due_at, t.status);
       const { date, time } = dueParts(t.due_at);
-      return { key: `${date || "9999"}T${time}`, html: () => item({ ...t, assignees: (t.task_assignees || []).map((a) => a.user_id) }, { task: true, when: due ? `${due.label} · ${time}` : "Sem data", tone: due ? TONE[due.tone] : "nao_iniciado" }) };
+      return { id: t.content_id || t.id, key: `${date || "9999"}T${time}`, html: () => item({ ...t, assignees: (t.task_assignees || []).map((a) => a.user_id) }, { task: true, when: due ? `${due.label} · ${time}` : "Sem data", tone: due ? TONE[due.tone] : "nao_iniciado" }) };
     });
     const mine = [...mineTasks, ...mineContents].sort((a, b) => a.key.localeCompare(b.key)).slice(0, 6);
+    const shown = new Set(mine.map((x) => x.id));
+    const attOthers = att.filter(({ c }) => !shown.has(c.id));
     const next = rows.filter((c) => c.scheduled_date >= today && c.scheduled_date <= addDays(today, 7) && c.production_status !== "publicado")
-      .sort((a, b) => (a.scheduled_date + (a.scheduled_time || "99")).localeCompare(b.scheduled_date + (b.scheduled_time || "99"))).slice(0, 6);
+      .sort((a, b) => (a.scheduled_date + (a.scheduled_time || "99")).localeCompare(b.scheduled_date + (b.scheduled_time || "99"))).slice(0, 5);
 
     const kpi = (key, n, label, tone, hint) => `
-      <li><button class="kpi kpi--${tone}${n ? "" : " is-zero"}" type="button" data-home-go="${key}">
-        <span class="kpi__n">${n}</span><span class="kpi__label">${esc(label)}</span><span class="kpi__hint">${esc(hint)}</span>
+      <li><button class="kpi kpi--${tone}${n ? "" : " is-zero"}" type="button" data-home-go="${key}" title="${esc(hint)}">
+        <span class="kpi__n">${n}</span><span class="kpi__label">${esc(label)}</span><span class="visually-hidden"> (${esc(hint)})</span>
       </button></li>`;
     root.innerHTML = `
       <ul class="kpis" aria-label="Resumo">
@@ -92,12 +94,12 @@ export function setupHome({ api, state, navigate, openContent, openTask, openFor
         ${kpi("mes", published, "Publicados", "done", monthLabel(month).toLowerCase())}
       </ul>
       <div class="home-grid">
-        ${card("h-att", "Precisam de atenção", "bell",
-          att.length ? `<ul class="hlist">${att.slice(0, 6).map(({ c, n, tone }) => item(c, { when: whenLabel(n), tone })).join("")}</ul>` : empty("Nada atrasado nem vencendo logo. Tudo em dia."),
-          att.length > 6 ? `<button class="link-btn" type="button" data-home-go="atencao">Ver todas (${att.length})</button>` : "")}
         ${card("h-mine", "Minhas demandas", "list",
           mine.length ? `<ul class="hlist">${mine.map((x) => x.html()).join("")}</ul>` : empty("Nenhuma demanda com você agora."),
           `<a class="link-btn" href="#/demandas">Ver todas</a>`)}
+        ${card("h-att", mine.length ? "Também precisam de atenção" : "Precisam de atenção", "bell",
+          attOthers.length ? `<ul class="hlist">${attOthers.slice(0, 5).map(({ c, n, tone }) => item(c, { when: whenLabel(n), tone })).join("")}</ul>` : empty(att.length ? "O resto está em dia." : "Nada atrasado nem vencendo logo. Tudo em dia."),
+          attOthers.length > 5 ? `<button class="link-btn" type="button" data-home-go="atencao">Ver todas (${att.length})</button>` : "")}
         ${card("h-next", "Próximas publicações", "calendar",
           next.length ? `<ul class="hlist">${next.map((c) => item(c, { when: `${c.scheduled_date === today ? "Hoje" : shortDay(c.scheduled_date)}${c.scheduled_time ? ` · ${timeLabel(c.scheduled_time.slice(0, 5))}` : ""}`, tone: toneOf(c) })).join("")}</ul>` : empty("Nada programado para os próximos 7 dias."),
           `<button class="link-btn" type="button" data-home-go="semana">Ver a semana</button>`)}

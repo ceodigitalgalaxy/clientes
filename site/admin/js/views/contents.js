@@ -1,18 +1,18 @@
 /* Seção Conteúdos: filtros, lista, detalhes, cadastro, edição e exclusão */
 
-import { $, esc, on } from "../../../js/lib/dom.js?v=f5b3406042";
-import { icon } from "../../../js/lib/icons.js?v=f5b3406042";
-import { longDayLabel, timeLabel, todayISO, stampLabel, addDays } from "../../../js/lib/dates.js?v=f5b3406042";
-import { typeBadge } from "../../../js/ui/badges.js?v=f5b3406042";
-import { renderMedia, wireMediaFallbacks } from "../../../js/ui/media.js?v=f5b3406042";
-import { PRIORITIES } from "../domain/rules.js?v=f5b3406042";
-import { CONTENT_STATUS, CLIENT_VISIBLE_STATUS, APPROVAL_STATUS, PRODUCTION_STATUS, NETWORKS, FORMATS, LIMITS, validateContent, validateContentFilters } from "../domain/rules.js?v=f5b3406042";
-import { closeDialog, wireDialog, showFieldErrors, setBusy } from "../ui/dialogs.js?v=f5b3406042";
-import { stateBlock, loadingRows, button } from "../ui/states.js?v=f5b3406042";
-import { reviewSections, mountReview } from "./content-review.js?v=f5b3406042";
-import { describeMedia, mediaCover, coverHtml } from "../../../js/ui/media.js?v=f5b3406042";
-import { kebab } from "../ui/menu.js?v=f5b3406042";
-import { CAL_MODES, BOARD_COLUMNS, renderCalendar, calendarRange, stepCursor, calendarTitle, attentionItems, renderAttention } from "./contents-calendar.js?v=f5b3406042";
+import { $, esc, on } from "../../../js/lib/dom.js?v=6303f0a5a4";
+import { icon } from "../../../js/lib/icons.js?v=6303f0a5a4";
+import { longDayLabel, timeLabel, todayISO, stampLabel, addDays } from "../../../js/lib/dates.js?v=6303f0a5a4";
+import { typeBadge } from "../../../js/ui/badges.js?v=6303f0a5a4";
+import { renderMedia, wireMediaFallbacks } from "../../../js/ui/media.js?v=6303f0a5a4";
+import { PRIORITIES } from "../domain/rules.js?v=6303f0a5a4";
+import { CONTENT_STATUS, CLIENT_VISIBLE_STATUS, APPROVAL_STATUS, PRODUCTION_STATUS, NETWORKS, FORMATS, LIMITS, validateContent, validateContentFilters } from "../domain/rules.js?v=6303f0a5a4";
+import { closeDialog, wireDialog, showFieldErrors, setBusy } from "../ui/dialogs.js?v=6303f0a5a4";
+import { stateBlock, loadingRows, button } from "../ui/states.js?v=6303f0a5a4";
+import { reviewSections, mountReview } from "./content-review.js?v=6303f0a5a4";
+import { describeMedia, mediaCover, coverHtml } from "../../../js/ui/media.js?v=6303f0a5a4";
+import { kebab } from "../ui/menu.js?v=6303f0a5a4";
+import { CAL_MODES, BOARD_COLUMNS, renderCalendar, calendarRange, stepCursor, calendarTitle, attentionItems, renderAttention } from "./contents-calendar.js?v=6303f0a5a4";
 
 const shortDate = (iso) => iso.split("-").reverse().join("/");
 const statusChip = (status) => `<span class="content-status cs--${esc(status)}">${esc(CONTENT_STATUS[status]?.label || status)}</span>`;
@@ -326,7 +326,7 @@ export function setupContents({ api, state, toast, confirm, navigate }) {
     // Referência: só a equipe vê (o portal do cliente não recebe este link)
     const block = (rows) => rows.filter(([, text]) => text).map(([label, text]) => `<div class="detail"><h3 class="detail__title">${label}</h3><p class="caption-text">${esc(text)}</p></div>`).join("");
     const plan = block([["A ideia", content.idea], ["Roteiro / como vai ser", content.content_plan], ["Observações do planejamento", content.planning_notes], ["Objetivo <span class=\"field__optional\">· só a equipe vê</span>", content.objective], ["Pilar editorial <span class=\"field__optional\">· só a equipe vê</span>", content.pillar]])
-      || '<p class="caption-text"><span class="field__optional">Sem ideia ainda. Use “Editar” para preencher a ideia e como vai ser.</span></p>';
+      || '<p class="caption-text"><span class="field__optional">Sem ideia ainda.</span></p>';
     const production = block([["Texto na arte", content.art_text], ["Legenda", content.caption], ["Hashtags", content.hashtags], ["Chamada para ação", content.cta], ["Observações para o cliente", content.client_notes]])
       || '<p class="caption-text"><span class="field__optional">Sem legenda ainda.</span></p>';
     const guided = `
@@ -337,26 +337,22 @@ export function setupContents({ api, state, toast, confirm, navigate }) {
       : "";
     $("#drawer-body").innerHTML = `
       <h2 class="drawer__title" id="drawer-title">${esc(content.title)}</h2>
-      <dl class="facts">
-        <div class="facts__row"><dt>${icon("user")}Cliente</dt><dd>${esc(clientName(content.client_id))}</dd></div>
-        <div class="facts__row"><dt>${icon("calendar")}Data</dt><dd>${esc(longDayLabel(content.scheduled_date))}${content.scheduled_time ? ` às ${esc(timeLabel(content.scheduled_time.slice(0, 5)))}` : ""}</dd></div>
-        <div class="facts__row"><dt>${icon("send")}Rede</dt><dd>${esc(NETWORKS[content.network] || content.network)}</dd></div>
-        <div class="facts__row"><dt>${icon("image")}Formato</dt><dd>${esc(FORMATS[content.format]?.label || content.format)}</dd></div>
-      </dl>
-      <section class="task-box" aria-label="Tarefa">
-        <div class="task-box__row"><span class="task-box__label">Responsáveis</span><span>${(content.assignees || []).length ? content.assignees.map((id) => `<span class="person-chip"><span class="avatar">${esc(initials(personName(state.team, id)))}</span>${esc(personName(state.team, id))}</span>`).join("") : '<span class="field__optional">Ninguém ainda</span>'}</span></div>
-        <div class="task-box__row"><span class="task-box__label">Prazo interno</span><span>${content.due_date ? `${esc(longDayLabel(content.due_date))} ${dueChip(content)}` : '<span class="field__optional">Sem prazo</span>'}</span></div>
-        <div class="task-box__row"><span class="task-box__label">Prioridade</span><span class="prio-chip prio-chip--${esc(content.priority || "media")}">${esc(PRIORITIES[content.priority || "media"].label)}</span></div>
+      <p class="drawer__sub">${esc(clientName(content.client_id))} · ${esc(NETWORKS[content.network] || content.network)} · ${esc(FORMATS[content.format]?.label || content.format)}</p>
+      <section class="task-box props" aria-label="Resumo">
+        <div class="props__row"><span class="props__label">${icon("calendar")}Publica</span><span>${esc(longDayLabel(content.scheduled_date))}${content.scheduled_time ? ` às ${esc(timeLabel(content.scheduled_time.slice(0, 5)))}` : ""}</span></div>
+        <div class="props__row"><span class="props__label">${icon("user")}Com</span><span>${(content.assignees || []).length ? content.assignees.map((id) => `<span class="person-chip"><span class="avatar">${esc(initials(personName(state.team, id)))}</span>${esc(personName(state.team, id))}</span>`).join("") : '<span class="field__optional">Ninguém ainda</span>'}</span></div>
+        ${content.due_date ? `<div class="props__row"><span class="props__label">${icon("clock")}Prazo</span><span>${esc(longDayLabel(content.due_date))} ${dueChip(content)}</span></div>` : ""}
+        ${content.priority && content.priority !== "media" ? `<div class="props__row"><span class="props__label">${icon("target")}Prioridade</span><span class="prio-chip prio-chip--${esc(content.priority)}">${esc(PRIORITIES[content.priority].label)}</span></div>` : ""}
       </section>
+      <div class="drawer__actions drawer__actions--top">
+        ${canEdit(content) ? `<button class="btn btn--primary btn--sm" type="button" data-edit-content="${esc(content.id)}">${icon("edit")}<span>Editar</span></button>` : ""}
+        <button class="btn btn--ghost btn--sm" type="button" data-content-edit-request="${esc(content.id)}">${icon("play")}<span>Pedido de edição</span></button>
+        ${state.can.admin ? `<button class="icon-btn" type="button" data-delete-content="${esc(content.id)}" aria-label="Excluir" title="Excluir">${icon("trash")}</button>` : ""}
+      </div>
       ${guided}
       ${media}
       ${content.internal_notes ? `<div class="internal"><p class="internal__label">${icon("lock")}Observações internas · só a agência vê</p><p class="internal__text">${esc(content.internal_notes)}</p></div>` : ""}
       <p class="drawer__version">${esc(versionLine(content))}</p>
-      <div class="drawer__actions">
-        ${canEdit(content) ? `<button class="btn btn--primary btn--sm" type="button" data-edit-content="${esc(content.id)}">${icon("edit")}<span>Editar</span></button>` : ""}
-        <button class="btn btn--ghost btn--sm" type="button" data-content-edit-request="${esc(content.id)}">${icon("play")}<span>Pedido de edição</span></button>
-        ${state.can.admin ? `<button class="btn btn--ghost btn--sm" type="button" data-delete-content="${esc(content.id)}">${icon("trash")}<span>Excluir</span></button>` : ""}
-      </div>
       <section class="detail comments" aria-labelledby="comments-title">
         <h3 class="detail__title" id="comments-title">Comentários da equipe <span class="field__optional">· o cliente não vê</span></h3>
         <div data-comments><p class="field__hint">Carregando…</p></div>

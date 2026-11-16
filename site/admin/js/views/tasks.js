@@ -7,14 +7,14 @@
    O administrador (e quem edita tudo) pode ver as demandas de outra pessoa.
    Dá para mudar a etapa ali mesmo e abrir o item. */
 
-import { $, esc, on } from "../../../js/lib/dom.js?v=f5b3406042";
-import { icon } from "../../../js/lib/icons.js?v=f5b3406042";
-import { typeBadge } from "../../../js/ui/badges.js?v=f5b3406042";
-import { PRODUCTION_STATUS, PRIORITIES } from "../domain/rules.js?v=f5b3406042";
-import { TASK_STATUS, TASK_PRIORITIES, dueParts, dueState, VIDEO_FORMAT_SHORT, linkHost } from "../domain/tasks.js?v=f5b3406042";
-import { stateBlock, loadingRows } from "../ui/states.js?v=f5b3406042";
-import { stageChips, dueChip, priorityChip, daysUntil, personName } from "./contents.js?v=f5b3406042";
+import { $, esc, on } from "../../../js/lib/dom.js?v=6303f0a5a4";
+import { icon } from "../../../js/lib/icons.js?v=6303f0a5a4";
+import { PRODUCTION_STATUS, PRIORITIES } from "../domain/rules.js?v=6303f0a5a4";
+import { TASK_STATUS, TASK_PRIORITIES, dueParts, dueState, VIDEO_FORMAT_SHORT, linkHost } from "../domain/tasks.js?v=6303f0a5a4";
+import { stateBlock, loadingRows } from "../ui/states.js?v=6303f0a5a4";
+import { dueChip, priorityChip, daysUntil, personName } from "./contents.js?v=6303f0a5a4";
 
+const FORMAT_SHORT = { post: "Post", carrossel: "Carrossel", reels: "Reels", stories: "Stories", video: "Vídeo" };
 const shortDate = (iso) => (iso ? iso.split("-").reverse().slice(0, 2).join("/") : "—");
 const GROUPS = [
   { key: "atrasadas", title: "Atrasadas", tone: "late", test: (n) => n !== null && n < 0 },
@@ -62,13 +62,11 @@ export function setupTasks({ api, state, toast, openContent, openTask, unreadFor
     return `
       <article class="task-card task-card--${esc(c.priority || "media")}" data-task="${esc(c.id)}">
         <div class="task-card__main">
-          <p class="task-card__client"><span class="task-card__kind">${icon("calendar")}Conteúdo</span> · ${esc(clientName(c.client_id))}</p>
-          <button class="task-card__title" type="button" data-open-task="${esc(c.id)}">${esc(c.title)}</button>
-          <p class="task-card__meta">${typeBadge(c.format)}${dueChip(c)}${priorityChip(c.priority)}<span class="task-card__date">${icon("calendar")}Publica ${esc(shortDate(c.scheduled_date))}</span></p>
-          <p class="task-card__stages">${stageChips(c)}</p>
+          <button class="task-card__title" type="button" data-open-task="${esc(c.id)}">${icon("calendar")}<span class="task-card__name">${esc(c.title)}</span></button>
+          <p class="task-card__meta">${dueChip(c)}${priorityChip(c.priority)}<span class="task-card__date">${esc(clientName(c.client_id))} · ${esc(FORMAT_SHORT[c.format] || "Conteúdo")} · publica ${esc(shortDate(c.scheduled_date))}</span></p>
         </div>
         <label class="task-card__prod">
-          <span class="field__label">Produção</span>
+          <span class="visually-hidden">Produção</span>
           <select class="field__input" data-task-prod="${esc(c.id)}">
             <option value="" ${!prod ? "selected" : ""}>Não iniciada</option>
             ${Object.entries(PRODUCTION_STATUS).map(([k, v]) => `<option value="${esc(k)}" ${k === prod ? "selected" : ""}>${esc(v.label)}</option>`).join("")}
@@ -84,10 +82,11 @@ export function setupTasks({ api, state, toast, openContent, openTask, unreadFor
     return `
       <article class="task-card task-card--${esc(t.priority || "media")} task-card--demanda${fresh ? " is-new" : ""}" data-board-task="${esc(t.id)}">
         <div class="task-card__main">
-          <p class="task-card__client"><span class="task-card__kind">${icon(t.kind === "edicao" ? "play" : "layers")}${t.kind === "edicao" ? `Edição${t.video_format ? ` ${esc(VIDEO_FORMAT_SHORT[t.video_format] || "")}` : ""}` : t.parent_id ? "Subtarefa" : "Demanda"}</span> · ${esc(clientName(t.client_id))}${fresh ? ' <span class="new-chip">Nova</span>' : ""}</p>
-          <button class="task-card__title" type="button" data-open-board-task="${esc(t.id)}">${esc(t.title)}</button>
+          <button class="task-card__title" type="button" data-open-board-task="${esc(t.id)}">${icon(t.kind === "edicao" ? "play" : "layers")}<span class="task-card__name">${esc(t.title)}</span></button>
           <p class="task-card__meta">
-            ${due ? `<span class="due-pill due-pill--${esc(due.tone)}">${icon("clock")}${esc(due.label)} · ${esc(dueParts(t.due_at).time)}</span>` : '<span class="task-card__date">Sem prazo</span>'}
+            ${fresh ? '<span class="new-chip">Nova</span>' : ""}
+            ${due ? `<span class="due-pill due-pill--${esc(due.tone)}">${icon("clock")}${esc(due.label)} · ${esc(dueParts(t.due_at).time)}</span>` : ""}
+            <span class="task-card__date">${esc(clientName(t.client_id))}${t.kind === "edicao" ? ` · Edição${t.video_format ? ` ${esc(VIDEO_FORMAT_SHORT[t.video_format] || "")}` : ""}` : t.parent_id ? " · Subtarefa" : ""}</span>
             ${t.priority === "alta" || t.priority === "urgente" ? `<span class="prio-chip prio-chip--${esc(t.priority)}">${esc(TASK_PRIORITIES[t.priority].label)}</span>` : ""}
             ${parent ? `<span class="task-card__date">${icon("arrowRight")}em "${esc(parent.title)}"</span>` : ""}
             ${t.kind === "edicao" && t.drive_url ? `<a class="link-btn task-card__link" href="${esc(t.drive_url)}" target="_blank" rel="noopener noreferrer">${icon("download")}Abrir pasta${linkHost(t.drive_url) ? ` (${esc(linkHost(t.drive_url))})` : ""}</a>` : ""}
@@ -96,7 +95,7 @@ export function setupTasks({ api, state, toast, openContent, openTask, unreadFor
           </p>
         </div>
         <label class="task-card__prod">
-          <span class="field__label">Etapa</span>
+          <span class="visually-hidden">Etapa</span>
           <select class="field__input" data-task-status="${esc(t.id)}">
             ${Object.entries(TASK_STATUS).map(([k, v]) => `<option value="${esc(k)}" ${k === t.status ? "selected" : ""}>${esc(v.label)}</option>`).join("")}
           </select>
@@ -124,12 +123,10 @@ export function setupTasks({ api, state, toast, openContent, openTask, unreadFor
           ${state.team.filter((m) => m.active !== false).map((m) => `<option value="${esc(m.user_id)}" ${m.user_id === who ? "selected" : ""}>${esc(m.user_id === state.me?.user_id ? `${m.name || m.username} (você)` : m.name || m.username)}</option>`).join("")}
         </select></label>`
       : "";
-    summary.innerHTML = `
-      <ul class="task-stats">
-        <li><b>${rows.length}</b><span>em aberto</span></li>
-        <li class="is-late"><b>${counts.atrasadas}</b><span>atrasadas</span></li>
-        <li class="is-urgent"><b>${counts.agora}</b><span>para hoje e amanhã</span></li>
-      </ul>${picker}`;
+    summary.innerHTML = picker;
+    summary.hidden = !picker;
+    const count = document.querySelector("[data-mine-count]");
+    if (count) count.textContent = rows.length ? `${rows.length} em aberto${counts.atrasadas ? ` · ${counts.atrasadas} ${counts.atrasadas === 1 ? "atrasada" : "atrasadas"}` : ""}` : "";
     if (!rows.length) {
       list.innerHTML = stateBlock({ iconName: "check", title: own ? "Nenhuma demanda com você" : `Nenhuma demanda com ${personName(state.team, who)}`, text: own ? "Quando alguém te passar uma demanda ou um conteúdo, aparece aqui na hora." : "Passe demandas pelo quadro (Demandas) ou pelos conteúdos (Responsáveis)." });
       return;

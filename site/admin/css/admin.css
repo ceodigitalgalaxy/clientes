@@ -1423,3 +1423,100 @@ body:not(.can-send) .row__pick { visibility: hidden; }
   .edit-action__buttons .btn { flex: 1 1 0; }
   .pick-checks { grid-template-columns: minmax(0, 1fr); }
 }
+
+/* ==========================================================================
+   Painel enxuto: menos texto, mais direto (inspirado em gerenciadores de tarefas)
+   - conta num botão com a inicial (nome, perfil e Sair dentro)
+   - títulos menores, contagem curta no lugar de explicações
+   - Início com resumo em uma linha; Minhas em linhas compactas
+   - quadro com ajustes (Etiquetas/Colunas) no "⋯" e filtros recolhidos no celular
+   ========================================================================== */
+.view__title { font-size: 28px; }
+.view__count { margin-top: 4px; font-size: 13px; font-weight: 600; color: var(--text-muted); }
+.view__count:empty { display: none; }
+.view__head { align-items: center; margin-bottom: 20px; }
+.view__buttons { align-items: center; }
+
+.me-wrap { position: relative; }
+.me-btn { display: inline-grid; place-items: center; width: 40px; height: 40px; padding: 0; border: 1px solid var(--line); border-radius: 50%; background: var(--brand-soft); font: inherit; cursor: pointer; transition: box-shadow 150ms var(--ease); }
+.me-btn:hover, .me-btn[aria-expanded="true"] { box-shadow: 0 0 0 3px var(--brand-soft), 0 0 0 4px var(--brand); }
+.me-btn:focus-visible { outline: none; box-shadow: var(--ring); }
+.me-btn__av { font-size: 14px; font-weight: 700; letter-spacing: 0.02em; color: var(--brand); }
+.me-pop { position: absolute; top: calc(100% + 8px); right: 0; z-index: 60; display: grid; gap: 2px; min-width: 220px; padding: 10px; border: 1px solid var(--line); border-radius: var(--radius-lg); background: var(--surface); box-shadow: var(--shadow-pop); }
+.me-pop[hidden] { display: none; }
+.me-pop .user-menu__name { display: flex !important; max-width: none; padding: 4px 8px 0; font-size: 14px; }
+.me-pop__role { padding: 0 8px 8px 34px; font-size: 12px; color: var(--text-muted); border-bottom: 1px solid var(--line); margin-bottom: 4px; }
+.me-pop__out { display: flex; align-items: center; gap: 10px; min-height: 42px; padding: 0 8px; border: 0; border-radius: 8px; background: none; font: inherit; font-size: 14px; font-weight: 600; color: var(--ajustes-ink); cursor: pointer; text-align: left; }
+.me-pop__out:hover { background: var(--ajustes-soft); }
+.me-pop__out .icon { width: 18px; height: 18px; }
+
+/* Início: resumo em uma linha */
+.kpi { display: flex; align-items: center; gap: 10px; min-height: 0; padding: 12px 14px; }
+.kpi__n { font-size: 24px; }
+.kpi__label { font-size: 13px; line-height: 1.25; }
+.kpis--loading .kpi { min-height: 52px; }
+
+/* Minhas: linhas compactas, etapa à direita */
+.task-group__items { gap: 6px; }
+.task-card { grid-template-columns: minmax(0, 1fr) 180px; gap: 12px; padding: 10px 14px; }
+.task-card__title { display: inline-flex; align-items: flex-start; gap: 8px; font-size: 15px; line-height: 1.35; }
+.task-card__title > .icon { flex: none; width: 16px; height: 16px; margin-top: 2px; color: var(--text-subtle); }
+.task-card__meta { margin-top: 4px; padding-left: 24px; }
+.task-card__prod .field__input { min-height: 38px; padding-top: 0; padding-bottom: 0; font-size: 14px; }
+.task-summary { margin-bottom: 14px; }
+.task-summary[hidden] { display: none; }
+
+/* Quadro: ajustes no "⋯"; botão Filtros só no celular */
+.board-bar__toggle { display: none; }
+.board-bar__toggle b { display: inline-grid; place-items: center; min-width: 20px; height: 20px; padding: 0 6px; border-radius: 10px; font-size: 11px; color: #fff; background: var(--brand); }
+
+/* Descrição vazia não ocupa a tela; cresce ao escrever */
+.task-desc:placeholder-shown:not(:focus) { height: 52px; min-height: 0; resize: none; }
+
+@media (max-width: 1100px) {
+  .kpis { grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); }
+}
+@media (max-width: 768px) {
+  .user-menu { flex: 0 0 auto; }
+  .view__title { font-size: 22px; }
+  .view__head { flex-direction: row; flex-wrap: wrap; align-items: center; justify-content: space-between; }
+  .view__buttons { flex-wrap: wrap; gap: 8px; }
+  .view__buttons > .btn--ghost, .view__head > .btn--ghost, .view__buttons > a.btn--ghost { min-height: 40px; padding: 0 14px; font-size: 14px; }
+
+  .kpis { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; margin: 0 0 16px; padding: 0; overflow: visible; }
+  .kpis li { flex: none; }
+  .kpis li:last-child:nth-child(odd) { grid-column: 1 / -1; }
+  .kpi { min-height: 0; padding: 10px 12px; }
+  .kpi__n { font-size: 20px; }
+
+  .task-card { grid-template-columns: minmax(0, 1fr) 128px; gap: 10px; padding: 10px 12px; align-items: start; }
+  .task-card__meta { padding-left: 0; }
+  .task-card__title > .icon { display: none; }
+  .task-card__prod .field__input { min-height: 36px; padding-left: 10px; padding-right: 28px; font-size: 13px; background-position: right 8px center; }
+
+  .board-bar__toggle { display: inline-flex; flex: none; min-height: 40px; }
+  .board-search { flex: 1 1 0; max-width: none; }
+  .board-bar > select, .board-bar > [data-board-clear] { display: none; }
+  .board-bar.is-open > select { display: block; flex: 1 1 calc(50% - 4px); width: auto; }
+  .board-bar.is-open > [data-board-clear] { display: inline-flex; }
+}
+
+/* Detalhe do conteúdo: uma linha de resumo + propriedades só quando preenchidas */
+.drawer__sub { margin: 4px 0 14px; font-size: 14px; color: var(--text-muted); }
+.props { display: grid; gap: 4px; padding: 10px 14px; }
+.props__row { display: grid; grid-template-columns: 104px minmax(0, 1fr); align-items: center; gap: 8px; min-height: 34px; font-size: 14px; }
+.props__row > span:last-child { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; }
+.props__label { display: inline-flex; align-items: center; gap: 8px; font-size: 13px; font-weight: 600; color: var(--text-muted); }
+.props__label .icon { width: 15px; height: 15px; }
+.drawer__actions--top { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin: 12px 0 18px; }
+.stage-block__label span { font-weight: 500; }
+@media (max-width: 768px) {
+  /* Resumo do Início numa faixa só, que desliza para o lado */
+  .kpis { display: flex; gap: 8px; margin: 0 calc(var(--gutter) * -1) 16px; padding: 2px var(--gutter) 4px; overflow-x: auto; scrollbar-width: none; }
+  .kpis::-webkit-scrollbar { display: none; }
+  .kpis li, .kpis li:last-child:nth-child(odd) { flex: none; grid-column: auto; }
+  .kpi { gap: 8px; padding: 8px 14px; border-radius: 999px; white-space: nowrap; }
+  .kpi::before { display: none; }
+  .kpi__n { font-size: 17px; }
+  .stage-block__label span { display: none; }
+}
