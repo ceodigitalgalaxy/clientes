@@ -7,12 +7,13 @@
    O administrador (e quem edita tudo) pode ver as demandas de outra pessoa.
    Dá para mudar a etapa ali mesmo e abrir o item. */
 
-import { $, esc, on } from "../../../js/lib/dom.js?v=2b29946461";
-import { icon } from "../../../js/lib/icons.js?v=2b29946461";
-import { PRODUCTION_STATUS, PRIORITIES } from "../domain/rules.js?v=2b29946461";
-import { TASK_STATUS, TASK_PRIORITIES, dueParts, dueState, VIDEO_FORMAT_SHORT, linkHost } from "../domain/tasks.js?v=2b29946461";
-import { stateBlock, loadingRows } from "../ui/states.js?v=2b29946461";
-import { dueChip, priorityChip, daysUntil, personName } from "./contents.js?v=2b29946461";
+import { timeLabel } from "../../../js/lib/dates.js?v=304713f3c3";
+import { $, esc, on } from "../../../js/lib/dom.js?v=304713f3c3";
+import { icon } from "../../../js/lib/icons.js?v=304713f3c3";
+import { PRODUCTION_STATUS, PRIORITIES } from "../domain/rules.js?v=304713f3c3";
+import { TASK_STATUS, TASK_PRIORITIES, dueParts, dueState, VIDEO_FORMAT_SHORT, linkHost } from "../domain/tasks.js?v=304713f3c3";
+import { stateBlock, loadingRows } from "../ui/states.js?v=304713f3c3";
+import { dueChip, priorityChip, daysUntil, personName } from "./contents.js?v=304713f3c3";
 
 const FORMAT_SHORT = { post: "Post", carrossel: "Carrossel", reels: "Reels", stories: "Stories", video: "Vídeo" };
 const shortDate = (iso) => (iso ? iso.split("-").reverse().slice(0, 2).join("/") : "—");
@@ -85,7 +86,7 @@ export function setupTasks({ api, state, toast, openContent, openTask, unreadFor
           <button class="task-card__title" type="button" data-open-board-task="${esc(t.id)}">${icon(t.kind === "edicao" ? "play" : "layers")}<span class="task-card__name">${esc(t.title)}</span></button>
           <p class="task-card__meta">
             ${fresh ? '<span class="new-chip">Nova</span>' : ""}
-            ${due ? `<span class="due-pill due-pill--${esc(due.tone)}">${icon("clock")}${esc(due.label)} · ${esc(dueParts(t.due_at).time)}</span>` : ""}
+            ${due ? `<span class="due-pill due-pill--${esc(due.tone)}">${icon("clock")}${esc(due.label)} · ${esc(timeLabel(dueParts(t.due_at).time))}</span>` : ""}
             <span class="task-card__date">${esc(clientName(t.client_id))}${t.kind === "edicao" ? ` · Edição${t.video_format ? ` ${esc(VIDEO_FORMAT_SHORT[t.video_format] || "")}` : ""}` : t.parent_id ? " · Subtarefa" : ""}</span>
             ${t.priority === "alta" || t.priority === "urgente" ? `<span class="prio-chip prio-chip--${esc(t.priority)}">${esc(TASK_PRIORITIES[t.priority].label)}</span>` : ""}
             ${parent ? `<span class="task-card__date">${icon("arrowRight")}em "${esc(parent.title)}"</span>` : ""}

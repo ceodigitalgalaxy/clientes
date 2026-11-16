@@ -13,16 +13,16 @@
    O banco confere tudo de novo (funções approval_* e RLS).
    ========================================================================== */
 
-import { $, esc, on } from "../../../js/lib/dom.js?v=2b29946461";
-import { icon } from "../../../js/lib/icons.js?v=2b29946461";
-import { monthLabel, timeLabel, stampLabel, todayISO, longDayLabel } from "../../../js/lib/dates.js?v=2b29946461";
-import { typeBadge } from "../../../js/ui/badges.js?v=2b29946461";
-import { APPROVAL_STATUS, APPROVAL_MODES, BATCH_STATUS, APPROVAL_EVENTS, isPending, approvalUrl, whatsappMessage } from "../../../js/domain/approvals.js?v=2b29946461";
-import { NETWORKS, validateBatch } from "../domain/rules.js?v=2b29946461";
-import { closeDialog, wireDialog, showFieldErrors, setBusy } from "../ui/dialogs.js?v=2b29946461";
-import { stateBlock, loadingCards, button } from "../ui/states.js?v=2b29946461";
-import { buildApprovalReport, reportFileName } from "../ui/approval-report.js?v=2b29946461";
-import { kebab } from "../ui/menu.js?v=2b29946461";
+import { $, esc, on } from "../../../js/lib/dom.js?v=304713f3c3";
+import { icon } from "../../../js/lib/icons.js?v=304713f3c3";
+import { monthLabel, timeLabel, stampLabel, todayISO, longDayLabel } from "../../../js/lib/dates.js?v=304713f3c3";
+import { typeBadge } from "../../../js/ui/badges.js?v=304713f3c3";
+import { APPROVAL_STATUS, APPROVAL_MODES, BATCH_STATUS, APPROVAL_EVENTS, isPending, approvalUrl, whatsappMessage } from "../../../js/domain/approvals.js?v=304713f3c3";
+import { NETWORKS, validateBatch } from "../domain/rules.js?v=304713f3c3";
+import { closeDialog, wireDialog, showFieldErrors, setBusy } from "../ui/dialogs.js?v=304713f3c3";
+import { stateBlock, loadingCards, button } from "../ui/states.js?v=304713f3c3";
+import { buildApprovalReport, reportFileName } from "../ui/approval-report.js?v=304713f3c3";
+import { kebab } from "../ui/menu.js?v=304713f3c3";
 
 const POLL_MS = 30000;
 const options = (entries, placeholder) => `${placeholder !== undefined ? `<option value="">${esc(placeholder)}</option>` : ""}${entries.map(([v, l]) => `<option value="${esc(v)}">${esc(l)}</option>`).join("")}`;
@@ -151,7 +151,7 @@ export function setupApprovals({ api, state, toast, confirm, navigate, openConte
           <div class="batch-card__who">
             <p class="batch-card__client">${esc(clientName(b.client_id))}</p>
             <h3 class="batch-card__title"><button class="batch-card__open" type="button" data-batch-open="${esc(b.id)}">${esc(b.title)}</button></h3>
-            <p class="batch-card__meta">${icon("calendar")}${esc(monthLabel(b.month.slice(0, 7)))} · ${icon(mode.icon)}${esc(mode.short)}</p>
+            <p class="batch-card__meta"><span class="batch-card__meta-item">${icon("calendar")}${esc(monthLabel(b.month.slice(0, 7)))}</span><span class="batch-card__meta-item">${icon(mode.icon)}${esc(mode.short)}</span></p>
           </div>
           ${batchBadge(b.overall_status)}
         </div>

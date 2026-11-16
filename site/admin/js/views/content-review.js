@@ -5,12 +5,12 @@
    - Aprovação e produção: status separados; o cliente aprova pelo link do lote
      (seção Aprovações). O histórico mostra cada versão enviada e a resposta. */
 
-import { esc, on } from "../../../js/lib/dom.js?v=2b29946461";
-import { icon } from "../../../js/lib/icons.js?v=2b29946461";
-import { stampLabel } from "../../../js/lib/dates.js?v=2b29946461";
-import { renderMedia, mediaFallback } from "../../../js/ui/media.js?v=2b29946461";
-import { UPLOAD_LIMITS } from "../../../js/lib/storage.js?v=2b29946461";
-import { APPROVAL_STATUS, PRODUCTION_STATUS } from "../../../js/domain/approvals.js?v=2b29946461";
+import { esc, on } from "../../../js/lib/dom.js?v=304713f3c3";
+import { icon } from "../../../js/lib/icons.js?v=304713f3c3";
+import { stampLabel } from "../../../js/lib/dates.js?v=304713f3c3";
+import { renderMedia, mediaFallback } from "../../../js/ui/media.js?v=304713f3c3";
+import { UPLOAD_LIMITS } from "../../../js/lib/storage.js?v=304713f3c3";
+import { APPROVAL_STATUS, PRODUCTION_STATUS } from "../../../js/domain/approvals.js?v=304713f3c3";
 
 const ACCEPT = UPLOAD_LIMITS.contentTypes.join(",");
 const ROLES = { midia: "Galeria / carrossel", capa: "Capa", thumbnail: "Thumbnail do vídeo" };
@@ -33,7 +33,7 @@ export const reviewSections = () => `
       <form class="final-art__link" data-final-link novalidate>
         <label class="field">
           <span class="visually-hidden">Link da arte final</span>
-          <input class="field__input" name="asset_url" type="url" inputmode="url" placeholder="Ou cole um link (Drive, YouTube, Vimeo...)" autocomplete="off" spellcheck="false">
+          <input class="field__input" name="asset_url" type="url" inputmode="url" placeholder="Ou cole um link" title="Link do Drive, YouTube, Vimeo ou outro" autocomplete="off" spellcheck="false">
         </label>
         <select class="field__input final-art__kind" name="kind" aria-label="Tipo do link">
           <option value="video">Vídeo</option>

@@ -5,14 +5,14 @@
      recente, em cartões compactos (clicar abre o conteúdo).
    Tudo vem do banco já recortado pelas permissões (cada um vê os clientes dele). */
 
-import { $, esc, on } from "../../../js/lib/dom.js?v=2b29946461";
-import { icon } from "../../../js/lib/icons.js?v=2b29946461";
-import { todayISO, addDays, longDayLabel, monthLabel, stampLabel, timeLabel } from "../../../js/lib/dates.js?v=2b29946461";
-import { alertTone, nearestDeadline, daysFrom } from "../domain/deadlines.js?v=2b29946461";
-import { stateBlock } from "../ui/states.js?v=2b29946461";
-import { avatars, eventText, clientDotClass } from "./contents.js?v=2b29946461";
-import { toneLabels, attentionItems } from "./contents-calendar.js?v=2b29946461";
-import { dueParts, dueState } from "../domain/tasks.js?v=2b29946461";
+import { $, esc, on } from "../../../js/lib/dom.js?v=304713f3c3";
+import { icon } from "../../../js/lib/icons.js?v=304713f3c3";
+import { todayISO, addDays, longDayLabel, monthLabel, stampLabel, timeLabel } from "../../../js/lib/dates.js?v=304713f3c3";
+import { alertTone, nearestDeadline, daysFrom } from "../domain/deadlines.js?v=304713f3c3";
+import { stateBlock } from "../ui/states.js?v=304713f3c3";
+import { avatars, eventText, clientDotClass } from "./contents.js?v=304713f3c3";
+import { toneLabels, attentionItems } from "./contents-calendar.js?v=304713f3c3";
+import { dueParts, dueState } from "../domain/tasks.js?v=304713f3c3";
 
 const WITH_CLIENT = ["aguardando_aprovacao", "reenviado"];
 const DONE = ["agendado", "publicado"];
@@ -73,7 +73,7 @@ export function setupHome({ api, state, navigate, openContent, openTask, openFor
     const mineTasks = boardTasks.filter((t) => t.status !== "concluido" && (t.task_assignees || []).some((a) => a.user_id === me)).map((t) => {
       const due = dueState(t.due_at, t.status);
       const { date, time } = dueParts(t.due_at);
-      return { id: t.content_id || t.id, key: `${date || "9999"}T${time}`, html: () => item({ ...t, assignees: (t.task_assignees || []).map((a) => a.user_id) }, { task: true, when: due ? `${due.label} · ${time}` : "Sem data", tone: due ? TONE[due.tone] : "nao_iniciado" }) };
+      return { id: t.content_id || t.id, key: `${date || "9999"}T${time}`, html: () => item({ ...t, assignees: (t.task_assignees || []).map((a) => a.user_id) }, { task: true, when: due ? `${due.label} · ${timeLabel(time)}` : "Sem data", tone: due ? TONE[due.tone] : "nao_iniciado" }) };
     });
     const mine = [...mineTasks, ...mineContents].sort((a, b) => a.key.localeCompare(b.key)).slice(0, 6);
     const shown = new Set(mine.map((x) => x.id));

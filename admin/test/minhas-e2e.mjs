@@ -104,7 +104,7 @@ await step("Sem a Ana fazer nada, a demanda aparece em Minhas dela (marcada como
   const c = card(page, "Post do Dia dos Pais");
   assert.ok(await c.locator(".new-chip").isVisible(), "marcada como Nova");
   assert.match(await c.textContent(), /Padaria Central/);
-  assert.match(await c.textContent(), /Amanhã · 15:00/);
+  assert.match(await c.textContent(), /Amanhã · 15h/);
   assert.match(await page.textContent('.task-group:has(.task-card__name:text-is("Post do Dia dos Pais")) .task-group__title'), /Hoje e amanhã/);
   assert.ok(await card(page, "Carrossel de pães").isVisible(), "o conteúdo continua junto");
   assert.equal(await page.textContent('[data-route="demandas"] [data-my-tasks]'), "1", "contador do menu");

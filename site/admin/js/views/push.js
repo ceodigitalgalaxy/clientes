@@ -7,8 +7,8 @@
    O aparelho assina com a chave pública da agência; o envio é da função
    "avisos-push" (supabase/functions/avisos-push). */
 
-import { esc, on } from "../../../js/lib/dom.js?v=2b29946461";
-import { icon } from "../../../js/lib/icons.js?v=2b29946461";
+import { esc, on } from "../../../js/lib/dom.js?v=304713f3c3";
+import { icon } from "../../../js/lib/icons.js?v=304713f3c3";
 
 const OWNER_KEY = "dg-painel-avisos-de";   // quem ativou os avisos neste navegador
 const bytes = (b64) => Uint8Array.from(atob(String(b64).replace(/-/g, "+").replace(/_/g, "/")), (c) => c.charCodeAt(0));

@@ -8,13 +8,13 @@
    - "+ Adicionar" no pé de cada coluna cria na hora, já naquela coluna.
    Mostra só as demandas principais; as subtarefas contam no card. */
 
-import { $, esc, on } from "../../../js/lib/dom.js?v=2b29946461";
-import { icon } from "../../../js/lib/icons.js?v=2b29946461";
-import { TASK_STATUS, TASK_PRIORITIES, COLORS, dueState } from "../domain/tasks.js?v=2b29946461";
-import { closeDialog, wireDialog } from "../ui/dialogs.js?v=2b29946461";
-import { stateBlock } from "../ui/states.js?v=2b29946461";
-import { avatars, clientDotClass } from "./contents.js?v=2b29946461";
-import { setupTaskPanel } from "./task-panel.js?v=2b29946461";
+import { $, esc, on } from "../../../js/lib/dom.js?v=304713f3c3";
+import { icon } from "../../../js/lib/icons.js?v=304713f3c3";
+import { TASK_STATUS, TASK_PRIORITIES, COLORS, dueState } from "../domain/tasks.js?v=304713f3c3";
+import { closeDialog, wireDialog } from "../ui/dialogs.js?v=304713f3c3";
+import { stateBlock } from "../ui/states.js?v=304713f3c3";
+import { avatars, clientDotClass } from "./contents.js?v=304713f3c3";
+import { setupTaskPanel } from "./task-panel.js?v=304713f3c3";
 
 const FILTER_KEY = "dg-painel-quadro-filtros";
 const options = (entries, selected = "") => entries.map(([v, l]) => `<option value="${esc(v)}"${v === selected ? " selected" : ""}>${esc(l)}</option>`).join("");

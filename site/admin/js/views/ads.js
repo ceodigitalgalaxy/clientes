@@ -11,16 +11,16 @@
    Endereço: #/anuncios?status=...&client_id=...
    ========================================================================== */
 
-import { $, esc, on } from "../../../js/lib/dom.js?v=2b29946461";
-import { icon } from "../../../js/lib/icons.js?v=2b29946461";
-import { stampLabel } from "../../../js/lib/dates.js?v=2b29946461";
-import { renderMedia, mediaFallback, mediaCover, coverHtml, embedCoverHtml, wireMediaFallbacks } from "../../../js/ui/media.js?v=2b29946461";
-import { wireCarousel } from "../../../js/ui/preview.js?v=2b29946461";
-import { renderAdMock, renderAdTexts, renderAdHistory, adStatusBadge } from "../../../js/ui/ad-preview.js?v=2b29946461";
-import { UPLOAD_LIMITS } from "../../../js/lib/storage.js?v=2b29946461";
-import { AD_STAGES, AD_STATUS, AD_PLATFORMS, AD_OBJECTIVES, AD_FORMATS, AD_CTAS, platformLabel, adCanSend, adSendBlock, validateAdFilters } from "../domain/rules.js?v=2b29946461";
-import { closeDialog, wireDialog, showFieldErrors, setBusy } from "../ui/dialogs.js?v=2b29946461";
-import { stateBlock, loadingCards, button } from "../ui/states.js?v=2b29946461";
+import { $, esc, on } from "../../../js/lib/dom.js?v=304713f3c3";
+import { icon } from "../../../js/lib/icons.js?v=304713f3c3";
+import { stampLabel } from "../../../js/lib/dates.js?v=304713f3c3";
+import { renderMedia, mediaFallback, mediaCover, coverHtml, embedCoverHtml, wireMediaFallbacks } from "../../../js/ui/media.js?v=304713f3c3";
+import { wireCarousel } from "../../../js/ui/preview.js?v=304713f3c3";
+import { renderAdMock, renderAdTexts, renderAdHistory, adStatusBadge } from "../../../js/ui/ad-preview.js?v=304713f3c3";
+import { UPLOAD_LIMITS } from "../../../js/lib/storage.js?v=304713f3c3";
+import { AD_STAGES, AD_STATUS, AD_PLATFORMS, AD_OBJECTIVES, AD_FORMATS, AD_CTAS, platformLabel, adCanSend, adSendBlock, validateAdFilters } from "../domain/rules.js?v=304713f3c3";
+import { closeDialog, wireDialog, showFieldErrors, setBusy } from "../ui/dialogs.js?v=304713f3c3";
+import { stateBlock, loadingCards, button } from "../ui/states.js?v=304713f3c3";
 
 const ACCEPT = UPLOAD_LIMITS.mediaTypes.join(",");
 const EDITABLE = ["rascunho", "alteracoes_solicitadas"];
@@ -157,7 +157,7 @@ export function setupAds({ api, state, toast, confirm, navigate }) {
             <span class="ad-card__top"><span class="ad-card__badges">${adStatusBadge(ad.status)}${ad.creative_stage === "referencia" ? '<span class="stage-badge">Referência</span>' : ""}</span>${ad.status === "alteracoes_solicitadas" ? `<span class="attention-dot" title="Precisa de atenção"></span>` : ""}</span>
             <span class="ad-card__title">${esc(ad.title)}</span>
             <span class="ad-card__meta">${esc(clientName(ad.client_id))}</span>
-            <span class="ad-card__meta">${esc(platformLabel(ad))} · ${esc(AD_FORMATS[ad.format]?.label || "")}${ad.version > 1 ? ` · versão ${esc(ad.version)}` : ""}</span>
+            <span class="ad-card__meta">${esc([platformLabel(ad), AD_FORMATS[ad.format]?.label, ad.version > 1 ? `versão ${ad.version}` : ""].filter(Boolean).join(" · "))}</span>
             <span class="ad-card__date">${ad.submitted_at ? `Enviado em ${esc(dateLabel(ad.submitted_at))}` : `Criado em ${esc(dateLabel(ad.created_at))}`}</span>
           </span>
         </button>
@@ -387,7 +387,7 @@ export function setupAds({ api, state, toast, confirm, navigate }) {
             </label>
             <form class="final-art__link" data-ad-link novalidate>
               <label class="field"><span class="visually-hidden">Link do criativo</span>
-                <input class="field__input" name="asset_url" type="url" inputmode="url" placeholder="Ou cole um link (Drive, YouTube, Vimeo, Instagram...)" autocomplete="off" spellcheck="false"></label>
+                <input class="field__input" name="asset_url" type="url" inputmode="url" placeholder="Ou cole um link" title="Link do Drive, YouTube, Vimeo ou Instagram" autocomplete="off" spellcheck="false"></label>
               <select class="field__input final-art__kind" name="kind" aria-label="Tipo do link"><option value="video">Vídeo</option><option value="image">Imagem</option></select>
               <button class="btn btn--ghost btn--sm" type="submit">Adicionar link</button>
             </form>
