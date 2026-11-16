@@ -7,13 +7,13 @@
    O administrador (e quem edita tudo) pode ver as demandas de outra pessoa.
    Dá para mudar a etapa ali mesmo e abrir o item. */
 
-import { $, esc, on } from "../../../js/lib/dom.js?v=37b1301fd1";
-import { icon } from "../../../js/lib/icons.js?v=37b1301fd1";
-import { typeBadge } from "../../../js/ui/badges.js?v=37b1301fd1";
-import { PRODUCTION_STATUS, PRIORITIES } from "../domain/rules.js?v=37b1301fd1";
-import { TASK_STATUS, TASK_PRIORITIES, dueParts, dueState } from "../domain/tasks.js?v=37b1301fd1";
-import { stateBlock, loadingRows } from "../ui/states.js?v=37b1301fd1";
-import { stageChips, dueChip, priorityChip, daysUntil, personName } from "./contents.js?v=37b1301fd1";
+import { $, esc, on } from "../../../js/lib/dom.js?v=8bfb16b6bd";
+import { icon } from "../../../js/lib/icons.js?v=8bfb16b6bd";
+import { typeBadge } from "../../../js/ui/badges.js?v=8bfb16b6bd";
+import { PRODUCTION_STATUS, PRIORITIES } from "../domain/rules.js?v=8bfb16b6bd";
+import { TASK_STATUS, TASK_PRIORITIES, dueParts, dueState } from "../domain/tasks.js?v=8bfb16b6bd";
+import { stateBlock, loadingRows } from "../ui/states.js?v=8bfb16b6bd";
+import { stageChips, dueChip, priorityChip, daysUntil, personName } from "./contents.js?v=8bfb16b6bd";
 
 const shortDate = (iso) => (iso ? iso.split("-").reverse().slice(0, 2).join("/") : "—");
 const GROUPS = [

@@ -5,14 +5,14 @@
      ("Salvo ✓"). Se outra pessoa salvou antes, avisa e recarrega (version).
    O banco confere quem pode ver, criar, editar, delegar e arquivar. */
 
-import { $, esc, on } from "../../../js/lib/dom.js?v=37b1301fd1";
-import { icon } from "../../../js/lib/icons.js?v=37b1301fd1";
-import { stampLabel } from "../../../js/lib/dates.js?v=37b1301fd1";
-import { TASK_STATUS, TASK_PRIORITIES, dueParts, dueState } from "../domain/tasks.js?v=37b1301fd1";
-import { closeDialog, wireDialog, showFieldErrors, setBusy } from "../ui/dialogs.js?v=37b1301fd1";
-import { kebab } from "../ui/menu.js?v=37b1301fd1";
-import { attachMentions, mentionHtml } from "../ui/mentions.js?v=37b1301fd1";
-import { seesClient, personName, clientDotClass } from "./contents.js?v=37b1301fd1";
+import { $, esc, on } from "../../../js/lib/dom.js?v=8bfb16b6bd";
+import { icon } from "../../../js/lib/icons.js?v=8bfb16b6bd";
+import { stampLabel } from "../../../js/lib/dates.js?v=8bfb16b6bd";
+import { TASK_STATUS, TASK_PRIORITIES, dueParts, dueState } from "../domain/tasks.js?v=8bfb16b6bd";
+import { closeDialog, wireDialog, showFieldErrors, setBusy } from "../ui/dialogs.js?v=8bfb16b6bd";
+import { kebab } from "../ui/menu.js?v=8bfb16b6bd";
+import { attachMentions, mentionHtml } from "../ui/mentions.js?v=8bfb16b6bd";
+import { seesClient, personName, clientDotClass } from "./contents.js?v=8bfb16b6bd";
 
 const initials = (name) => String(name || "?").trim().split(/\s+/).slice(0, 2).map((w) => w[0]).join("").toUpperCase();
 const options = (entries, selected = "") => entries.map(([v, l]) => `<option value="${esc(v)}"${v === (selected ?? "") ? " selected" : ""}>${esc(l)}</option>`).join("");

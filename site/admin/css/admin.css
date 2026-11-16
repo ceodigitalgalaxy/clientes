@@ -1369,3 +1369,13 @@ body:not(.can-send) .row__pick { visibility: hidden; }
 .subtask-add:not(:focus-within):has([name=title]:placeholder-shown) > :not([name=title]) { display: none; }
 /* Descrição vazia não ocupa meia tela */
 .task-desc:placeholder-shown { height: 88px; }
+
+/* Início: "Atividade recente" fechada até a pessoa tocar */
+.hcard--fold { gap: 0; align-self: start; }
+.hcard--fold[open] { gap: 10px; }
+.hcard__summary { min-height: 32px; cursor: pointer; list-style: none; }
+.hcard__summary::-webkit-details-marker { display: none; }
+.hcard__hint { display: inline-flex; align-items: center; gap: 6px; font-size: 13px; font-weight: 600; color: var(--brand); }
+.hcard__hint::after { content: ""; width: 7px; height: 7px; border-right: 2px solid currentColor; border-bottom: 2px solid currentColor; transform: rotate(45deg) translateY(-2px); transition: transform 160ms var(--ease); }
+.hcard--fold[open] .hcard__hint::after { transform: rotate(-135deg) translateY(-1px); }
+.hcard__summary:focus-visible { outline: none; box-shadow: var(--ring); border-radius: 8px; }

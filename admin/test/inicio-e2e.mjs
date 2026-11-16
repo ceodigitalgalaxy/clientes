@@ -88,6 +88,10 @@ await step("Entrar abre o Início com indicadores e cartões", async () => {
   assert.equal(await kpi("Publicados"), 1);
   assert.match(await page.textContent(".hcard:has(#h-att)"), /Atrasado 2 dias.*Post atrasado da padaria/s);
   assert.match(await page.textContent(".hcard:has(#h-next)"), /Stories de amanhã/);
+  // Atividade recente fica fechada: só aparece (e só é buscada) ao tocar
+  assert.equal(await page.isVisible(".hcard:has(#h-activity) .hfeed"), false, "fechada até abrir");
+  await page.click(".hcard:has(#h-activity) summary");
+  await page.waitForSelector(".hcard:has(#h-activity) .hfeed__item");
   assert.match(await page.textContent(".hcard:has(#h-activity)"), /Ana Designer virou responsável/);
   await shot("in01-inicio");
 });

@@ -5,14 +5,14 @@
      recente, em cartões compactos (clicar abre o conteúdo).
    Tudo vem do banco já recortado pelas permissões (cada um vê os clientes dele). */
 
-import { $, esc, on } from "../../../js/lib/dom.js?v=37b1301fd1";
-import { icon } from "../../../js/lib/icons.js?v=37b1301fd1";
-import { todayISO, addDays, longDayLabel, monthLabel, stampLabel, timeLabel } from "../../../js/lib/dates.js?v=37b1301fd1";
-import { alertTone, nearestDeadline, daysFrom } from "../domain/deadlines.js?v=37b1301fd1";
-import { stateBlock } from "../ui/states.js?v=37b1301fd1";
-import { avatars, eventText, clientDotClass } from "./contents.js?v=37b1301fd1";
-import { toneLabels, attentionItems } from "./contents-calendar.js?v=37b1301fd1";
-import { dueParts, dueState } from "../domain/tasks.js?v=37b1301fd1";
+import { $, esc, on } from "../../../js/lib/dom.js?v=8bfb16b6bd";
+import { icon } from "../../../js/lib/icons.js?v=8bfb16b6bd";
+import { todayISO, addDays, longDayLabel, monthLabel, stampLabel, timeLabel } from "../../../js/lib/dates.js?v=8bfb16b6bd";
+import { alertTone, nearestDeadline, daysFrom } from "../domain/deadlines.js?v=8bfb16b6bd";
+import { stateBlock } from "../ui/states.js?v=8bfb16b6bd";
+import { avatars, eventText, clientDotClass } from "./contents.js?v=8bfb16b6bd";
+import { toneLabels, attentionItems } from "./contents-calendar.js?v=8bfb16b6bd";
+import { dueParts, dueState } from "../domain/tasks.js?v=8bfb16b6bd";
 
 const WITH_CLIENT = ["aguardando_aprovacao", "reenviado"];
 const DONE = ["agendado", "publicado"];
@@ -101,14 +101,36 @@ export function setupHome({ api, state, navigate, openContent, openTask, openFor
         ${card("h-next", "Próximas publicações", "calendar",
           next.length ? `<ul class="hlist">${next.map((c) => item(c, { when: `${c.scheduled_date === today ? "Hoje" : shortDay(c.scheduled_date)}${c.scheduled_time ? ` · ${timeLabel(c.scheduled_time.slice(0, 5))}` : ""}`, tone: toneOf(c) })).join("")}</ul>` : empty("Nada programado para os próximos 7 dias."),
           `<button class="link-btn" type="button" data-home-go="semana">Ver a semana</button>`)}
-        ${card("h-activity", "Atividade recente", "refresh",
-          events.length ? `<ul class="hfeed">${events.map((e) => `
+        <details class="hcard hcard--fold" data-home-activity ${activityOpen ? "open" : ""}>
+          <summary class="hcard__head hcard__summary"><h2 class="hcard__title" id="h-activity">${icon("refresh")}Atividade recente</h2><span class="hcard__hint">${activityOpen ? "Fechar" : "Ver"}</span></summary>
+          <div data-home-feed>${activityOpen ? feedHtml() : ""}</div>
+        </details>
+      </div>`;
+  }
+
+  /** Atividade recente: fechada até a pessoa abrir; só então busca (e continua aberta ao voltar) */
+  let activityOpen = false;
+  let eventsLoaded = false;
+  function feedHtml() {
+    if (!eventsLoaded) return '<p class="hcard__empty">Carregando…</p>';
+    return events.length ? `<ul class="hfeed">${events.map((e) => `
             <li><button class="hfeed__item" type="button" data-open-home="${esc(e.content_id)}">
               <span class="hfeed__text"><b>${esc(e.actor_name || "Alguém")}</b> · ${esc(eventText(e))}</span>
               <span class="hfeed__meta">${esc(e.contents?.title || "")} · ${esc(stampLabel(e.created_at))}</span>
-            </button></li>`).join("")}</ul>` : empty("Ainda sem movimento por aqui."))}
-      </div>`;
+            </button></li>`).join("")}</ul>` : empty("Ainda sem movimento por aqui.");
   }
+  async function loadFeed() {
+    try { events = await api.recentEvents(8); } catch { events = []; }
+    eventsLoaded = true;
+    const box = root.querySelector("[data-home-feed]");
+    if (box && activityOpen) box.innerHTML = feedHtml();
+  }
+  root.addEventListener("toggle", (event) => {
+    if (!event.target.matches?.("[data-home-activity]")) return;
+    activityOpen = event.target.open;
+    event.target.querySelector(".hcard__hint").textContent = activityOpen ? "Fechar" : "Ver";
+    if (activityOpen) { event.target.querySelector("[data-home-feed]").innerHTML = feedHtml(); loadFeed(); }
+  }, true);
 
   async function load() {
     const name = firstName(state.me?.name);
@@ -119,11 +141,11 @@ export function setupHome({ api, state, navigate, openContent, openTask, openFor
     const today = todayISO();
     const from = [addDays(today, -90), `${today.slice(0, 7)}-01`].sort()[0];
     try {
-      const [list, recent, tasks] = await Promise.all([api.listContents({ from, to: addDays(today, 31) }), api.recentEvents(8).catch(() => []), api.listTasks().catch(() => [])]);
+      const [list, tasks] = await Promise.all([api.listContents({ from, to: addDays(today, 31) }), api.listTasks().catch(() => [])]);
       rows = list;
       boardTasks = tasks;
-      events = recent;
       render();
+      if (activityOpen) loadFeed();
     } catch (error) {
       root.innerHTML = stateBlock({ iconName: "message", tone: "error", title: "Não foi possível carregar o início", text: error.message });
     } finally { root.setAttribute("aria-busy", "false"); }
@@ -139,5 +161,5 @@ export function setupHome({ api, state, navigate, openContent, openTask, openFor
   on(document, "click", '[data-action="home-new-content"]', () => openForm());
   document.addEventListener("content-saved", () => { if (state.route === "inicio") load(); });
 
-  return { load, reset() { rows = []; events = []; boardTasks = []; } };
+  return { load, reset() { rows = []; events = []; boardTasks = []; activityOpen = false; eventsLoaded = false; } };
 }

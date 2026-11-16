@@ -8,13 +8,13 @@
      a etapa (no celular, um seletor no cartão faz o mesmo).
    Só monta o HTML; os cliques e o arrastar ficam em contents.js. */
 
-import { esc } from "../../../js/lib/dom.js?v=37b1301fd1";
-import { icon } from "../../../js/lib/icons.js?v=37b1301fd1";
-import { monthGrid, weekDays, weekLabel, monthLabel, longDayLabel, timeLabel, WEEKDAYS_SHORT, addDays, fromISO, toISO } from "../../../js/lib/dates.js?v=37b1301fd1";
-import { typeBadge } from "../../../js/ui/badges.js?v=37b1301fd1";
-import { TONES, alertTone, nearestDeadline, daysFrom } from "../domain/deadlines.js?v=37b1301fd1";
-import { kebab } from "../ui/menu.js?v=37b1301fd1";
-import { PRODUCTION_STATUS } from "../domain/rules.js?v=37b1301fd1";
+import { esc } from "../../../js/lib/dom.js?v=8bfb16b6bd";
+import { icon } from "../../../js/lib/icons.js?v=8bfb16b6bd";
+import { monthGrid, weekDays, weekLabel, monthLabel, longDayLabel, timeLabel, WEEKDAYS_SHORT, addDays, fromISO, toISO } from "../../../js/lib/dates.js?v=8bfb16b6bd";
+import { typeBadge } from "../../../js/ui/badges.js?v=8bfb16b6bd";
+import { TONES, alertTone, nearestDeadline, daysFrom } from "../domain/deadlines.js?v=8bfb16b6bd";
+import { kebab } from "../ui/menu.js?v=8bfb16b6bd";
+import { PRODUCTION_STATUS } from "../domain/rules.js?v=8bfb16b6bd";
 
 export const CAL_MODES = { mes: "Mês", semana: "Semana", dia: "Dia", quadro: "Quadro", lista: "Lista" };
 /** Colunas do quadro: "" = ainda não começou */
