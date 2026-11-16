@@ -75,6 +75,15 @@ A seção **Demandas** é o quadro de trabalho da equipe, separado do calendári
 
 Tudo conferido no banco (migração `20261116120000_gestao_de_demandas.sql`): colaborador só vê e cria demandas dos clientes liberados, só coloca como responsável quem enxerga o cliente, e não mexe em colunas nem etiquetas oficiais.
 
+### Pedido de edição de vídeo (pasta do Drive → editor → aprovação)
+
+Para mandar material bruto e o que editar para o editor de vídeo, sem se perder em mensagens:
+
+- **Onde pedir:** em **Demandas → Pedido de edição**, ou no detalhe de um conteúdo do calendário (**Pedido de edição**), que já traz o título, o cliente, o formato e o roteiro, e marca a entrega para a véspera da publicação.
+- **O pedido:** título, cliente, **editor** (o painel lembra o último), **link da pasta do Google Drive** (obrigatório; só `https://`), formato (9:16, 4:5, 1:1, 16:9), duração, **o que fazer**, vídeo de referência (opcional), entrega (dia e hora) e um checklist pronto (cortes, legendas, trilha, cor, letreiros, exportar no formato, revisar). Vira uma demanda com a etiqueta **Edição**, que chega na hora em Minhas do editor (e no celular, se ele ativou os avisos).
+- **Rodadas:** o editor abre a pasta, edita e cola o **link do vídeo pronto** em **Entregar** (com observação opcional) → a demanda vai para **Em revisão** e quem pediu é avisado. Quem pediu **Aprova** (→ Concluído) ou **Pede ajuste** escrevendo os pontos → abre a rodada 2, a demanda vai para **Ajustes solicitados** e o editor é avisado. O painel mostra todas as rodadas (o que foi pedido, a entrega, a decisão) e o card mostra a rodada atual (R1, R2…).
+- **Quem pode:** só o editor responsável (ou o administrador/quem criou, se não houver responsável) entrega; só quem pediu, o administrador ou quem edita o cliente aprova ou pede ajuste. Os links nunca vão para o cliente. Tudo conferido no banco (migração `20261119120000_pedido_de_edicao.sql`: funções `edit_deliver` e `edit_review`; tabela `task_rounds` só para leitura).
+
 ### Avisos no celular (notificações push)
 
 O painel pode ser instalado como aplicativo (ícone na tela de início) e mandar os avisos do sininho para o celular ou computador, mesmo com o painel fechado. Cada pessoa ativa no próprio aparelho: **sininho → Ativar avisos neste aparelho** (o navegador pede a permissão e chega um aviso de teste).
@@ -256,6 +265,7 @@ PLAYWRIGHT=$P node admin/test/demandas2-e2e.mjs   # demandas etapa 2: subtarefas
 node admin/test/push.test.mjs                     # avisos no celular: cifra do aviso, assinatura, gancho do banco, uma vez só, receptor (sw.js)
 PLAYWRIGHT=$P node admin/test/push-e2e.mjs        # avisos no celular pela tela: ativar, receber, tocar e abrir, sair, outro usuário, iPhone, manifesto
 PLAYWRIGHT=$P node admin/test/minhas-e2e.mjs      # duas pessoas: demanda passada no quadro chega sozinha em Minhas/Início do responsável; Nova, etapa, concluir
+PLAYWRIGHT=$P node admin/test/edicao-e2e.mjs     # pedido de edição: pedido com pasta do Drive, editor entrega pelo celular, ajuste (rodada 2), aprovação, permissões
 PLAYWRIGHT=$P node admin/test/equipe-e2e.mjs      # equipe: criar colaborador, demanda com prazo, o que ele vê e o que o servidor recusa, desativar
 PLAYWRIGHT=$P node admin/test/ads-e2e.mjs         # aprovação de anúncios: rascunho → envio → alterações → nova versão → aprovação
 PLAYWRIGHT=$P UX_SHOTS=pasta node admin/test/ux-shots.mjs   # só capturas do portal (computador e celular) para revisão visual

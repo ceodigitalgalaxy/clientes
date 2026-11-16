@@ -26,6 +26,9 @@ export function createFakeTasks({ store, h }) {
   const comments = [];           // task_comments
   const commentEdits = [];       // task_comment_edits
   const checklist = [];          // task_checklist
+  const rounds = [];             // task_rounds (pedido de edição)
+  const HTTPS = /^https:\/\/[^\s/@]+(\/\S*)?$/;
+  const okUrl = (v) => v == null || (String(v).length <= 1000 && HTTPS.test(v));
 
   const asg = (id) => assignees.get(id) || new Set();
   const seesRow = (u, t) => active(u) && (isAdmin(u) || (t.client_id ? sees(u, t.client_id)
@@ -37,7 +40,8 @@ export function createFakeTasks({ store, h }) {
   const canTake = (target, t) => active(target) && (!t.client_id || sees(target, t.client_id));
   const row = (t) => ({ ...t, task_assignees: [...asg(t.id)].map((user_id) => ({ user_id })), task_labels: [...(taskLabels.get(t.id) || [])].map((label_id) => ({ label_id })),
     task_comments: [{ count: comments.filter((c) => c.task_id === t.id && !c.deleted_at).length }],
-    task_checklist: checklist.filter((i) => i.task_id === t.id).sort((a, b) => a.position - b.position).map((i) => ({ done: i.done })) });
+    task_checklist: checklist.filter((i) => i.task_id === t.id).sort((a, b) => a.position - b.position).map((i) => ({ done: i.done })),
+    task_rounds: rounds.filter((r) => r.task_id === t.id).map(({ round, delivered_at, decision }) => ({ round, delivered_at, decision })) });
   /** Como private.user_sees_task: a pessoa (não só quem está logado) enxerga a demanda? */
   const userSees = (uid, t) => { const u = userById(uid); return Boolean(u && t) && seesRow(u, t); };
   /** Como private.notify_task: só quem enxerga a demanda e não fez a ação */
@@ -139,7 +143,9 @@ export function createFakeTasks({ store, h }) {
           .sort((a, b) => a.position - b.position).map(row);
       }
       if (method === "POST") {
-        const t = { id: randomUUID(), parent_id: null, client_id: null, project_id: null, content_id: null, description: null, status: "a_fazer", column_id: null, priority: "media", due_at: null, position: 0, completed_at: null, completed_by: null, archived_at: null, created_at: now(), updated_at: now(), ...body, created_by: user.id, version: 1 };
+        const t = { id: randomUUID(), parent_id: null, client_id: null, project_id: null, content_id: null, description: null, status: "a_fazer", column_id: null, priority: "media", due_at: null, position: 0, completed_at: null, completed_by: null, archived_at: null, created_at: now(), updated_at: now(),
+          kind: "geral", drive_url: null, reference_url: null, video_format: null, video_duration: null, ...body, created_by: user.id, version: 1 };
+        if (!["geral", "edicao"].includes(t.kind) || !okUrl(t.drive_url) || !okUrl(t.reference_url)) return raise("check");
         if (!t.position) t.position = Date.now() / 1000 + Math.random();
         if (!STATUSES.includes(t.status)) return raise("check");
         if (t.client_id && !sees(user, t.client_id)) return rlsDenied();
@@ -149,6 +155,7 @@ export function createFakeTasks({ store, h }) {
         if (t.client_id && !sees(user, t.client_id)) return rlsDenied();
         tasks.set(t.id, t);
         log(t.id, "criada", user);
+        if (t.kind === "edicao") rounds.push({ id: randomUUID(), task_id: t.id, round: 1, requested_notes: null, requested_by: user.id, requested_name: memberName(user), requested_at: now(), delivery_url: null, delivery_note: null, delivered_by: null, delivered_name: null, delivered_at: null, decision: null, decided_at: null });
         return [row(t)];
       }
       if (method === "PATCH") {
@@ -156,6 +163,8 @@ export function createFakeTasks({ store, h }) {
         const version = params.get("version")?.replace(/^eq\./, "");
         if (!prev || !edits(user, prev) || (version !== undefined && Number(version) !== prev.version)) return [];
         const next = { ...prev, ...body };
+        if (next.kind !== prev.kind) return raise("tipo_nao_muda");
+        if (!okUrl(next.drive_url) || !okUrl(next.reference_url)) return raise("check");
         const problem = prepare(next, prev, user);
         if (problem) return raise(problem);
         if (next.client_id && !sees(user, next.client_id) && !isAdmin(user)) return rlsDenied();
@@ -270,9 +279,57 @@ export function createFakeTasks({ store, h }) {
       }
       if (method === "DELETE") { checklist.splice(checklist.indexOf(i), 1); return []; }
     }
+    if (table === "task_rounds" && method === "GET") {
+      const t = tasks.get(eq(params, "task_id"));
+      return t && seesRow(user, t) ? rounds.filter((r) => r.task_id === t.id).sort((a, b) => a.round - b.round) : [];
+    }
     if (table === "task_events" && method === "GET") {
       const t = tasks.get(eq(params, "task_id"));
       return t && seesRow(user, t) ? events.filter((e) => e.task_id === t.id).slice().reverse() : [];
+    }
+    return undefined;
+  }
+
+  /** Como edit_deliver / edit_review (pedido de edição) */
+  function setStatus(t, status, actor) {
+    const prev = tasks.get(t.id);
+    if (prev.status === status) return;
+    const next = { ...prev, status, column_id: null };
+    prepare(next, prev, actor);
+    tasks.set(t.id, next);
+    logChanges(prev, next, actor);
+  }
+  function rpc(name, body, user) {
+    const t = tasks.get(body.p_task);
+    if (!t || t.kind !== "edicao" || t.archived_at) return raise("pedido_invalido");
+    const last = rounds.filter((r) => r.task_id === t.id).sort((a, b) => b.round - a.round)[0];
+    if (name === "edit_deliver") {
+      if (!edits(user, t)) return raise("sem_permissao");
+      if (!body.p_url || !okUrl(body.p_url)) return raise("link_invalido");
+      if (last.decision) return raise("rodada_fechada");
+      Object.assign(last, { delivery_url: body.p_url, delivery_note: String(body.p_note || "").trim() || null, delivered_by: user.id, delivered_name: memberName(user), delivered_at: now() });
+      setStatus(t, "em_revisao", user);
+      log(t.id, "edicao_entregue", user, null, String(last.round));
+      new Set([t.created_by, last.requested_by]).forEach((uid) => notify(uid, "edicao_entregue", t.id, `${t.title} · rodada ${last.round}`, user));
+      return { round: last.round };
+    }
+    if (name === "edit_review") {
+      if (!(isAdmin(user) || (active(user) && (t.created_by === user.id || (t.client_id && editsClient(user, t.client_id)))))) return raise("so_quem_pediu_revisa");
+      if (!["aprovado", "ajustes"].includes(body.p_decision)) return raise("decisao_invalida");
+      if (!last.delivered_at) return raise("sem_entrega");
+      if (last.decision) return raise("rodada_fechada");
+      const notes = String(body.p_notes || "").trim();
+      if (body.p_decision === "ajustes" && !notes) return raise("ajuste_sem_pontos");
+      Object.assign(last, { decision: body.p_decision, decided_by: user.id, decided_at: now() });
+      if (body.p_decision === "aprovado") { setStatus(t, "concluido", user); log(t.id, "edicao_aprovada", user, null, String(last.round)); }
+      else {
+        rounds.push({ id: randomUUID(), task_id: t.id, round: last.round + 1, requested_notes: notes, requested_by: user.id, requested_name: memberName(user), requested_at: now(), delivery_url: null, delivery_note: null, delivered_by: null, delivered_name: null, delivered_at: null, decision: null, decided_at: null });
+        setStatus(t, "ajustes", user);
+        log(t.id, "edicao_ajuste", user, null, String(last.round + 1));
+      }
+      asg(t.id).forEach((uid) => notify(uid, body.p_decision === "aprovado" ? "edicao_aprovada" : "edicao_ajuste", t.id,
+        body.p_decision === "aprovado" ? `${t.title} · aprovado na rodada ${last.round}` : `${t.title} · rodada ${last.round + 1}: ${notes}`, user));
+      return { round: body.p_decision === "aprovado" ? last.round : last.round + 1, decision: body.p_decision };
     }
     return undefined;
   }
@@ -287,5 +344,5 @@ export function createFakeTasks({ store, h }) {
     return row(next);
   }
 
-  return { route, syncFromContent, editAsOther, comments, checklist, all: () => [...tasks.values()].map(row), get: (id) => (tasks.has(id) ? row(tasks.get(id)) : null), columns, labels };
+  return { route, rpc, syncFromContent, editAsOther, comments, checklist, rounds, all: () => [...tasks.values()].map(row), get: (id) => (tasks.has(id) ? row(tasks.get(id)) : null), columns, labels };
 }

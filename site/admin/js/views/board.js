@@ -8,13 +8,13 @@
    - "+ Adicionar" no pé de cada coluna cria na hora, já naquela coluna.
    Mostra só as demandas principais; as subtarefas contam no card. */
 
-import { $, esc, on } from "../../../js/lib/dom.js?v=8bfb16b6bd";
-import { icon } from "../../../js/lib/icons.js?v=8bfb16b6bd";
-import { TASK_STATUS, TASK_PRIORITIES, COLORS, dueState } from "../domain/tasks.js?v=8bfb16b6bd";
-import { closeDialog, wireDialog } from "../ui/dialogs.js?v=8bfb16b6bd";
-import { stateBlock } from "../ui/states.js?v=8bfb16b6bd";
-import { avatars, clientDotClass } from "./contents.js?v=8bfb16b6bd";
-import { setupTaskPanel } from "./task-panel.js?v=8bfb16b6bd";
+import { $, esc, on } from "../../../js/lib/dom.js?v=f5b3406042";
+import { icon } from "../../../js/lib/icons.js?v=f5b3406042";
+import { TASK_STATUS, TASK_PRIORITIES, COLORS, dueState } from "../domain/tasks.js?v=f5b3406042";
+import { closeDialog, wireDialog } from "../ui/dialogs.js?v=f5b3406042";
+import { stateBlock } from "../ui/states.js?v=f5b3406042";
+import { avatars, clientDotClass } from "./contents.js?v=f5b3406042";
+import { setupTaskPanel } from "./task-panel.js?v=f5b3406042";
 
 const FILTER_KEY = "dg-painel-quadro-filtros";
 const options = (entries, selected = "") => entries.map(([v, l]) => `<option value="${esc(v)}"${v === selected ? " selected" : ""}>${esc(l)}</option>`).join("");
@@ -92,6 +92,7 @@ export function setupBoard({ api, state, toast, confirm, openContent }) {
     const checks = t.task_checklist || [];
     const checksDone = checks.filter((c) => c.done).length;
     const comments = t.task_comments?.[0]?.count || 0;
+    const round = Math.max(1, ...(t.task_rounds || []).map((r) => r.round));
     return `
       <article class="tcard${t.status === "concluido" ? " is-done" : ""}" draggable="true" data-tcard="${esc(t.id)}">
         <button class="tcard__open" type="button" data-task-open-card="${esc(t.id)}" aria-label="Abrir ${esc(t.title)}"></button>
@@ -105,6 +106,7 @@ export function setupBoard({ api, state, toast, confirm, openContent }) {
             ${subs.length ? `<span class="tcard__count${done === subs.length ? " is-done" : ""}" title="Subtarefas concluídas">${icon("layers")}${done}/${subs.length}</span>` : ""}
             ${checks.length ? `<span class="tcard__count${checksDone === checks.length ? " is-done" : ""}" title="Checklist">${icon("check")}${checksDone}/${checks.length}</span>` : ""}
             ${comments ? `<span class="tcard__count" title="Comentários">${icon("message")}${comments}</span>` : ""}
+            ${t.kind === "edicao" ? `<span class="tcard__count tcard__edit" title="Pedido de edição · rodada ${round}">${icon("play")}R${round}</span>` : ""}
           </span>
           ${ids.length ? avatars(state.team, ids) : ""}
         </div>
@@ -151,6 +153,7 @@ export function setupBoard({ api, state, toast, confirm, openContent }) {
     assignees: filters.person ? [filters.person === "me" ? state.me?.user_id : filters.person].filter(Boolean) : undefined
   });
   on(document, "click", '[data-action="new-task"]', () => panel.openNew(presetFromFilters()));
+  on(document, "click", '[data-action="new-edit-request"]', () => panel.openNew({ kind: "edicao", client_id: presetFromFilters().client_id }));
   on(root, "submit", "[data-quick-add]", async (event, form) => {
     event.preventDefault();
     const input = form.elements.title;
@@ -366,5 +369,12 @@ export function setupBoard({ api, state, toast, confirm, openContent }) {
     panel.openNew(presetFromFilters());
   });
 
-  return { load, async openTask(id) { if (!loaded) await load(); return panel.open(id); }, openNew: (preset) => panel.openNew(preset), reset() { tasks = []; loaded = false; } };
+  return {
+    load,
+    async openTask(id) { if (!loaded) await load(); return panel.open(id); },
+    openNew: (preset) => panel.openNew(preset),
+    /** Pedido de edição (do quadro ou de um conteúdo do calendário) */
+    async openEditRequest(preset = {}) { if (!loaded) await load(); panel.openNew({ ...preset, kind: "edicao" }); },
+    reset() { tasks = []; loaded = false; }
+  };
 }

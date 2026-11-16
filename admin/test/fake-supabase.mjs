@@ -129,6 +129,11 @@ export function createFakeSupabase({ store, publishableKey }) {
   }
 
   async function rpc(name, body, user) {
+    if (name === "edit_deliver" || name === "edit_review") {
+      if (!active(user)) return raise("sem_permissao");
+      const out = tasks.rpc(name, body || {}, user);
+      return out?.error ? out : out;
+    }
     if (name === "push_subscribe") {
       if (!active(user)) return raise("sem_permissao");
       if (!pushOrigin(body.p_endpoint) || !/^[A-Za-z0-9_-]{80,100}$/.test(body.p_p256dh || "") || !/^[A-Za-z0-9_-]{16,32}$/.test(body.p_auth || "")) return raise("check");
@@ -201,7 +206,7 @@ export function createFakeSupabase({ store, publishableKey }) {
   async function rest(method, table, params, body, user, single) {
     if (table.startsWith("rpc/") && method === "POST") return rpc(table.slice(4), body, user);
     if (table === "push_subscriptions" && method === "GET") return pushSubs.filter((p) => p.user_id === user?.id).map(({ p256dh, auth, ...row }) => row);
-    if (["tasks", "board_columns", "labels", "projects", "task_assignees", "task_labels", "task_events", "task_comments", "task_comment_edits", "task_checklist"].includes(table)) {
+    if (["tasks", "board_columns", "labels", "projects", "task_assignees", "task_labels", "task_events", "task_comments", "task_comment_edits", "task_checklist", "task_rounds"].includes(table)) {
       if (!active(user)) return method === "GET" ? [] : rlsDenied();
       return tasks.route(method, table, params, body, user);
     }

@@ -2,10 +2,10 @@
    Valida os dados antes de enviar (domain/rules.js); o banco confere de novo
    com as próprias regras e só aceita membros da equipe (RLS). */
 
-import { validateClient, validateContent, validateContentFilters, parseUsername, passwordProblem, CONTENT_STATUS, PRODUCTION_STATUS, isUuid, validateAd, validateAdFilters, AD_LIMITS, validateBrandKit, validateBatch, validateMember } from "./domain/rules.js?v=8bfb16b6bd";
-import { validateTask, isId, TASK_STATUS, COLORS } from "./domain/tasks.js?v=8bfb16b6bd";
-import { ALERT_DEFAULTS, validateAlertSettings } from "./domain/deadlines.js?v=8bfb16b6bd";
-import { UPLOAD_LIMITS, fileName, fileProblem, resizeImage } from "../../js/lib/storage.js?v=8bfb16b6bd";
+import { validateClient, validateContent, validateContentFilters, parseUsername, passwordProblem, CONTENT_STATUS, PRODUCTION_STATUS, isUuid, validateAd, validateAdFilters, AD_LIMITS, validateBrandKit, validateBatch, validateMember } from "./domain/rules.js?v=f5b3406042";
+import { validateTask, isId, TASK_STATUS, COLORS, httpsUrl } from "./domain/tasks.js?v=f5b3406042";
+import { ALERT_DEFAULTS, validateAlertSettings } from "./domain/deadlines.js?v=f5b3406042";
+import { UPLOAD_LIMITS, fileName, fileProblem, resizeImage } from "../../js/lib/storage.js?v=f5b3406042";
 
 export class ApiError extends Error {
   constructor(status, message, fields) { super(message); this.status = status; this.fields = fields || {}; }
@@ -441,12 +441,13 @@ export function createApi({ store, onSessionLost, access = null, storage = null,
     listTasks: guard((opts) => store.listTasks(opts)),
     getTask: guard((id) => store.getTask(requireId(id))),
     /** Cria a demanda (ou subtarefa) e já põe responsáveis e etiquetas */
-    createTask: guard(async (data, { assignees = [], labels = [] } = {}) => {
+    createTask: guard(async (data, { assignees = [], labels = [], checklist = [] } = {}) => {
       const { value, errors } = validateTask(data, { creating: true });
       if (Object.keys(errors).length) throw new ApiError(422, "Confira os campos destacados.", errors);
       const task = await store.createTask(value);
       await store.addTaskAssignees(task.id, [...new Set(assignees)].filter(isId));
       await store.addTaskLabels(task.id, [...new Set(labels)].filter(isId));
+      for (const item of checklist.map((x) => String(x || "").trim()).filter((x) => x && x.length <= 300).slice(0, 20)) await store.addChecklist({ task_id: task.id, body: item });
       return { ...task, task_assignees: assignees.filter(isId).map((user_id) => ({ user_id })), task_labels: labels.filter(isId).map((label_id) => ({ label_id })) };
     }),
     /** Altera só o que veio; recusa se outra pessoa salvou antes (version) */
@@ -502,6 +503,22 @@ export function createApi({ store, onSessionLost, access = null, storage = null,
     editTaskComment: guard((id, body, mentions = []) => store.updateTaskComment(requireId(id), { body: commentText(body), mentions: [...new Set(mentions)].filter(isUuid) })),
     deleteTaskComment: guard((id) => store.updateTaskComment(requireId(id), { deleted_at: new Date().toISOString() })),
     commentEdits: guard((id) => store.listCommentEdits(requireId(id))),
+    listRounds: guard((taskId) => store.listRounds(requireId(taskId))),
+    /** Editor entrega a rodada aberta (link do vídeo pronto) */
+    editDeliver: guard((taskId, url, note = "") => {
+      const link = httpsUrl(url);
+      if (!link) throw new ApiError(422, "Cole o link do vídeo pronto (começa com https://).", { url: "Cole o link do vídeo (https://)." });
+      if (String(note || "").length > 2000) throw new ApiError(422, "Observação longa demais (até 2.000 caracteres).");
+      return store.editDeliver(requireId(taskId), link, String(note || "").trim());
+    }),
+    /** Quem pediu aprova ou pede ajuste (com os pontos) */
+    editReview: guard((taskId, decision, notes = "") => {
+      if (!["aprovado", "ajustes"].includes(decision)) throw new ApiError(422, "Decisão inválida.");
+      const text = String(notes || "").trim();
+      if (decision === "ajustes" && !text) throw new ApiError(422, "Escreva o que precisa mudar.", { notes: "Escreva o que precisa mudar." });
+      if (text.length > 5000) throw new ApiError(422, "Texto longo demais (até 5.000 caracteres).");
+      return store.editReview(requireId(taskId), decision, text);
+    }),
     listChecklist: guard((taskId) => store.listChecklist(requireId(taskId))),
     addChecklist: guard((taskId, body) => store.addChecklist({ task_id: requireId(taskId), body: checklistText(body) })),
     updateChecklist: guard((id, data) => {

@@ -1,18 +1,18 @@
 /* Seção Conteúdos: filtros, lista, detalhes, cadastro, edição e exclusão */
 
-import { $, esc, on } from "../../../js/lib/dom.js?v=8bfb16b6bd";
-import { icon } from "../../../js/lib/icons.js?v=8bfb16b6bd";
-import { longDayLabel, timeLabel, todayISO, stampLabel, addDays } from "../../../js/lib/dates.js?v=8bfb16b6bd";
-import { typeBadge } from "../../../js/ui/badges.js?v=8bfb16b6bd";
-import { renderMedia, wireMediaFallbacks } from "../../../js/ui/media.js?v=8bfb16b6bd";
-import { PRIORITIES } from "../domain/rules.js?v=8bfb16b6bd";
-import { CONTENT_STATUS, CLIENT_VISIBLE_STATUS, APPROVAL_STATUS, PRODUCTION_STATUS, NETWORKS, FORMATS, LIMITS, validateContent, validateContentFilters } from "../domain/rules.js?v=8bfb16b6bd";
-import { closeDialog, wireDialog, showFieldErrors, setBusy } from "../ui/dialogs.js?v=8bfb16b6bd";
-import { stateBlock, loadingRows, button } from "../ui/states.js?v=8bfb16b6bd";
-import { reviewSections, mountReview } from "./content-review.js?v=8bfb16b6bd";
-import { describeMedia, mediaCover, coverHtml } from "../../../js/ui/media.js?v=8bfb16b6bd";
-import { kebab } from "../ui/menu.js?v=8bfb16b6bd";
-import { CAL_MODES, BOARD_COLUMNS, renderCalendar, calendarRange, stepCursor, calendarTitle, attentionItems, renderAttention } from "./contents-calendar.js?v=8bfb16b6bd";
+import { $, esc, on } from "../../../js/lib/dom.js?v=f5b3406042";
+import { icon } from "../../../js/lib/icons.js?v=f5b3406042";
+import { longDayLabel, timeLabel, todayISO, stampLabel, addDays } from "../../../js/lib/dates.js?v=f5b3406042";
+import { typeBadge } from "../../../js/ui/badges.js?v=f5b3406042";
+import { renderMedia, wireMediaFallbacks } from "../../../js/ui/media.js?v=f5b3406042";
+import { PRIORITIES } from "../domain/rules.js?v=f5b3406042";
+import { CONTENT_STATUS, CLIENT_VISIBLE_STATUS, APPROVAL_STATUS, PRODUCTION_STATUS, NETWORKS, FORMATS, LIMITS, validateContent, validateContentFilters } from "../domain/rules.js?v=f5b3406042";
+import { closeDialog, wireDialog, showFieldErrors, setBusy } from "../ui/dialogs.js?v=f5b3406042";
+import { stateBlock, loadingRows, button } from "../ui/states.js?v=f5b3406042";
+import { reviewSections, mountReview } from "./content-review.js?v=f5b3406042";
+import { describeMedia, mediaCover, coverHtml } from "../../../js/ui/media.js?v=f5b3406042";
+import { kebab } from "../ui/menu.js?v=f5b3406042";
+import { CAL_MODES, BOARD_COLUMNS, renderCalendar, calendarRange, stepCursor, calendarTitle, attentionItems, renderAttention } from "./contents-calendar.js?v=f5b3406042";
 
 const shortDate = (iso) => iso.split("-").reverse().join("/");
 const statusChip = (status) => `<span class="content-status cs--${esc(status)}">${esc(CONTENT_STATUS[status]?.label || status)}</span>`;
@@ -354,6 +354,7 @@ export function setupContents({ api, state, toast, confirm, navigate }) {
       <p class="drawer__version">${esc(versionLine(content))}</p>
       <div class="drawer__actions">
         ${canEdit(content) ? `<button class="btn btn--primary btn--sm" type="button" data-edit-content="${esc(content.id)}">${icon("edit")}<span>Editar</span></button>` : ""}
+        <button class="btn btn--ghost btn--sm" type="button" data-content-edit-request="${esc(content.id)}">${icon("play")}<span>Pedido de edição</span></button>
         ${state.can.admin ? `<button class="btn btn--ghost btn--sm" type="button" data-delete-content="${esc(content.id)}">${icon("trash")}<span>Excluir</span></button>` : ""}
       </div>
       <section class="detail comments" aria-labelledby="comments-title">
@@ -761,6 +762,13 @@ export function setupContents({ api, state, toast, confirm, navigate }) {
   const findAny = (id) => find(id) || (lastOpened?.id === id ? lastOpened : null);
   on(document, "click", "[data-edit-content]", (event, btn) => { const c = findAny(btn.dataset.editContent); if (c) openForm(c); });
   on(document, "click", "[data-delete-content]", (event, btn) => { const c = find(btn.dataset.deleteContent); if (c) remove(c); });
+  // Pedido de edição a partir do conteúdo: o painel de demandas já abre com cliente, título, formato e prazo
+  on(document, "click", "[data-content-edit-request]", async (event, btn) => {
+    let c = find(btn.dataset.contentEditRequest);
+    if (!c) { try { c = await api.getContent(btn.dataset.contentEditRequest); } catch (error) { toast(error.message, "error"); return; } }
+    closeDialog(drawer);
+    document.dispatchEvent(new CustomEvent("edit-request", { detail: c }));
+  });
 
   /* ---------- Comentários da equipe (com @menção) ---------- */
   let commentFor = null;               // conteúdo cujo comentário está sendo escrito

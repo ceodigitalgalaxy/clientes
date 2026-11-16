@@ -8,14 +8,14 @@
    - Semana: os mesmos cartões de dia, mais altos e com todas as atividades.
    ========================================================================== */
 
-import { esc, on, canHover } from "../lib/dom.js?v=8bfb16b6bd";
-import { icon } from "../lib/icons.js?v=8bfb16b6bd";
-import { monthGrid, weekDays, WEEKDAYS_SHORT, todayISO, timeLabel, dayLabel, longDayLabel } from "../lib/dates.js?v=8bfb16b6bd";
-import { ACTIVITY_TYPES, STATUS } from "../domain/model.js?v=8bfb16b6bd";
-import { statusOf } from "../domain/status.js?v=8bfb16b6bd";
-import { typeBadge, statusBadge, statusMark } from "./badges.js?v=8bfb16b6bd";
-import { cover } from "./highlights.js?v=8bfb16b6bd";
-import { coverHtml } from "./media.js?v=8bfb16b6bd";
+import { esc, on, canHover } from "../lib/dom.js?v=f5b3406042";
+import { icon } from "../lib/icons.js?v=f5b3406042";
+import { monthGrid, weekDays, WEEKDAYS_SHORT, todayISO, timeLabel, dayLabel, longDayLabel } from "../lib/dates.js?v=f5b3406042";
+import { ACTIVITY_TYPES, STATUS } from "../domain/model.js?v=f5b3406042";
+import { statusOf } from "../domain/status.js?v=f5b3406042";
+import { typeBadge, statusBadge, statusMark } from "./badges.js?v=f5b3406042";
+import { cover } from "./highlights.js?v=f5b3406042";
+import { coverHtml } from "./media.js?v=f5b3406042";
 
 const MAX_CHIPS = 3;
 const DAY_STATUS_ORDER = ["aguardando", "ajustes", "aprovado", "publicado"];

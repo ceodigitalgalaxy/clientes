@@ -24,6 +24,45 @@ export const TASK_PRIORITIES = Object.freeze({
   urgente: { label: "Urgente", rank: 0 }
 });
 
+/** Pedido de edição de vídeo */
+export const VIDEO_FORMATS = Object.freeze({
+  "9_16": "Vertical 9:16 (Reels, Stories, TikTok)",
+  "4_5": "Feed 4:5",
+  "1_1": "Quadrado 1:1",
+  "16_9": "Horizontal 16:9 (YouTube)",
+  outro: "Outro formato"
+});
+export const VIDEO_FORMAT_SHORT = Object.freeze({ "9_16": "9:16", "4_5": "4:5", "1_1": "1:1", "16_9": "16:9", outro: "Outro" });
+/** Checklist que já vem marcado no pedido (dá para tirar itens) */
+export const EDIT_CHECKLIST = Object.freeze(["Cortes e ritmo", "Legendas", "Trilha e áudio", "Cor", "Textos e letreiros", "Exportar no formato pedido", "Revisar antes de entregar"]);
+/** Formato do vídeo a partir do formato do conteúdo do calendário */
+export const formatFromContent = (format) => ({ reels: "9_16", stories: "9_16", video: "16_9", carrossel: "4_5", post: "4_5" }[format] || "");
+
+/** Link seguro: só https, sem usuário/senha embutidos, até 1.000 caracteres. Devolve o link limpo ou null */
+export function httpsUrl(value) {
+  const text = String(value || "").trim();
+  if (!text || text.length > 1000 || /\s/.test(text)) return null;
+  let url;
+  try { url = new URL(text); } catch { return null; }
+  if (url.protocol !== "https:" || url.username || url.password || !url.hostname.includes(".")) return null;
+  return url.href;
+}
+/** Nome curto do serviço do link (para o botão) */
+export function linkHost(value) {
+  try {
+    const host = new URL(value).hostname.replace(/^www\./, "");
+    if (/(^|\.)drive\.google\.com$|(^|\.)docs\.google\.com$/.test(host)) return "Google Drive";
+    if (/dropbox\.com$/.test(host)) return "Dropbox";
+    if (/(youtube\.com|youtu\.be)$/.test(host)) return "YouTube";
+    if (/canva\.com$/.test(host)) return "Canva";
+    if (/figma\.com$/.test(host)) return "Figma";
+    if (/instagram\.com$/.test(host)) return "Instagram";
+    if (/tiktok\.com$/.test(host)) return "TikTok";
+    if (/wetransfer\.com$/.test(host)) return "WeTransfer";
+    return host;
+  } catch { return ""; }
+}
+
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 export const isId = (v) => UUID.test(String(v || ""));
 const clean = (v) => (typeof v === "string" ? v.trim() : v ?? "");
@@ -90,6 +129,25 @@ export function validateTask(input = {}, { creating = false } = {}) {
     if (!Number.isFinite(value.position)) errors.position = "Posição inválida.";
   }
   if ("archived_at" in input) value.archived_at = input.archived_at || null;
+  if ("kind" in input) {
+    value.kind = input.kind === "edicao" ? "edicao" : "geral";
+  }
+  for (const [key, label] of [["drive_url", "Cole o link da pasta (começa com https://)."], ["reference_url", "Cole um link que começa com https://."]]) {
+    if (key in input) {
+      const raw = clean(input[key]);
+      value[key] = raw ? httpsUrl(raw) : null;
+      if (raw && !value[key]) errors[key] = label;
+    }
+  }
+  if (value.kind === "edicao" && creating && !value.drive_url && !errors.drive_url) errors.drive_url = "Cole o link da pasta do Drive com os brutos.";
+  if ("video_format" in input) {
+    value.video_format = clean(input.video_format) || null;
+    if (value.video_format && !VIDEO_FORMATS[value.video_format]) errors.video_format = "Escolha o formato.";
+  }
+  if ("video_duration" in input) {
+    value.video_duration = clean(input.video_duration) || null;
+    if (value.video_duration && value.video_duration.length > 40) errors.video_duration = "Use até 40 caracteres.";
+  }
   return { value, errors };
 }
 

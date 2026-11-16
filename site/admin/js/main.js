@@ -9,30 +9,31 @@
    O banco aplica as mesmas regras (RLS): esconder a tela não é a proteção.
    ========================================================================== */
 
-import { $, on } from "../../js/lib/dom.js?v=8bfb16b6bd";
-import { icon, brandMark } from "../../js/lib/icons.js?v=8bfb16b6bd";
-import { toast } from "../../js/ui/toast.js?v=8bfb16b6bd";
-import { SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY } from "../../js/config.js?v=8bfb16b6bd";
-import { createAuth } from "../../js/lib/auth.js?v=8bfb16b6bd";
-import { createStorage } from "../../js/lib/storage.js?v=8bfb16b6bd";
-import { createSupabaseStore } from "./data/store.js?v=8bfb16b6bd";
-import { createApi } from "./api.js?v=8bfb16b6bd";
-import { validateContentFilters } from "./domain/rules.js?v=8bfb16b6bd";
-import { createConfirm, showFieldErrors, setBusy } from "./ui/dialogs.js?v=8bfb16b6bd";
-import { setupClients } from "./views/clients.js?v=8bfb16b6bd";
-import { setupContents } from "./views/contents.js?v=8bfb16b6bd";
-import { setupAccess } from "./views/access.js?v=8bfb16b6bd";
-import { setupImport } from "./views/import.js?v=8bfb16b6bd";
-import { setupAds } from "./views/ads.js?v=8bfb16b6bd";
-import { setupBrand } from "./views/brand.js?v=8bfb16b6bd";
-import { setupApprovals } from "./views/approvals.js?v=8bfb16b6bd";
-import { setupTeam } from "./views/team.js?v=8bfb16b6bd";
-import { setupTasks } from "./views/tasks.js?v=8bfb16b6bd";
-import { setupBoard } from "./views/board.js?v=8bfb16b6bd";
-import { setupHome } from "./views/home.js?v=8bfb16b6bd";
-import { setupInbox } from "./views/inbox.js?v=8bfb16b6bd";
-import { setupPush } from "./views/push.js?v=8bfb16b6bd";
-import { wireMenus } from "./ui/menu.js?v=8bfb16b6bd";
+import { $, on } from "../../js/lib/dom.js?v=f5b3406042";
+import { icon, brandMark } from "../../js/lib/icons.js?v=f5b3406042";
+import { toast } from "../../js/ui/toast.js?v=f5b3406042";
+import { SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY } from "../../js/config.js?v=f5b3406042";
+import { createAuth } from "../../js/lib/auth.js?v=f5b3406042";
+import { createStorage } from "../../js/lib/storage.js?v=f5b3406042";
+import { createSupabaseStore } from "./data/store.js?v=f5b3406042";
+import { createApi } from "./api.js?v=f5b3406042";
+import { validateContentFilters } from "./domain/rules.js?v=f5b3406042";
+import { createConfirm, showFieldErrors, setBusy } from "./ui/dialogs.js?v=f5b3406042";
+import { setupClients } from "./views/clients.js?v=f5b3406042";
+import { setupContents } from "./views/contents.js?v=f5b3406042";
+import { setupAccess } from "./views/access.js?v=f5b3406042";
+import { setupImport } from "./views/import.js?v=f5b3406042";
+import { setupAds } from "./views/ads.js?v=f5b3406042";
+import { setupBrand } from "./views/brand.js?v=f5b3406042";
+import { setupApprovals } from "./views/approvals.js?v=f5b3406042";
+import { setupTeam } from "./views/team.js?v=f5b3406042";
+import { setupTasks } from "./views/tasks.js?v=f5b3406042";
+import { setupBoard } from "./views/board.js?v=f5b3406042";
+import { formatFromContent } from "./domain/tasks.js?v=f5b3406042";
+import { setupHome } from "./views/home.js?v=f5b3406042";
+import { setupInbox } from "./views/inbox.js?v=f5b3406042";
+import { setupPush } from "./views/push.js?v=f5b3406042";
+import { wireMenus } from "./ui/menu.js?v=f5b3406042";
 
 /* O painel não abre dentro de outro site (proteção contra clique disfarçado).
    A página fica invisível até esta checagem (veja .admin em admin.css). */
@@ -125,15 +126,34 @@ const push = setupPush({ api, toast });
 const inbox = setupInbox({ api, state, push, openContent: (id) => contents.openById(id), openTask: (id) => boardView.openTask(id), onNew: newsArrived });
 
 /* Chegou aviso novo (quem passou a demanda não precisa avisar ninguém): as telas se atualizam sozinhas */
-const NEWS_TEXT = { tarefa_atribuida: (n) => `${n.actor_name} te passou uma demanda: ${n.body || ""}`, atribuicao: (n) => `${n.actor_name} te passou um conteúdo: ${n.body || ""}` };
+const NEWS_TEXT = {
+  tarefa_atribuida: (n) => `${n.actor_name} te passou uma demanda: ${n.body || ""}`,
+  atribuicao: (n) => `${n.actor_name} te passou um conteúdo: ${n.body || ""}`,
+  edicao_entregue: (n) => `${n.actor_name} entregou a edição: ${n.body || ""}`,
+  edicao_ajuste: (n) => `${n.actor_name} pediu ajuste: ${n.body || ""}`,
+  edicao_aprovada: (n) => `${n.actor_name} aprovou a edição: ${n.body || ""}`
+};
 function newsArrived(fresh) {
   const assigned = fresh.filter((n) => NEWS_TEXT[n.kind]);
   if (assigned.length === 1) toast(NEWS_TEXT[assigned[0].kind](assigned[0]).slice(0, 120), "info");
-  else if (assigned.length > 1) toast(`${assigned.length} demandas novas com você · veja em Minhas`, "info");
+  else if (assigned.length > 1) toast(`${assigned.length} novidades nas suas demandas · veja em Minhas`, "info");
   tasksView.refresh();
   if (state.route === "gestao") boardView.load();
   if (state.route === "inicio") homeView.load();
 }
+// Pedido de edição a partir de um conteúdo do calendário: prazo = véspera da publicação às 18h
+document.addEventListener("edit-request", (event) => {
+  const c = event.detail;
+  const day = (() => {
+    if (!c.scheduled_date) return "";
+    const [y, m, d] = c.scheduled_date.split("-").map(Number);
+    const before = new Date(y, m - 1, d - 1);
+    const pad = (n) => String(n).padStart(2, "0");
+    const iso = `${before.getFullYear()}-${pad(before.getMonth() + 1)}-${pad(before.getDate())}`;
+    return iso >= new Date().toISOString().slice(0, 10) ? iso : "";
+  })();
+  boardView.openEditRequest({ title: `Edição: ${c.title}`, client_id: c.client_id, content_id: c.id, video_format: formatFromContent(c.format), description: c.content_plan || "", due_date: day, due_time: "18:00" });
+});
 // Abriu a demanda (de qualquer lugar): os avisos dela contam como lidos e o "Nova" sai
 document.addEventListener("task-opened", (event) => { if (inbox.markItemRead("demanda", event.detail)) tasksView.repaint(); });
 

@@ -5,9 +5,9 @@
    Novidade chegando (a cada 20 s, ao voltar para o app ou na hora, quando o
    aviso no celular está ativado) → onNew(novos): as telas se atualizam sozinhas. */
 
-import { $, esc, on } from "../../../js/lib/dom.js?v=8bfb16b6bd";
-import { icon } from "../../../js/lib/icons.js?v=8bfb16b6bd";
-import { stampLabel } from "../../../js/lib/dates.js?v=8bfb16b6bd";
+import { $, esc, on } from "../../../js/lib/dom.js?v=f5b3406042";
+import { icon } from "../../../js/lib/icons.js?v=f5b3406042";
+import { stampLabel } from "../../../js/lib/dates.js?v=f5b3406042";
 
 const KINDS = {
   atribuicao: { icon: "user", text: (n) => `${n.actor_name} te colocou como responsável` },
@@ -18,6 +18,9 @@ const KINDS = {
   tarefa_mencao: { icon: "message", text: (n) => `${n.actor_name} te mencionou numa demanda` },
   tarefa_comentario: { icon: "message", text: (n) => `${n.actor_name} comentou numa demanda sua` },
   subtarefa_concluida: { icon: "check", text: (n) => `${n.actor_name} concluiu uma subtarefa` },
+  edicao_entregue: { icon: "play", text: (n) => `${n.actor_name} entregou a edição` },
+  edicao_ajuste: { icon: "refresh", text: (n) => `${n.actor_name} pediu ajuste na edição` },
+  edicao_aprovada: { icon: "check", text: (n) => `${n.actor_name} aprovou a edição` },
   prazo_proximo: { icon: "clock", text: () => "Entrega chegando" },
   tarefa_atrasada: { icon: "clock", text: () => "Demanda atrasada" }
 };

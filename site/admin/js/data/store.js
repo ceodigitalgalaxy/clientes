@@ -23,7 +23,8 @@ export class StoreError extends Error {
 const CLIENT_FIELDS = "id,name,slug,segment,contact_name,contact_email,notes,active,logo_path,created_at,updated_at";
 const AD_FIELDS = "id,client_id,title,campaign_context,objective,platform,platform_other,format,creative_stage,primary_text,headline,description,cta,destination_url,client_notes,internal_notes,status,version,submitted_at,submitted_by,first_submitted_at,created_by,created_at,updated_at";
 const TASK_COMMENT_FIELDS = "id,task_id,parent_id,author_id,author_name,body,mentions,edited_at,deleted_at,created_at";
-const TASK_FIELDS = "id,parent_id,client_id,project_id,content_id,title,description,status,column_id,priority,due_at,position,created_by,completed_at,completed_by,archived_at,version,created_at,updated_at";
+const TASK_FIELDS = "id,parent_id,client_id,project_id,content_id,title,description,status,column_id,priority,due_at,position,created_by,completed_at,completed_by,archived_at,version,created_at,updated_at,kind,drive_url,reference_url,video_format,video_duration";
+const ROUND_FIELDS = "id,task_id,round,requested_notes,requested_name,requested_at,delivery_url,delivery_note,delivered_name,delivered_at,decision,decided_at";
 const MEMBER_FIELDS = "user_id,role,active,name,email,job_title,all_clients,edit_scope,can_send_approval";
 const AD_ASSET_FIELDS = "id,ad_id,kind,storage_path,url,position,created_at";
 
@@ -41,6 +42,13 @@ export const AD_ERRORS = {
   sem_permissao_aprovacao: "Seu usuário não pode mudar o status de aprovação. Peça a um administrador.",
   sem_permissao_arquivar: "Só quem criou a demanda ou um administrador pode arquivá-la.",
   subtarefa_de_subtarefa: "Uma subtarefa não pode ter outra subtarefa dentro.",
+  link_invalido: "Cole um link que começa com https://.",
+  rodada_fechada: "Esta rodada já foi decidida. Atualize a demanda.",
+  so_quem_pediu_revisa: "Só quem pediu a edição (ou um administrador) aprova ou pede ajuste.",
+  sem_entrega: "O editor ainda não entregou esta rodada.",
+  ajuste_sem_pontos: "Escreva o que precisa mudar.",
+  pedido_invalido: "Este pedido de edição não está mais disponível.",
+  tipo_nao_muda: "Uma demanda comum não vira pedido de edição (crie um pedido novo).",
   so_o_autor_edita: "Só quem escreveu o comentário pode editá-lo.",
   comentario_apagado: "Este comentário já foi apagado.",
   resposta_invalida: "O comentário respondido não existe mais nesta demanda.",
@@ -397,11 +405,11 @@ export function createSupabaseStore({ url, apiKey, secretKey, getToken, onUnauth
 
     /* ---------- Gestão de demandas (tarefas e subtarefas) ---------- */
     async listTasks({ archived = false } = {}) {
-      const query = [`select=${TASK_FIELDS},task_assignees(user_id),task_labels(label_id),task_comments(count),task_checklist(done)`, "task_comments.deleted_at=is.null", archived ? "archived_at=not.is.null" : "archived_at=is.null", "order=position.asc", "limit=2000"];
+      const query = [`select=${TASK_FIELDS},task_assignees(user_id),task_labels(label_id),task_comments(count),task_checklist(done),task_rounds(round,delivered_at,decision)`, "task_comments.deleted_at=is.null", archived ? "archived_at=not.is.null" : "archived_at=is.null", "order=position.asc", "limit=2000"];
       return request(`tasks?${query.join("&")}`);
     },
     async getTask(id) {
-      return request(`tasks?select=${TASK_FIELDS},task_assignees(user_id),task_labels(label_id),task_comments(count),task_checklist(done)&task_comments.deleted_at=is.null&id=eq.${enc(id)}`, { single: true });
+      return request(`tasks?select=${TASK_FIELDS},task_assignees(user_id),task_labels(label_id),task_comments(count),task_checklist(done),task_rounds(round,delivered_at,decision)&task_comments.deleted_at=is.null&id=eq.${enc(id)}`, { single: true });
     },
     async createTask(value) {
       return request(`tasks?select=${TASK_FIELDS}`, { method: "POST", body: value, single: true, prefer: "return=representation" });
@@ -467,6 +475,16 @@ export function createSupabaseStore({ url, apiKey, secretKey, getToken, onUnauth
     },
     async listCommentEdits(commentId) {
       return request(`task_comment_edits?select=id,body,edited_at&comment_id=eq.${enc(commentId)}&order=edited_at.desc`);
+    },
+    /* Pedido de edição: rodadas (pedido → entrega → aprovado ou ajuste) */
+    async listRounds(taskId) {
+      return request(`task_rounds?select=${ROUND_FIELDS}&task_id=eq.${enc(taskId)}&order=round.asc`);
+    },
+    async editDeliver(taskId, url, note) {
+      return request("rpc/edit_deliver", { method: "POST", body: { p_task: taskId, p_url: url, p_note: note || null } });
+    },
+    async editReview(taskId, decision, notes) {
+      return request("rpc/edit_review", { method: "POST", body: { p_task: taskId, p_decision: decision, p_notes: notes || null } });
     },
     /* Checklist */
     async listChecklist(taskId) {

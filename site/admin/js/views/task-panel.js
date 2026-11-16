@@ -5,14 +5,14 @@
      ("Salvo ✓"). Se outra pessoa salvou antes, avisa e recarrega (version).
    O banco confere quem pode ver, criar, editar, delegar e arquivar. */
 
-import { $, esc, on } from "../../../js/lib/dom.js?v=8bfb16b6bd";
-import { icon } from "../../../js/lib/icons.js?v=8bfb16b6bd";
-import { stampLabel } from "../../../js/lib/dates.js?v=8bfb16b6bd";
-import { TASK_STATUS, TASK_PRIORITIES, dueParts, dueState } from "../domain/tasks.js?v=8bfb16b6bd";
-import { closeDialog, wireDialog, showFieldErrors, setBusy } from "../ui/dialogs.js?v=8bfb16b6bd";
-import { kebab } from "../ui/menu.js?v=8bfb16b6bd";
-import { attachMentions, mentionHtml } from "../ui/mentions.js?v=8bfb16b6bd";
-import { seesClient, personName, clientDotClass } from "./contents.js?v=8bfb16b6bd";
+import { $, esc, on } from "../../../js/lib/dom.js?v=f5b3406042";
+import { icon } from "../../../js/lib/icons.js?v=f5b3406042";
+import { stampLabel } from "../../../js/lib/dates.js?v=f5b3406042";
+import { TASK_STATUS, TASK_PRIORITIES, dueParts, dueState, VIDEO_FORMATS, VIDEO_FORMAT_SHORT, EDIT_CHECKLIST, linkHost } from "../domain/tasks.js?v=f5b3406042";
+import { closeDialog, wireDialog, showFieldErrors, setBusy } from "../ui/dialogs.js?v=f5b3406042";
+import { kebab } from "../ui/menu.js?v=f5b3406042";
+import { attachMentions, mentionHtml } from "../ui/mentions.js?v=f5b3406042";
+import { seesClient, personName, clientDotClass } from "./contents.js?v=f5b3406042";
 
 const initials = (name) => String(name || "?").trim().split(/\s+/).slice(0, 2).map((w) => w[0]).join("").toUpperCase();
 const options = (entries, selected = "") => entries.map(([v, l]) => `<option value="${esc(v)}"${v === (selected ?? "") ? " selected" : ""}>${esc(l)}</option>`).join("");
@@ -28,8 +28,14 @@ const EVENT_TEXT = {
   cliente: () => "Cliente alterado",
   conteudo: (e) => (e.to_value ? "Ligada a um conteúdo do calendário" : "Desligada do conteúdo"),
   arquivada: () => "Arquivada",
-  restaurada: () => "Restaurada"
+  restaurada: () => "Restaurada",
+  edicao_entregue: (e) => `Edição entregue (rodada ${e.to_value})`,
+  edicao_ajuste: (e) => `Ajuste pedido (rodada ${e.to_value})`,
+  edicao_aprovada: (e) => `Edição aprovada (rodada ${e.to_value})`
 };
+const LAST_EDITOR = "dg-painel-ultimo-editor";
+const rememberEditor = (id) => { try { localStorage.setItem(LAST_EDITOR, id); } catch { /* só não lembra */ } };
+const lastEditor = () => { try { return localStorage.getItem(LAST_EDITOR) || ""; } catch { return ""; } };
 
 /**
  * board: { tasks(), columns(), labels(), projects(), upsert(task), remove(id), reload() }
@@ -65,6 +71,7 @@ export function setupTaskPanel({ api, state, toast, confirm, board, openContent 
 
   /* ---------------- Nova demanda (criação rápida) ---------------- */
   function openNew(preset = {}) {
+    if (preset.kind === "edicao") { openEditRequest(preset); return; }
     current = null;
     badges.innerHTML = `<span class="appr-chip appr-chip--neutral">${icon("sparkle")}Nova demanda</span>`;
     tools.innerHTML = "";
@@ -96,6 +103,81 @@ export function setupTaskPanel({ api, state, toast, confirm, board, openContent 
     if (!drawer.open) drawer.showModal();
     body.querySelector("[name=title]").focus();
   }
+  /* ---------------- Pedido de edição de vídeo ---------------- */
+  /** Quem pode receber o pedido: quem enxerga o cliente; o último editor escolhido já vem marcado */
+  function editorOptions(clientId, chosen) {
+    const list = people(clientId);
+    return `<option value="">Escolher depois</option>${options(list.map((m) => [m.user_id, `${m.name || m.username}${m.job_title ? ` · ${m.job_title}` : ""}${m.user_id === state.me?.user_id ? " (você)" : ""}`]), list.some((m) => m.user_id === chosen) ? chosen : "")}`;
+  }
+  function openEditRequest(preset = {}) {
+    current = null;
+    badges.innerHTML = `<span class="appr-chip appr-chip--neutral">${icon("play")}Pedido de edição</span>`;
+    tools.innerHTML = "";
+    const clientId = preset.client_id ?? "";
+    body.innerHTML = `
+      <form class="task-new task-new--edit" data-edit-new novalidate>
+        <p class="edit-new__intro">${icon("play")}O editor recebe na hora (aviso no celular e em Minhas), abre a pasta, entrega o vídeo aqui e você aprova ou pede ajuste.</p>
+        <label class="field"><span class="visually-hidden">Título</span>
+          <input class="task-new__title" name="title" maxlength="200" placeholder="Qual vídeo? Ex.: Reels da fornada de domingo" autocomplete="off" value="${esc(preset.title || "")}" required></label>
+        <div class="form-grid">
+          <label class="field"><span class="field__label">Cliente</span>
+            <select class="field__input" name="client_id"><option value="">Interno da agência</option>${options(visibleClients().map((c) => [c.id, c.name]), clientId)}</select></label>
+          <label class="field"><span class="field__label">Editor</span>
+            <select class="field__input" name="editor" data-edit-editor>${editorOptions(clientId, preset.editor || lastEditor())}</select></label>
+        </div>
+        <label class="field"><span class="field__label">Pasta do Drive com os brutos</span>
+          <input class="field__input" name="drive_url" type="url" inputmode="url" maxlength="1000" placeholder="https://drive.google.com/drive/folders/…" autocomplete="off" value="${esc(preset.drive_url || "")}" required>
+          <span class="field__hint">Cole o link de compartilhamento da pasta e confira se o editor tem acesso a ela.</span></label>
+        <div class="form-grid">
+          <label class="field"><span class="field__label">Formato</span>
+            <select class="field__input" name="video_format"><option value="">Escolha</option>${options(Object.entries(VIDEO_FORMATS), preset.video_format || "")}</select></label>
+          <label class="field"><span class="field__label">Duração <span class="field__optional">(opcional)</span></span>
+            <input class="field__input" name="video_duration" maxlength="40" placeholder="Ex.: até 30 s" value="${esc(preset.video_duration || "")}"></label>
+        </div>
+        <label class="field"><span class="field__label">O que fazer</span>
+          <textarea class="field__input" name="description" rows="4" maxlength="10000" placeholder="Ex.: abrir com a fornada saindo do forno, legenda em todas as falas, trilha animada, logo no final, CTA &quot;Peça já pelo WhatsApp&quot;.">${esc(preset.description || "")}</textarea></label>
+        <label class="field"><span class="field__label">Vídeo de referência <span class="field__optional">(opcional)</span></span>
+          <input class="field__input" name="reference_url" type="url" inputmode="url" maxlength="1000" placeholder="https://www.instagram.com/reel/…" autocomplete="off"></label>
+        <div class="field"><span class="field__label">Entrega</span>
+          <span class="input-row"><input class="field__input" type="date" name="due_date" value="${esc(preset.due_date || "")}"><input class="field__input task-time" type="time" name="due_time" value="${esc(preset.due_time || "18:00")}"></span></div>
+        <fieldset class="field"><legend class="field__label">Checklist do editor <span class="field__optional">(desmarque o que não precisa)</span></legend>
+          <div class="pick-checks">${EDIT_CHECKLIST.map((item) => `<label class="check"><input type="checkbox" name="check_item" value="${esc(item)}" checked><span>${esc(item)}</span></label>`).join("")}</div></fieldset>
+        <p class="form-error" role="alert" hidden></p>
+        <div class="task-new__actions">
+          <button class="btn btn--primary" type="submit">${icon("send")}<span>Enviar para o editor</span></button>
+        </div>
+        <input type="hidden" name="content_id" value="${esc(preset.content_id || "")}">
+      </form>`;
+    if (!drawer.open) drawer.showModal();
+    body.querySelector(preset.title ? "[name=drive_url]" : "[name=title]").focus();
+  }
+  on(body, "change", "[data-edit-new] [name=client_id]", (event, select) => {
+    const box = body.querySelector("[data-edit-editor]");
+    box.innerHTML = editorOptions(select.value, box.value || lastEditor());
+  });
+  on(body, "submit", "[data-edit-new]", async (event, form) => {
+    event.preventDefault();
+    const data = Object.fromEntries(new FormData(form));
+    const checklist = [...form.querySelectorAll("[name=check_item]:checked")].map((b) => b.value);
+    const editLabel = board.labels().find((l) => !l.archived_at && /^edi[cç][aã]o$/i.test(l.name.trim()));
+    const submit = form.querySelector("[type=submit]");
+    saving = true;
+    setBusy(submit, true);
+    try {
+      const created = await api.createTask({
+        kind: "edicao", title: data.title, client_id: data.client_id, description: data.description,
+        drive_url: data.drive_url, reference_url: data.reference_url, video_format: data.video_format, video_duration: data.video_duration,
+        due_date: data.due_date, due_time: data.due_time, content_id: data.content_id || undefined
+      }, { assignees: data.editor ? [data.editor] : [], labels: editLabel ? [editLabel.id] : [], checklist });
+      if (data.editor) rememberEditor(data.editor);
+      board.upsert(created);
+      toast(data.editor ? `Pedido enviado para ${personName(state.team, data.editor)}` : "Pedido de edição criado (falta escolher o editor)");
+      await open(created.id);
+    } catch (error) {
+      showFieldErrors(form, error.fields || {}, error.message);
+    } finally { saving = false; setBusy(submit, false); }
+  });
+
   on(body, "change", "[data-task-new] [name=client_id]", (event, select) => {
     const chosen = [...body.querySelectorAll("[data-task-new] [name=assignee]:checked")].map((b) => b.value);
     body.querySelector("[data-new-people]").innerHTML = peoplePicker(select.value, chosen);
@@ -127,7 +209,7 @@ export function setupTaskPanel({ api, state, toast, confirm, board, openContent 
   const labelsOf = (t) => (t.task_labels || []).map((l) => l.label_id);
 
   /* ---------------- Subtarefas, checklist e comentários ---------------- */
-  let activity = { taskId: null, comments: null, checklist: null };   // o que já veio do banco para a demanda aberta
+  let activity = { taskId: null, comments: null, checklist: null, rounds: null };   // o que já veio do banco para a demanda aberta
   let labelsOpen = false;    // a lista completa de etiquetas só abre em "Alterar"
   const labelsNow = (t) => {
     const chosen = labelsOf(t).map((id) => board.labels().find((l) => l.id === id)).filter(Boolean);
@@ -217,6 +299,8 @@ export function setupTaskPanel({ api, state, toast, confirm, board, openContent 
     if (ck) ck.textContent = items && items.length ? `${items.filter((i) => i.done).length}/${items.length}` : "";
   }
   function paintActivity() {
+    const rb = body.querySelector("[data-rounds]");
+    if (rb && current) rb.innerHTML = roundsHtml(current);
     const cl = body.querySelector("[data-checklist]");
     if (cl) cl.innerHTML = checklistHtml();
     const cm = body.querySelector("[data-task-comments]");
@@ -230,11 +314,80 @@ export function setupTaskPanel({ api, state, toast, confirm, board, openContent 
     board.upsert(current);
   }
   async function loadActivity(id) {
-    if (activity.taskId !== id) activity = { taskId: id, comments: null, checklist: null };
-    const [comments, checklist] = await Promise.all([api.listTaskComments(id).catch(() => []), api.listChecklist(id).catch(() => [])]);
+    if (activity.taskId !== id) activity = { taskId: id, comments: null, checklist: null, rounds: null };
+    const isEdit = current?.kind === "edicao";
+    const [comments, checklist, rounds] = await Promise.all([api.listTaskComments(id).catch(() => []), api.listChecklist(id).catch(() => []), isEdit ? api.listRounds(id).catch(() => []) : Promise.resolve(null)]);
     if (current?.id !== id) return;
-    activity = { taskId: id, comments, checklist };
+    activity = { taskId: id, comments, checklist, rounds };
     paintActivity();
+  }
+
+  /* ---------------- Bloco do pedido de edição (pasta, rodadas, entregar, aprovar/ajustar) ---------------- */
+  const me2 = () => state.me?.user_id;
+  // Entrega quem é o editor (responsável); sem editor escolhido, quem pediu ou o administrador
+  const canDeliver = (t) => assigneesOf(t).includes(me2()) || (!assigneesOf(t).length && (state.can.admin || t.created_by === me2()));
+  const canReview = (t) => state.can.admin || t.created_by === me2() || (state.can.edit && Boolean(t.client_id) && seesClient(state.me, t.client_id));
+  const multiline = (text) => esc(text || "").replace(/\n/g, "<br>");
+  const extLink = (url, label, cls = "btn btn--ghost btn--sm") => `<a class="${cls}" href="${esc(url)}" target="_blank" rel="noopener noreferrer">${label}</a>`;
+  function roundsHtml(t) {
+    const rounds = activity.taskId === t.id ? activity.rounds : null;
+    if (!rounds) return '<p class="field__hint">Carregando as rodadas…</p>';
+    if (!rounds.length) return "";
+    const last = rounds[rounds.length - 1];
+    const items = rounds.map((r) => {
+      const isLast = r === last;
+      const status = r.decision === "aprovado" ? '<span class="round-chip round-chip--ok">Aprovado</span>'
+        : r.decision === "ajustes" ? '<span class="round-chip round-chip--adj">Ajustes pedidos</span>'
+        : r.delivered_at ? '<span class="round-chip round-chip--wait">Em revisão</span>' : '<span class="round-chip">Com o editor</span>';
+      return `
+        <li class="round${isLast ? " is-current" : ""}">
+          <p class="round__head"><b>Rodada ${r.round}</b>${status}</p>
+          <p class="round__line">${r.round === 1 ? `Pedido de ${esc(r.requested_name || "alguém")}` : `Ajuste pedido por ${esc(r.requested_name || "alguém")}`} · ${esc(stampLabel(r.requested_at))}</p>
+          ${r.requested_notes ? `<p class="round__notes">${multiline(r.requested_notes)}</p>` : ""}
+          ${r.delivered_at ? `<p class="round__line round__delivery">${icon("check")}Entregue por ${esc(r.delivered_name || "editor")} · ${esc(stampLabel(r.delivered_at))} ${extLink(r.delivery_url, `${icon("play")}Ver vídeo${linkHost(r.delivery_url) ? ` (${esc(linkHost(r.delivery_url))})` : ""}`, "link-btn round__video")}</p>
+            ${r.delivery_note ? `<p class="round__notes round__notes--editor">${multiline(r.delivery_note)}</p>` : ""}` : ""}
+        </li>`;
+    }).join("");
+    let action = "";
+    if (t.archived_at) action = "";
+    else if (!last.delivered_at && canDeliver(t)) action = `
+      <form class="edit-action" data-edit-deliver novalidate>
+        <p class="edit-action__title">${icon("send")}Entregar a rodada ${last.round}</p>
+        <label class="field"><span class="visually-hidden">Link do vídeo pronto</span><input class="field__input" name="url" type="url" inputmode="url" maxlength="1000" placeholder="Link do vídeo pronto (Drive, YouTube não listado…)" autocomplete="off" required></label>
+        <label class="field"><span class="visually-hidden">Observação</span><textarea class="field__input" name="note" rows="2" maxlength="2000" placeholder="Observação para quem pediu (opcional)"></textarea></label>
+        <p class="form-error" role="alert" hidden></p>
+        <button class="btn btn--primary" type="submit">${icon("send")}<span>Entregar para revisão</span></button>
+      </form>`;
+    else if (!last.delivered_at) action = `<p class="edit-action__wait">${icon("clock")}Com o editor${assigneesOf(t).length ? ` (${esc(assigneesOf(t).map((id) => personName(state.team, id)).join(", "))})` : ""}. Você recebe um aviso quando ele entregar.</p>`;
+    else if (!last.decision && canReview(t)) action = `
+      <div class="edit-action" data-edit-review>
+        <p class="edit-action__title">${icon("eye")}Revisar a rodada ${last.round}</p>
+        <div class="edit-action__buttons">
+          <button class="btn btn--primary" type="button" data-edit-approve>${icon("check")}<span>Aprovar</span></button>
+          <button class="btn btn--ghost" type="button" data-edit-adjust-open aria-expanded="false">${icon("refresh")}<span>Pedir ajuste</span></button>
+        </div>
+        <form class="edit-adjust" data-edit-adjust hidden novalidate>
+          <label class="field"><span class="field__label">O que mudar (um ponto por linha, com o tempo do vídeo)</span>
+            <textarea class="field__input" name="notes" rows="4" maxlength="5000" placeholder="0:12 trocar a música&#10;0:30 cortar a pausa&#10;Final: aumentar o logo"></textarea></label>
+          <p class="form-error" role="alert" hidden></p>
+          <button class="btn btn--primary" type="submit">${icon("send")}<span>Enviar ajustes para o editor</span></button>
+        </form>
+      </div>`;
+    else if (!last.decision) action = '<p class="edit-action__wait">Entregue. Aguardando a revisão de quem pediu.</p>';
+    else if (last.decision === "aprovado") action = `<p class="edit-action__done">${icon("check")}Edição aprovada na rodada ${last.round}.</p>`;
+    return `<ol class="rounds">${items}</ol>${action}`;
+  }
+  function editBoxHtml(t) {
+    const host = linkHost(t.drive_url);
+    return `
+      <section class="edit-box" aria-label="Pedido de edição">
+        <div class="edit-box__links">
+          ${t.drive_url ? extLink(t.drive_url, `${icon("download")}Abrir pasta${host ? ` no ${esc(host)}` : ""}`, "btn btn--primary edit-box__drive") : '<span class="field__hint">Sem pasta ainda: cole o link em "Pasta do Drive" abaixo.</span>'}
+          ${t.reference_url ? extLink(t.reference_url, `${icon("eye")}Referência`) : ""}
+        </div>
+        <p class="edit-box__specs">${t.video_format ? `<span class="spec-chip">${icon("image")}${esc(VIDEO_FORMAT_SHORT[t.video_format] || "")}</span>` : ""}${t.video_duration ? `<span class="spec-chip">${icon("clock")}${esc(t.video_duration)}</span>` : ""}</p>
+        <div data-rounds>${roundsHtml(t)}</div>
+      </section>`;
   }
 
   function render() {
@@ -257,6 +410,7 @@ export function setupTaskPanel({ api, state, toast, confirm, board, openContent 
       <p class="task-crumbs">${parent ? `<button class="link-btn" type="button" data-task-open="${esc(parent.id)}">${icon("chevronLeft")}${esc(parent.title)}</button><span>·</span>` : ""}<span class="cli-dot ${clientDotClass(state.clients, t.client_id)}" aria-hidden="true"></span>${esc(clientName(t.client_id))}</p>
       <label class="field"><span class="visually-hidden">Título</span>
         <textarea class="task-title" data-task-field="title" rows="1" maxlength="200">${esc(t.title)}</textarea></label>
+      ${t.kind === "edicao" ? editBoxHtml(t) : ""}
       <dl class="task-props">
         <div class="task-prop"><dt>${icon("layers")}Etapa</dt><dd><select class="field__input field__input--sm" data-task-field="column_id">${options(cols.map((c) => [c.id, c.name]), col?.id)}</select></dd></div>
         <div class="task-prop"><dt>${icon("user")}Responsáveis</dt><dd>
@@ -273,6 +427,10 @@ export function setupTaskPanel({ api, state, toast, confirm, board, openContent 
         </dd></div>
         ${t.parent_id ? "" : `<div class="task-prop"><dt>${icon("users")}Cliente</dt><dd><select class="field__input field__input--sm" data-task-field="client_id"><option value="">Interno da agência</option>${options(visibleClients().concat(state.clients.filter((c) => !c.active && c.id === t.client_id)).map((c) => [c.id, c.name]), t.client_id || "")}</select></dd></div>`}
         ${t.client_id ? `<div class="task-prop"><dt>${icon("box")}Projeto</dt><dd><span class="input-row"><select class="field__input field__input--sm" data-task-field="project_id"><option value="">Sem projeto</option>${options(projects.map((p) => [p.id, p.name]), t.project_id || "")}</select>${state.can.edit ? `<button class="btn btn--ghost btn--sm" type="button" data-task-new-project>${icon("sparkle")}<span>Novo</span></button>` : ""}</span></dd></div>` : ""}
+        ${t.kind === "edicao" ? `
+        <div class="task-prop"><dt>${icon("download")}Pasta do Drive</dt><dd><input class="field__input field__input--sm" type="url" inputmode="url" maxlength="1000" data-task-field="drive_url" value="${esc(t.drive_url || "")}" placeholder="https://drive.google.com/…"></dd></div>
+        <div class="task-prop"><dt>${icon("image")}Formato</dt><dd><span class="input-row"><select class="field__input field__input--sm" data-task-field="video_format"><option value="">Escolha</option>${options(Object.entries(VIDEO_FORMATS), t.video_format || "")}</select><input class="field__input field__input--sm task-dur" maxlength="40" data-task-field="video_duration" value="${esc(t.video_duration || "")}" placeholder="Duração" aria-label="Duração"></span></dd></div>
+        <div class="task-prop"><dt>${icon("eye")}Referência</dt><dd><input class="field__input field__input--sm" type="url" inputmode="url" maxlength="1000" data-task-field="reference_url" value="${esc(t.reference_url || "")}" placeholder="https://… (opcional)"></dd></div>` : ""}
         ${t.content_id ? `<div class="task-prop"><dt>${icon("calendar")}Conteúdo</dt><dd><button class="link-btn" type="button" data-task-content="${esc(t.content_id)}">${icon("arrowRight")}<span>Abrir o conteúdo do calendário</span></button></dd></div>` : ""}
       </dl>
       <section class="detail"><h3 class="detail__title">Descrição</h3>
@@ -351,7 +509,7 @@ export function setupTaskPanel({ api, state, toast, confirm, board, openContent 
         await open(id);
       } else {
         flash("Não salvou", "error");
-        toast(error.message, "error");
+        toast(Object.values(error.fields || {})[0] || error.message, "error");
         render();
       }
       return false;
@@ -364,7 +522,8 @@ export function setupTaskPanel({ api, state, toast, confirm, board, openContent 
     if (field === "title" && !value.trim()) { el.value = current.title; return; }
     if ((current[field] ?? "") === value) return;
     const ok = await save({ [field]: value });
-    if (ok && ["column_id", "client_id", "priority"].includes(field)) render();
+    if (ok && ["column_id", "client_id", "priority", "drive_url", "reference_url", "video_format", "video_duration"].includes(field)) render();
+    if (!ok && el.dataset.taskField.endsWith("_url")) el.value = current[field] || "";
   });
   on(body, "input", ".task-title", (event, el) => autosize(el));
   on(body, "keydown", ".task-title", (event, el) => { if (event.key === "Enter") { event.preventDefault(); el.blur(); } });
@@ -629,7 +788,49 @@ export function setupTaskPanel({ api, state, toast, confirm, board, openContent 
     } catch (error) { toast(error.status === 409 ? "Já existe uma etiqueta com esse nome." : error.message, "error"); }
   });
 
+  /* ---------- Pedido de edição: entregar, aprovar, pedir ajuste ---------- */
+  on(body, "submit", "[data-edit-deliver]", async (event, form) => {
+    event.preventDefault();
+    const errorBox = form.querySelector(".form-error");
+    const button = form.querySelector("[type=submit]");
+    errorBox.hidden = true;
+    setBusy(button, true);
+    try {
+      const t = current;
+      await api.editDeliver(t.id, form.elements.url.value, form.elements.note.value);
+      toast("Entregue! Quem pediu foi avisado");
+      await open(t.id);
+    } catch (error) { errorBox.textContent = error.message; errorBox.hidden = false; setBusy(button, false); }
+  });
+  on(body, "click", "[data-edit-approve]", async (event, b) => {
+    const t = current;
+    const ok = await confirm({ title: "Aprovar esta edição?", text: "O pedido vai para Concluído e o editor é avisado.", confirmLabel: "Aprovar" });
+    if (!ok) return;
+    setBusy(b, true);
+    try { await api.editReview(t.id, "aprovado"); toast("Edição aprovada"); await open(t.id); }
+    catch (error) { toast(error.message, "error"); setBusy(b, false); }
+  });
+  on(body, "click", "[data-edit-adjust-open]", (event, b) => {
+    const formEl = body.querySelector("[data-edit-adjust]");
+    formEl.hidden = !formEl.hidden;
+    b.setAttribute("aria-expanded", String(!formEl.hidden));
+    if (!formEl.hidden) formEl.elements.notes.focus();
+  });
+  on(body, "submit", "[data-edit-adjust]", async (event, form) => {
+    event.preventDefault();
+    const errorBox = form.querySelector(".form-error");
+    const button = form.querySelector("[type=submit]");
+    errorBox.hidden = true;
+    setBusy(button, true);
+    try {
+      const t = current;
+      const result = await api.editReview(t.id, "ajustes", form.elements.notes.value);
+      toast(`Ajustes enviados: rodada ${result?.round || ""} com o editor`);
+      await open(t.id);
+    } catch (error) { errorBox.textContent = error.message; errorBox.hidden = false; setBusy(button, false); }
+  });
+
   drawer.addEventListener("close", () => { current = null; });
 
-  return { openNew, open, current: () => current };
+  return { openNew, open, openEditRequest, current: () => current };
 }

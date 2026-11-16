@@ -7,13 +7,13 @@
    O administrador (e quem edita tudo) pode ver as demandas de outra pessoa.
    Dá para mudar a etapa ali mesmo e abrir o item. */
 
-import { $, esc, on } from "../../../js/lib/dom.js?v=8bfb16b6bd";
-import { icon } from "../../../js/lib/icons.js?v=8bfb16b6bd";
-import { typeBadge } from "../../../js/ui/badges.js?v=8bfb16b6bd";
-import { PRODUCTION_STATUS, PRIORITIES } from "../domain/rules.js?v=8bfb16b6bd";
-import { TASK_STATUS, TASK_PRIORITIES, dueParts, dueState } from "../domain/tasks.js?v=8bfb16b6bd";
-import { stateBlock, loadingRows } from "../ui/states.js?v=8bfb16b6bd";
-import { stageChips, dueChip, priorityChip, daysUntil, personName } from "./contents.js?v=8bfb16b6bd";
+import { $, esc, on } from "../../../js/lib/dom.js?v=f5b3406042";
+import { icon } from "../../../js/lib/icons.js?v=f5b3406042";
+import { typeBadge } from "../../../js/ui/badges.js?v=f5b3406042";
+import { PRODUCTION_STATUS, PRIORITIES } from "../domain/rules.js?v=f5b3406042";
+import { TASK_STATUS, TASK_PRIORITIES, dueParts, dueState, VIDEO_FORMAT_SHORT, linkHost } from "../domain/tasks.js?v=f5b3406042";
+import { stateBlock, loadingRows } from "../ui/states.js?v=f5b3406042";
+import { stageChips, dueChip, priorityChip, daysUntil, personName } from "./contents.js?v=f5b3406042";
 
 const shortDate = (iso) => (iso ? iso.split("-").reverse().slice(0, 2).join("/") : "—");
 const GROUPS = [
@@ -84,12 +84,13 @@ export function setupTasks({ api, state, toast, openContent, openTask, unreadFor
     return `
       <article class="task-card task-card--${esc(t.priority || "media")} task-card--demanda${fresh ? " is-new" : ""}" data-board-task="${esc(t.id)}">
         <div class="task-card__main">
-          <p class="task-card__client"><span class="task-card__kind">${icon("layers")}${t.parent_id ? "Subtarefa" : "Demanda"}</span> · ${esc(clientName(t.client_id))}${fresh ? ' <span class="new-chip">Nova</span>' : ""}</p>
+          <p class="task-card__client"><span class="task-card__kind">${icon(t.kind === "edicao" ? "play" : "layers")}${t.kind === "edicao" ? `Edição${t.video_format ? ` ${esc(VIDEO_FORMAT_SHORT[t.video_format] || "")}` : ""}` : t.parent_id ? "Subtarefa" : "Demanda"}</span> · ${esc(clientName(t.client_id))}${fresh ? ' <span class="new-chip">Nova</span>' : ""}</p>
           <button class="task-card__title" type="button" data-open-board-task="${esc(t.id)}">${esc(t.title)}</button>
           <p class="task-card__meta">
             ${due ? `<span class="due-pill due-pill--${esc(due.tone)}">${icon("clock")}${esc(due.label)} · ${esc(dueParts(t.due_at).time)}</span>` : '<span class="task-card__date">Sem prazo</span>'}
             ${t.priority === "alta" || t.priority === "urgente" ? `<span class="prio-chip prio-chip--${esc(t.priority)}">${esc(TASK_PRIORITIES[t.priority].label)}</span>` : ""}
             ${parent ? `<span class="task-card__date">${icon("arrowRight")}em "${esc(parent.title)}"</span>` : ""}
+            ${t.kind === "edicao" && t.drive_url ? `<a class="link-btn task-card__link" href="${esc(t.drive_url)}" target="_blank" rel="noopener noreferrer">${icon("download")}Abrir pasta${linkHost(t.drive_url) ? ` (${esc(linkHost(t.drive_url))})` : ""}</a>` : ""}
             ${t.content_id ? `<button class="link-btn task-card__link" type="button" data-open-task="${esc(t.content_id)}">${icon("calendar")}Ver o conteúdo</button>` : ""}
             ${others.length ? `<span class="task-card__date">${icon("users")}com ${esc(others.map((id) => personName(state.team, id).split(" ")[0]).join(", "))}</span>` : ""}
           </p>
