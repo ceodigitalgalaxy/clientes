@@ -13,16 +13,16 @@
    O banco confere tudo de novo (funções approval_* e RLS).
    ========================================================================== */
 
-import { $, esc, on } from "../../../js/lib/dom.js?v=cef16017bf";
-import { icon } from "../../../js/lib/icons.js?v=cef16017bf";
-import { monthLabel, timeLabel, stampLabel, todayISO, longDayLabel } from "../../../js/lib/dates.js?v=cef16017bf";
-import { typeBadge } from "../../../js/ui/badges.js?v=cef16017bf";
-import { APPROVAL_STATUS, APPROVAL_MODES, BATCH_STATUS, APPROVAL_EVENTS, isPending, approvalUrl, whatsappMessage } from "../../../js/domain/approvals.js?v=cef16017bf";
-import { NETWORKS, validateBatch } from "../domain/rules.js?v=cef16017bf";
-import { closeDialog, wireDialog, showFieldErrors, setBusy } from "../ui/dialogs.js?v=cef16017bf";
-import { stateBlock, loadingCards, button } from "../ui/states.js?v=cef16017bf";
-import { buildApprovalReport, reportFileName } from "../ui/approval-report.js?v=cef16017bf";
-import { kebab } from "../ui/menu.js?v=cef16017bf";
+import { $, esc, on } from "../../../js/lib/dom.js?v=852f83f166";
+import { icon } from "../../../js/lib/icons.js?v=852f83f166";
+import { monthLabel, timeLabel, stampLabel, todayISO, longDayLabel } from "../../../js/lib/dates.js?v=852f83f166";
+import { typeBadge } from "../../../js/ui/badges.js?v=852f83f166";
+import { APPROVAL_STATUS, APPROVAL_MODES, BATCH_STATUS, APPROVAL_EVENTS, isPending, approvalUrl, whatsappMessage } from "../../../js/domain/approvals.js?v=852f83f166";
+import { NETWORKS, validateBatch } from "../domain/rules.js?v=852f83f166";
+import { closeDialog, wireDialog, showFieldErrors, setBusy } from "../ui/dialogs.js?v=852f83f166";
+import { stateBlock, loadingCards, button } from "../ui/states.js?v=852f83f166";
+import { buildApprovalReport, reportFileName } from "../ui/approval-report.js?v=852f83f166";
+import { kebab } from "../ui/menu.js?v=852f83f166";
 
 const POLL_MS = 30000;
 const options = (entries, placeholder) => `${placeholder !== undefined ? `<option value="">${esc(placeholder)}</option>` : ""}${entries.map(([v, l]) => `<option value="${esc(v)}">${esc(l)}</option>`).join("")}`;
@@ -397,7 +397,11 @@ export function setupApprovals({ api, state, toast, confirm, navigate, openConte
   const itemTitle = (item) => versionOf(item)?.snapshot?.title || contentOf(item)?.title || "Conteúdo removido";
 
   async function openBatch(id, { keepScroll = false } = {}) {
-    const summary = summaryOf(id) || (await api.listBatches().then((rows) => { batches = rows; return summaryOf(id); }));
+    let summary = summaryOf(id);
+    if (!summary) {
+      try { batches = await api.listBatches(); summary = summaryOf(id); }
+      catch (error) { toast(error.message, "error"); return; }
+    }
     if (!summary) { toast("Lote não encontrado.", "error"); return; }
     const scroll = keepScroll ? drawerBody.scrollTop : 0;
     if (!drawer.open) { drawerBody.innerHTML = `<div class="state"><span class="skeleton final-art__loading"></span></div>`; drawer.showModal(); }

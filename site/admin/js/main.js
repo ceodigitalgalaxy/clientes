@@ -9,32 +9,32 @@
    O banco aplica as mesmas regras (RLS): esconder a tela não é a proteção.
    ========================================================================== */
 
-import { $, on } from "../../js/lib/dom.js?v=cef16017bf";
-import { icon, brandMark } from "../../js/lib/icons.js?v=cef16017bf";
-import { toast } from "../../js/ui/toast.js?v=cef16017bf";
-import { SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY } from "../../js/config.js?v=cef16017bf";
-import { createAuth } from "../../js/lib/auth.js?v=cef16017bf";
-import { createStorage } from "../../js/lib/storage.js?v=cef16017bf";
-import { createSupabaseStore } from "./data/store.js?v=cef16017bf";
-import { createApi } from "./api.js?v=cef16017bf";
-import { validateContentFilters } from "./domain/rules.js?v=cef16017bf";
-import { createConfirm, showFieldErrors, setBusy } from "./ui/dialogs.js?v=cef16017bf";
-import { setupClients } from "./views/clients.js?v=cef16017bf";
-import { setupContents } from "./views/contents.js?v=cef16017bf";
-import { setupAccess } from "./views/access.js?v=cef16017bf";
-import { setupImport } from "./views/import.js?v=cef16017bf";
-import { setupAds } from "./views/ads.js?v=cef16017bf";
-import { setupBrand } from "./views/brand.js?v=cef16017bf";
-import { setupApprovals } from "./views/approvals.js?v=cef16017bf";
-import { setupTeam } from "./views/team.js?v=cef16017bf";
-import { setupTasks } from "./views/tasks.js?v=cef16017bf";
-import { setupBoard } from "./views/board.js?v=cef16017bf";
-import { formatFromContent } from "./domain/tasks.js?v=cef16017bf";
-import { setupHome } from "./views/home.js?v=cef16017bf";
-import { setupInbox } from "./views/inbox.js?v=cef16017bf";
-import { setupPush } from "./views/push.js?v=cef16017bf";
-import { wireMenus } from "./ui/menu.js?v=cef16017bf";
-import { setupSearch } from "./views/search.js?v=cef16017bf";
+import { $, on } from "../../js/lib/dom.js?v=852f83f166";
+import { icon, brandMark } from "../../js/lib/icons.js?v=852f83f166";
+import { toast } from "../../js/ui/toast.js?v=852f83f166";
+import { SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY } from "../../js/config.js?v=852f83f166";
+import { createAuth } from "../../js/lib/auth.js?v=852f83f166";
+import { createStorage } from "../../js/lib/storage.js?v=852f83f166";
+import { createSupabaseStore } from "./data/store.js?v=852f83f166";
+import { createApi } from "./api.js?v=852f83f166";
+import { validateContentFilters } from "./domain/rules.js?v=852f83f166";
+import { createConfirm, showFieldErrors, setBusy } from "./ui/dialogs.js?v=852f83f166";
+import { setupClients } from "./views/clients.js?v=852f83f166";
+import { setupContents } from "./views/contents.js?v=852f83f166";
+import { setupAccess } from "./views/access.js?v=852f83f166";
+import { setupImport } from "./views/import.js?v=852f83f166";
+import { setupAds } from "./views/ads.js?v=852f83f166";
+import { setupBrand } from "./views/brand.js?v=852f83f166";
+import { setupApprovals } from "./views/approvals.js?v=852f83f166";
+import { setupTeam } from "./views/team.js?v=852f83f166";
+import { setupTasks } from "./views/tasks.js?v=852f83f166";
+import { setupBoard } from "./views/board.js?v=852f83f166";
+import { formatFromContent } from "./domain/tasks.js?v=852f83f166";
+import { setupHome } from "./views/home.js?v=852f83f166";
+import { setupInbox } from "./views/inbox.js?v=852f83f166";
+import { setupPush } from "./views/push.js?v=852f83f166";
+import { wireMenus } from "./ui/menu.js?v=852f83f166";
+import { setupSearch } from "./views/search.js?v=852f83f166";
 
 /* O painel não abre dentro de outro site (proteção contra clique disfarçado).
    A página fica invisível até esta checagem (veja .admin em admin.css). */
@@ -42,7 +42,7 @@ if (window.top !== window.self) throw new Error("O painel não pode ser aberto d
 document.body.classList.add("is-ready");
 
 const ROUTES = ["inicio", "demandas", "gestao", "conteudos", "aprovacoes", "anuncios", "clientes", "importar", "equipe"];
-const TITLES = { inicio: "Início", demandas: "Minhas demandas", gestao: "Gestão de demandas", conteudos: "Conteúdos", aprovacoes: "Aprovações de Conteúdo", anuncios: "Aprovação de anúncios", clientes: "Clientes", importar: "Importar conteúdos", equipe: "Equipe" };
+const TITLES = { inicio: "Início", demandas: "Minhas demandas", gestao: "Demandas", conteudos: "Conteúdos", aprovacoes: "Aprovações", anuncios: "Anúncios", clientes: "Clientes", importar: "Importar por planilha", equipe: "Equipe" };
 // Seções que dependem do perfil (o banco recusa de qualquer jeito; aqui só não mostramos)
 const NEEDS = { clientes: "admin", equipe: "admin", importar: "edit", aprovacoes: "send" };
 

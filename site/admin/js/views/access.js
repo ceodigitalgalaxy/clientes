@@ -3,10 +3,10 @@
    navegador). A senha aparece só uma vez, para a equipe copiar e enviar; ela
    não fica guardada no painel. */
 
-import { $, esc, on } from "../../../js/lib/dom.js?v=cef16017bf";
-import { icon } from "../../../js/lib/icons.js?v=cef16017bf";
-import { slugify, passwordProblem, USERNAME_LIMITS, PASSWORD_LIMITS } from "../domain/rules.js?v=cef16017bf";
-import { closeDialog, wireDialog, showFieldErrors, setBusy } from "../ui/dialogs.js?v=cef16017bf";
+import { $, esc, on } from "../../../js/lib/dom.js?v=852f83f166";
+import { icon } from "../../../js/lib/icons.js?v=852f83f166";
+import { slugify, passwordProblem, USERNAME_LIMITS } from "../domain/rules.js?v=852f83f166";
+import { closeDialog, wireDialog, showFieldErrors, setBusy } from "../ui/dialogs.js?v=852f83f166";
 
 const PORTAL_URL = "https://clientes.digitalgalaxy.com.br";
 // Sem letras e números parecidos (l, I, 1, O, 0): mais fácil de digitar
@@ -166,4 +166,3 @@ export function portalBlock(client) {
     </div>`;
 }
 
-export const PASSWORD_HINT = `Pelo menos ${PASSWORD_LIMITS.min} caracteres, sem conter o usuário. Use "Gerar senha" para uma senha forte.`;

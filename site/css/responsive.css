@@ -21,7 +21,6 @@
 @media (max-width: 768px) {
   :root { --gutter: 16px; }
   .topbar__inner { height: 64px; }
-  .brand__name,
   .client-badge__segment,
   .month-chip { display: none; }
   .topbar__brands { gap: 12px; }

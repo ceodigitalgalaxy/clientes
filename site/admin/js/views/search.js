@@ -5,11 +5,11 @@
      que estão à vista para o perfil dela.
    - Busca ao abrir (e reaproveita por 60 s); ignora acentos e maiúsculas. */
 
-import { $, esc, on } from "../../../js/lib/dom.js?v=cef16017bf";
-import { icon } from "../../../js/lib/icons.js?v=cef16017bf";
-import { closeDialog, wireDialog } from "../ui/dialogs.js?v=cef16017bf";
-import { TASK_STATUS, dueParts } from "../domain/tasks.js?v=cef16017bf";
-import { FORMATS } from "../domain/rules.js?v=cef16017bf";
+import { $, esc, on } from "../../../js/lib/dom.js?v=852f83f166";
+import { icon } from "../../../js/lib/icons.js?v=852f83f166";
+import { closeDialog, wireDialog } from "../ui/dialogs.js?v=852f83f166";
+import { TASK_STATUS, dueParts } from "../domain/tasks.js?v=852f83f166";
+import { FORMATS } from "../domain/rules.js?v=852f83f166";
 
 const norm = (s) => String(s || "").normalize("NFD").replace(/[̀-ͯ]/g, "").toLowerCase();
 const shortDay = (iso) => (iso ? iso.slice(0, 10).split("-").reverse().slice(0, 2).join("/") : "");
@@ -29,8 +29,11 @@ export function setupSearch({ api, state, navigate, openTask, openContent, openC
 
   async function fetchData() {
     if (data && Date.now() - data.at < 60000) return data;
-    loading ||= Promise.all([api.listTasks().catch(() => []), api.listContents({}).catch(() => [])])
-      .then(([tasks, contents]) => { data = { tasks, contents, at: Date.now() }; return data; })
+    // Falha de conexão não vira "nada encontrado": a tela avisa que não deu para buscar (e tenta de novo na próxima)
+    let failed = false;
+    const safe = (p) => p.catch(() => { failed = true; return []; });
+    loading ||= Promise.all([safe(api.listTasks()), safe(api.listContents({}))])
+      .then(([tasks, contents]) => { data = { tasks, contents, failed, at: failed ? 0 : Date.now() }; return data; })
       .finally(() => { loading = null; });
     return loading;
   }
@@ -85,7 +88,7 @@ export function setupSearch({ api, state, navigate, openTask, openContent, openC
             <span class="qs__text"><span class="qs__title">${esc(r.title)}</span>${r.meta ? `<span class="qs__meta">${esc(r.meta)}</span>` : ""}</span>
             <span class="qs__enter" aria-hidden="true">${icon("arrowRight")}</span>
           </li>`; }).join("")}</ul></li>`).join("")
-      : `<li class="qs__empty" role="presentation">${loading ? "Buscando…" : `Nada encontrado para "${esc(input.value.trim())}".`}</li>`;
+      : `<li class="qs__empty" role="presentation">${loading ? "Buscando…" : data?.failed ? "Não foi possível buscar demandas e conteúdos agora. Confira a internet e tente de novo." : `Nada encontrado para "${esc(input.value.trim())}".`}</li>`;
     input.setAttribute("aria-activedescendant", items.length ? `qs-opt-${active}` : "");
   }
   function move(delta) {

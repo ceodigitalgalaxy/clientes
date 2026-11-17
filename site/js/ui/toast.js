@@ -2,8 +2,8 @@
    Com um painel ou modal aberto, o aviso aparece dentro dele (camada do topo),
    para não ficar atrás do fundo escurecido. */
 
-import { esc } from "../lib/dom.js?v=cef16017bf";
-import { icon } from "../lib/icons.js?v=cef16017bf";
+import { esc } from "../lib/dom.js?v=852f83f166";
+import { icon } from "../lib/icons.js?v=852f83f166";
 
 function container() {
   const open = document.querySelector("dialog[open]:not(.is-closing)");

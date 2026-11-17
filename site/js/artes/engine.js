@@ -136,11 +136,6 @@ function textBlock(ctx, text, { font, x, y, w, lh, max, color, align, draw, uppe
   return y + rows.length * lh;
 }
 const DW = (im) => im.naturalWidth || im.width, DH = (im) => im.naturalHeight || im.height;
-function contain(ctx, im, x, y, w, h, valign) {
-  if (!im) return;
-  const r = Math.min(w / DW(im), h / DH(im)), iw = DW(im) * r, ih = DH(im) * r;
-  ctx.drawImage(im, x + (w - iw) / 2, valign === "bottom" ? y + h - ih : y + (h - ih) / 2, iw, ih);
-}
 function cover(ctx, im, x, y, w, h) { const r = Math.max(w / DW(im), h / DH(im)), iw = DW(im) * r, ih = DH(im) * r; ctx.drawImage(im, x + (w - iw) / 2, y + (h - ih) / 2, iw, ih); }
 function placeholder(ctx, x, y, w, h, label) {
   ctx.save(); ctx.strokeStyle = "rgba(255,255,255,.55)"; ctx.setLineDash([14, 10]); ctx.lineWidth = 3; rr(ctx, x, y, w, h, 24); ctx.stroke();

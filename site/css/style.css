@@ -123,7 +123,6 @@ ul { list-style: none; padding: 0; }
 .brand__logo { display: inline-flex; }
 .brand__mark { width: 32px; height: 32px; transition: transform 600ms var(--ease); }
 .brand:hover .brand__mark { transform: rotate(-20deg); }
-.brand__name { font-family: var(--font-display); font-size: 14px; font-weight: 600; letter-spacing: 0.02em; }
 .topbar__divider { width: 1px; height: 32px; background: var(--line-strong); }
 .client-badge { display: inline-flex; align-items: center; gap: 12px; min-width: 0; }
 .client-badge__text { display: grid; min-width: 0; }
@@ -723,8 +722,6 @@ body.admin:not(.is-ready) { visibility: hidden; }
 .detail--final .detail__head { align-items: baseline; }
 .detail__hint { font-size: 12px; color: var(--text-subtle); }
 .preview--final { margin-top: 16px; }
-.preview--ref { margin-top: 8px; padding: 16px; background: var(--surface-muted); }
-.preview--ref .media--image img, .preview--ref .media--video video { max-height: 280px; }
 .final-single { width: 100%; }
 .carousel { display: grid; gap: 12px; width: 100%; }
 .carousel__track { display: grid; grid-auto-flow: column; grid-auto-columns: 100%; overflow-x: auto; scroll-snap-type: x mandatory; scrollbar-width: none; border-radius: var(--radius); outline-offset: 4px; }

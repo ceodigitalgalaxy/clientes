@@ -266,6 +266,7 @@ node admin/test/push.test.mjs                     # avisos no celular: cifra do 
 PLAYWRIGHT=$P node admin/test/push-e2e.mjs        # avisos no celular pela tela: ativar, receber, tocar e abrir, sair, outro usuário, iPhone, manifesto
 PLAYWRIGHT=$P node admin/test/minhas-e2e.mjs      # duas pessoas: demanda passada no quadro chega sozinha em Minhas/Início do responsável; Nova, etapa, concluir
 PLAYWRIGHT=$P node admin/test/edicao-e2e.mjs     # pedido de edição: pedido com pasta do Drive, editor entrega pelo celular, ajuste (rodada 2), aprovação, permissões
+PLAYWRIGHT=$P node admin/test/navegacao-e2e.mjs  # rotas: endereço direto, título/menu, inexistente, voltar/avançar, filtros no endereço, permissões (inclusive no servidor)
 PLAYWRIGHT=$P node admin/test/busca-e2e.mjs       # busca rápida (Ctrl+K): demandas, conteúdos, clientes e seções; teclado; permissões; celular
 PLAYWRIGHT=$P node admin/test/movimento-e2e.mjs   # interações: tempos do movimento, cliques repetidos, teclado, toque, "reduzir movimento", nada animando à toa
 PLAYWRIGHT=$P node admin/test/equipe-e2e.mjs      # equipe: criar colaborador, demanda com prazo, o que ele vê e o que o servidor recusa, desativar

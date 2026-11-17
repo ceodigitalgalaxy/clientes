@@ -6,7 +6,6 @@ const ENTITIES = { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "
 export const esc = (value) => String(value ?? "").replace(/[&<>"']/g, (c) => ENTITIES[c]);
 
 export const $ = (selector, root = document) => root.querySelector(selector);
-export const $$ = (selector, root = document) => Array.from(root.querySelectorAll(selector));
 
 /** Escuta eventos de filhos que casam com o seletor (delegação) */
 export function on(root, type, selector, handler) {

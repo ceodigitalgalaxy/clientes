@@ -11,7 +11,6 @@ export const monthKey = (date) => `${date.getFullYear()}-${pad(date.getMonth() +
 export const fromISO = (iso) => { const [y, m, d] = iso.split("-").map(Number); return new Date(y, m - 1, d || 1); };
 export const todayISO = () => toISO(new Date());
 /** Agora, no fuso local, no mesmo formato dos dados (AAAA-MM-DDTHH:MM:SS) */
-export const nowStamp = () => { const d = new Date(); return `${toISO(d)}T${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())}`; };
 
 export const addMonths = (key, delta) => { const d = fromISO(`${key}-01`); d.setMonth(d.getMonth() + delta); return monthKey(d); };
 export const daysInMonth = (key) => { const d = fromISO(`${key}-01`); return new Date(d.getFullYear(), d.getMonth() + 1, 0).getDate(); };
