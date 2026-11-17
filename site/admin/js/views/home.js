@@ -5,14 +5,14 @@
      recente, em cartões compactos (clicar abre o conteúdo).
    Tudo vem do banco já recortado pelas permissões (cada um vê os clientes dele). */
 
-import { $, esc, on } from "../../../js/lib/dom.js?v=304713f3c3";
-import { icon } from "../../../js/lib/icons.js?v=304713f3c3";
-import { todayISO, addDays, longDayLabel, monthLabel, stampLabel, timeLabel } from "../../../js/lib/dates.js?v=304713f3c3";
-import { alertTone, nearestDeadline, daysFrom } from "../domain/deadlines.js?v=304713f3c3";
-import { stateBlock } from "../ui/states.js?v=304713f3c3";
-import { avatars, eventText, clientDotClass } from "./contents.js?v=304713f3c3";
-import { toneLabels, attentionItems } from "./contents-calendar.js?v=304713f3c3";
-import { dueParts, dueState } from "../domain/tasks.js?v=304713f3c3";
+import { $, esc, on } from "../../../js/lib/dom.js?v=17bcd6fdd7";
+import { icon } from "../../../js/lib/icons.js?v=17bcd6fdd7";
+import { todayISO, addDays, longDayLabel, monthLabel, stampLabel, timeLabel } from "../../../js/lib/dates.js?v=17bcd6fdd7";
+import { alertTone, nearestDeadline, daysFrom } from "../domain/deadlines.js?v=17bcd6fdd7";
+import { stateBlock } from "../ui/states.js?v=17bcd6fdd7";
+import { avatars, eventText, clientDotClass } from "./contents.js?v=17bcd6fdd7";
+import { toneLabels, attentionItems } from "./contents-calendar.js?v=17bcd6fdd7";
+import { dueParts, dueState } from "../domain/tasks.js?v=17bcd6fdd7";
 
 const WITH_CLIENT = ["aguardando_aprovacao", "reenviado"];
 const DONE = ["agendado", "publicado"];

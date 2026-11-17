@@ -21,9 +21,9 @@
      listComments, countComments, listIdeas → vazios por enquanto
    ========================================================================== */
 
-import { activityFromContent } from "../domain/content-mapping.js?v=304713f3c3";
-import { daysInMonth } from "../lib/dates.js?v=304713f3c3";
-import { createStorage } from "../lib/storage.js?v=304713f3c3";
+import { activityFromContent } from "../domain/content-mapping.js?v=17bcd6fdd7";
+import { daysInMonth } from "../lib/dates.js?v=17bcd6fdd7";
+import { createStorage } from "../lib/storage.js?v=17bcd6fdd7";
 
 /** Respostas de portal_decide → mensagens para o cliente */
 const DECISION_ERRORS = {

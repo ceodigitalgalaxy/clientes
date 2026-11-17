@@ -893,7 +893,7 @@ body:not(.can-send) .row__pick { visibility: hidden; }
 /* Menu "⋯" */
 .kebab { position: relative; display: inline-flex; }
 .kebab__toggle[aria-expanded="true"] { color: var(--brand); background: var(--brand-soft); }
-.menu { position: fixed; left: var(--menu-left, 0); top: var(--menu-top, 0); z-index: 70; display: grid; gap: 2px; min-width: 210px; padding: 6px; border: 1px solid var(--line); border-radius: var(--radius); background: var(--surface); box-shadow: var(--shadow-pop); animation: sheet-in 160ms var(--ease); }
+.menu { position: fixed; left: var(--menu-left, 0); top: var(--menu-top, 0); z-index: 70; display: grid; gap: 2px; min-width: 210px; padding: 6px; border: 1px solid var(--line); border-radius: var(--radius); background: var(--surface); box-shadow: var(--shadow-pop); animation: menu-in var(--dur-normal) var(--ease-out); }
 .menu[hidden] { display: none; }
 .menu__item { display: flex; align-items: center; gap: 10px; min-height: 40px; padding: 0 12px; border: 0; border-radius: 8px; background: none; font: inherit; font-size: 14px; font-weight: 500; text-align: left; color: var(--text); cursor: pointer; white-space: nowrap; }
 .menu__item .icon { width: 16px; height: 16px; color: var(--text-muted); }
@@ -941,7 +941,7 @@ body:not(.can-send) .row__pick { visibility: hidden; }
 .inbox-toggle { position: relative; }
 .inbox-toggle[aria-expanded="true"] { color: var(--brand); background: var(--brand-soft); }
 .inbox-badge { position: absolute; top: -4px; right: -4px; min-width: 18px; height: 18px; margin: 0; padding: 0 5px; font-size: 10px; }
-.inbox { position: absolute; top: calc(100% + 8px); right: 0; z-index: 60; width: min(380px, calc(100vw - 32px)); max-height: min(70vh, 560px); overflow-y: auto; border: 1px solid var(--line); border-radius: var(--radius-lg); background: var(--surface); box-shadow: var(--shadow-pop); animation: sheet-in 180ms var(--ease); }
+.inbox { position: absolute; top: calc(100% + 8px); right: 0; z-index: 60; width: min(380px, calc(100vw - 32px)); max-height: min(70vh, 560px); overflow-y: auto; border: 1px solid var(--line); border-radius: var(--radius-lg); background: var(--surface); box-shadow: var(--shadow-pop); transform-origin: top right; animation: menu-in var(--dur-normal) var(--ease-out); }
 .inbox[hidden] { display: none; }
 .inbox__head { position: sticky; top: 0; display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 14px 16px 10px; border-bottom: 1px solid var(--line); background: var(--surface); }
 .inbox__title { font-size: 16px; font-weight: 600; }
@@ -1614,3 +1614,66 @@ body:not(.can-send) .row__pick { visibility: hidden; }
 .history__item--neutro > .icon { color: var(--text-subtle); }
 /* Calendário (semana/dia): horário alinhado à primeira linha do título quando ele quebra */
 .acal-item--detailed .acal-item__line { align-items: baseline; }
+
+
+/* ==========================================================================
+   Interações e movimento (nov/2026)
+   Mesma linguagem em todo o painel: tokens --dur-* e --ease-* (css/style.css).
+   Entra com ease-out, sai com ease-in; só opacidade e transform (leve para o celular).
+   ========================================================================== */
+@keyframes menu-in { from { opacity: 0; transform: translateY(-4px) scale(0.98); } }
+@keyframes msg-in { from { opacity: 0; transform: translateY(-2px); } }
+@keyframes fold-in { from { opacity: 0; transform: translateY(-4px); } }
+@keyframes view-in { from { opacity: 0; } }
+
+/* Menu da conta: abre como os outros menus */
+.me-pop:not([hidden]) { transform-origin: top right; animation: menu-in var(--dur-normal) var(--ease-out); }
+.me-btn { transition: box-shadow var(--dur-fast) var(--ease-out), transform var(--dur-instant) var(--ease-out); }
+.me-btn:active { transform: scale(0.94); }
+
+/* Troca de seção: o conteúdo novo surge suave (só opacidade: não mexe no botão flutuante nem atrasa o uso) */
+.view:not([hidden]) { animation: view-in var(--dur-normal) var(--ease-out); }
+
+/* Seções que abrem e fecham (formulários, histórico, atividade): o conteúdo desce de leve */
+.form-fold[open] > :not(summary), .history-toggle[open] > :not(summary), .hcard--fold[open] > :not(summary) { animation: fold-in var(--dur-normal) var(--ease-out); }
+.form-fold__head::after, .history-toggle__summary::after { transition: transform var(--dur-normal) var(--ease-in-out); }
+.form-fold, .history-toggle { transition: background-color var(--dur-normal) var(--ease-out); }
+
+/* Painéis que se abrem dentro da página: filtros do quadro (celular), troca de responsáveis e etiquetas */
+.board-bar.is-open > select, .task-people-edit:not([hidden]), [data-task-labels-box]:not([hidden]) { animation: fold-in var(--dur-normal) var(--ease-out); }
+
+/* Mensagens: erro do campo, erro do formulário e "Salvo ✓" aparecem sem salto */
+.field__error, .form-error:not([hidden]) { animation: msg-in var(--dur-normal) var(--ease-out); }
+.save-state.is-flash { animation: msg-in var(--dur-normal) var(--ease-out); }
+.field__input[aria-invalid="true"] { border-color: var(--ajustes); }
+.field__input[aria-invalid="true"]:focus { box-shadow: 0 0 0 3px var(--ajustes-soft); }
+
+/* Escolhas (abas, filtros de status, segmentos, tipos, pessoas, etiquetas): troca suave e resposta ao toque */
+.kpi, .tcard, .acal-item, .batch-card, .kcard { transition-duration: var(--dur-fast); transition-timing-function: var(--ease-out); }
+.seg button, .status-tab, .kind-chip, .appr-tab, .admin-nav__link, .pick-person, .pick-label, .hitem__open, .nav-sheet__link, .inbox__item, .menu__item, .me-pop__out {
+  transition-property: background-color, color, border-color, box-shadow, transform; transition-duration: var(--dur-fast); transition-timing-function: var(--ease-out);
+}
+.seg button:active, .status-tab:active, .kind-chip:active, .appr-tab:active, .pick-person:active, .pick-label:active { transform: scale(0.97); }
+.admin-nav__link:active, .nav-sheet__link:active, .hitem__open:active, .inbox__item:active, .menu__item:active { transform: scale(0.98); }
+.kpi:active { transform: scale(0.98); }
+
+/* Campos: a borda reage ao passar o mouse (antes do foco) */
+@media (hover: hover) {
+  .field__input:hover:not(:focus):not(:disabled):not([aria-invalid="true"]) { border-color: #CFC3EA; }
+}
+
+/* Toque: sem o "flash" cinza do navegador (a resposta é a do próprio botão) e sem cartões presos no estado de hover */
+.admin button, .admin a, .admin summary, .admin label { -webkit-tap-highlight-color: transparent; }
+@media (hover: none) {
+  .kpi:hover, .batch-card:hover, .acal-item:hover, .tcard:hover { transform: none; box-shadow: var(--shadow-card); }
+  .acal-item:hover { box-shadow: none; }
+}
+
+/* Movimento reduzido: o que comunica estado continua (cores, foco); some o deslocamento */
+@media (prefers-reduced-motion: reduce) {
+  .view:not([hidden]), .me-pop:not([hidden]), .menu, .inbox, .board-bar.is-open > select, .task-people-edit:not([hidden]), [data-task-labels-box]:not([hidden]), .field__error, .form-error:not([hidden]), .save-state.is-flash,
+  .form-fold[open] > :not(summary), .history-toggle[open] > :not(summary), .hcard--fold[open] > :not(summary) { animation: none; }
+  .btn:active:not(:disabled), .icon-btn:active:not(:disabled), .me-btn:active, .kpi:active,
+  .seg button:active, .status-tab:active, .kind-chip:active, .appr-tab:active, .pick-person:active, .pick-label:active,
+  .admin-nav__link:active, .nav-sheet__link:active, .hitem__open:active, .inbox__item:active, .menu__item:active { transform: none; }
+}
