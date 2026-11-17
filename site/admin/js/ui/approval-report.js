@@ -2,10 +2,10 @@
    (data, horário, título, formato, rede, status) e o histórico resumido das
    decisões. Montado no navegador com lib/pdf.js; nada vai para servidor. */
 
-import { createPdf, fitText, wrapText, textWidth } from "../../../js/lib/pdf.js?v=852f83f166";
-import { monthLabel, timeLabel, fromISO } from "../../../js/lib/dates.js?v=852f83f166";
-import { APPROVAL_STATUS, APPROVAL_MODES, APPROVAL_EVENTS } from "../../../js/domain/approvals.js?v=852f83f166";
-import { NETWORKS, FORMATS } from "../domain/rules.js?v=852f83f166";
+import { createPdf, fitText, wrapText, textWidth } from "../../../js/lib/pdf.js?v=f928e45bc8";
+import { monthLabel, timeLabel, fromISO } from "../../../js/lib/dates.js?v=f928e45bc8";
+import { APPROVAL_STATUS, APPROVAL_MODES, APPROVAL_EVENTS } from "../../../js/domain/approvals.js?v=f928e45bc8";
+import { NETWORKS, FORMATS } from "../domain/rules.js?v=f928e45bc8";
 
 const C = { brand: "#5A1AC7", text: "#160B2E", muted: "#5E5774", subtle: "#8F88A3", line: "#E4DEF0", soft: "#F6F3FC" };
 const TONE = { aguardando: "#C27C0E", aprovado: "#1E9E63", ajustes: "#D9483B", reenviado: "#0A5D73", neutral: "#8F88A3" };

@@ -3,7 +3,7 @@
    devolve só quem ainda está no texto. Quem pode ser mencionado vem de
    people() (o banco confere de novo: só vale quem enxerga a demanda). */
 
-import { esc } from "../../../js/lib/dom.js?v=852f83f166";
+import { esc } from "../../../js/lib/dom.js?v=f928e45bc8";
 
 const fold = (t) => String(t || "").normalize("NFD").replace(/[̀-ͯ]/g, "").toLowerCase();
 const initials = (name) => String(name || "?").trim().split(/\s+/).slice(0, 2).map((w) => w[0]).join("").toUpperCase();

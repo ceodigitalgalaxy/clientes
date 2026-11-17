@@ -1,7 +1,7 @@
 /* Teste de ponta a ponta: busca rápida (Ctrl+K / "/" / lupa no topo).
    Acha demandas, conteúdos, clientes e seções ignorando acentos; teclado
    (↑ ↓ Enter Esc); cada resultado abre no lugar certo; colaborador só encontra
-   o que pode ver (o banco recorta); no celular abre pela lupa.
+   o que pode ver (o banco recorta); no celular a lupa não aparece no topo.
    Também confere que Conteúdos abre na Semana quando a pessoa ainda não escolheu.
    Rode: PLAYWRIGHT=/caminho/playwright/index.mjs node admin/test/busca-e2e.mjs */
 
@@ -143,14 +143,10 @@ await step("Colaboradora só encontra o que pode ver (conteúdo e cliente de out
   assert.ok(pao.id);
 });
 
-await step("Celular: a lupa no topo abre a busca, que cabe na tela", async () => {
+await step("Celular: sem a lupa no topo (pedido da equipe); a busca continua no computador", async () => {
   const phone = await newPage({ ...devices["iPhone 13"] }, "admdg-teste", "Senha-de-teste-123", "celular");
-  await phone.click('[data-action="quick-search"]');
-  await phone.waitForSelector("#search-modal[open]");
-  const box = await phone.$eval("#search-modal", (m) => { const r = m.getBoundingClientRect(); return { w: r.width, left: r.left, top: r.top }; });
-  assert.ok(box.left >= 0 && box.w <= 390 && box.top < 40, JSON.stringify(box));
-  const size = await phone.$eval("[data-search-input]", (i) => parseFloat(getComputedStyle(i).fontSize));
-  assert.ok(size >= 16, "16px: o iPhone não dá zoom");
+  assert.equal(await phone.isVisible('[data-action="quick-search"]'), false, "lupa escondida no celular");
+  assert.equal(await page.isVisible('[data-action="quick-search"]'), true, "botão Buscar no computador");
 });
 
 await step("Sem erros no console", async () => { assert.deepEqual(consoleErrors, []); });

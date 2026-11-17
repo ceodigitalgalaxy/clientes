@@ -1042,7 +1042,7 @@ body:not(.can-send) .row__pick { visibility: hidden; }
 .kcard:hover, .batch-card:hover { transform: none; }
 @media (max-width: 768px) {
   .cal-bar__nav { flex-wrap: wrap; }
-  .cal-bar__select { flex-basis: 100%; justify-content: center; min-height: 40px; }
+  .cal-bar__select { flex-basis: 100%; justify-content: flex-end; min-height: 40px; }
 }
 
 /* ==========================================================================
@@ -1382,7 +1382,8 @@ body:not(.can-send) .row__pick { visibility: hidden; }
 
 .me-wrap { position: relative; }
 .me-btn { display: inline-grid; place-items: center; width: 40px; height: 40px; padding: 0; border: 1px solid var(--line); border-radius: 50%; background: var(--brand-soft); font: inherit; cursor: pointer; transition: box-shadow 150ms var(--ease); }
-.me-btn:hover, .me-btn[aria-expanded="true"] { box-shadow: 0 0 0 3px var(--brand-soft), 0 0 0 4px var(--brand); }
+.me-btn[aria-expanded="true"] { box-shadow: 0 0 0 3px var(--brand-soft), 0 0 0 4px var(--brand); }
+@media (hover: hover) { .me-btn:hover { box-shadow: 0 0 0 3px var(--brand-soft), 0 0 0 4px var(--brand); } }
 .me-btn:focus-visible { outline: none; box-shadow: var(--ring); }
 .me-btn__av { font-size: 14px; font-weight: 700; letter-spacing: 0.02em; color: var(--brand); }
 .me-pop { position: absolute; top: calc(100% + 8px); right: 0; z-index: 60; display: grid; gap: 2px; min-width: 220px; padding: 10px; border: 1px solid var(--line); border-radius: var(--radius-lg); background: var(--surface); box-shadow: var(--shadow-pop); }
@@ -1665,3 +1666,10 @@ kbd, .qs-toggle__kbd { padding: 1px 6px; border: 1px solid var(--line); border-r
   .qs__input { font-size: 16px; }
 }
 @media (max-width: 768px) { .modal.qs[open] { animation: modal-in var(--dur-smooth) var(--ease-out); } }
+
+/* Celular: sem a lupa de busca no topo (no computador continua, com Ctrl+K)
+   e sem estado de "passar o mouse" preso nos botões de ícone depois do toque */
+@media (max-width: 768px) { .qs-toggle { display: none; } }
+@media (hover: none) {
+  .icon-btn:hover:not([aria-expanded="true"]) { color: var(--text-muted); border-color: var(--line-strong); background: var(--surface); }
+}

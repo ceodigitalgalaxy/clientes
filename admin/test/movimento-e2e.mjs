@@ -186,6 +186,12 @@ await step("Toque (celular): cartão não fica 'levantado' depois do toque e nad
   await go(phone, "inicio");
   const lifted = await phone.$eval(".kpi", (k) => getComputedStyle(k).transform);
   assert.ok(lifted === "none" || lifted === "matrix(1, 0, 0, 1, 0, 0)", `kpi ficou com ${lifted}`);
+  // Avatar: abrir e fechar pelo toque não deixa o anel de "selecionado" preso
+  await phone.tap("[data-me-toggle]"); await phone.waitForTimeout(250);
+  assert.equal(await phone.getAttribute("[data-me-toggle]", "aria-expanded"), "true");
+  await phone.tap("[data-me-toggle]"); await phone.waitForTimeout(250);
+  assert.equal(await phone.isVisible("#me-pop"), false, "menu da conta fechou");
+  assert.equal(await phone.$eval("[data-me-toggle]", (b) => getComputedStyle(b).boxShadow), "none", "sem anel depois de fechar");
   const tap = await phone.$eval(".btn", (b) => getComputedStyle(b).webkitTapHighlightColor);
   assert.match(tap, /rgba\(0, 0, 0, 0\)|transparent/);
   const overflow = await phone.evaluate(() => document.documentElement.scrollWidth - innerWidth);
