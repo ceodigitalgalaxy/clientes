@@ -5,14 +5,14 @@
      ("Salvo ✓"). Se outra pessoa salvou antes, avisa e recarrega (version).
    O banco confere quem pode ver, criar, editar, delegar e arquivar. */
 
-import { $, esc, on } from "../../../js/lib/dom.js?v=17bcd6fdd7";
-import { icon } from "../../../js/lib/icons.js?v=17bcd6fdd7";
-import { stampLabel } from "../../../js/lib/dates.js?v=17bcd6fdd7";
-import { TASK_STATUS, TASK_PRIORITIES, dueParts, dueState, VIDEO_FORMATS, VIDEO_FORMAT_SHORT, EDIT_CHECKLIST, linkHost } from "../domain/tasks.js?v=17bcd6fdd7";
-import { closeDialog, wireDialog, showFieldErrors, setBusy } from "../ui/dialogs.js?v=17bcd6fdd7";
-import { kebab } from "../ui/menu.js?v=17bcd6fdd7";
-import { attachMentions, mentionHtml } from "../ui/mentions.js?v=17bcd6fdd7";
-import { seesClient, personName, clientDotClass } from "./contents.js?v=17bcd6fdd7";
+import { $, esc, on } from "../../../js/lib/dom.js?v=cef16017bf";
+import { icon } from "../../../js/lib/icons.js?v=cef16017bf";
+import { stampLabel } from "../../../js/lib/dates.js?v=cef16017bf";
+import { TASK_STATUS, TASK_PRIORITIES, dueParts, dueState, VIDEO_FORMATS, VIDEO_FORMAT_SHORT, EDIT_CHECKLIST, linkHost } from "../domain/tasks.js?v=cef16017bf";
+import { closeDialog, wireDialog, showFieldErrors, setBusy } from "../ui/dialogs.js?v=cef16017bf";
+import { kebab } from "../ui/menu.js?v=cef16017bf";
+import { attachMentions, mentionHtml } from "../ui/mentions.js?v=cef16017bf";
+import { seesClient, personName, clientDotClass } from "./contents.js?v=cef16017bf";
 
 const initials = (name) => String(name || "?").trim().split(/\s+/).slice(0, 2).map((w) => w[0]).join("").toUpperCase();
 const options = (entries, selected = "") => entries.map(([v, l]) => `<option value="${esc(v)}"${v === (selected ?? "") ? " selected" : ""}>${esc(l)}</option>`).join("");

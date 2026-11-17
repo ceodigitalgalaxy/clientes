@@ -97,9 +97,12 @@ const cell = (date) => `.acal__cell[data-cal-day="${date}"]`;
 // Tela alta: o mês inteiro cabe, então arrastar entre semanas funciona em qualquer dia do mês
 page = await newPage({ viewport: { width: 1440, height: 1700 } }, "computador");
 
-await step("Conteúdos abre no calendário do mês, com cores e legenda", async () => {
+await step("Conteúdos abre na Semana (o dia a dia); o Mês mostra cores e legenda", async () => {
   await page.goto(`${ORIGIN}/admin/#/conteudos`);
   await signIn();
+  await page.waitForSelector(".acal--week");
+  assert.equal(await page.getAttribute('[data-cal-mode="semana"]', "aria-pressed"), "true", "sem escolha salva, abre na Semana");
+  await page.click('[data-cal-mode="mes"]');
   await page.waitForSelector(".acal--month .acal-item");
   assert.equal(await page.getAttribute('[data-cal-mode="mes"]', "aria-pressed"), "true");
   assert.equal(await page.isVisible("#contents-list"), false, "lista escondida");
@@ -147,6 +150,7 @@ await step("+N abre o dia; semana mostra tudo; o modo fica guardado", async () =
   await page.reload();
   await page.waitForSelector(".acal--week");
   await page.click('[data-cal-mode="mes"]');
+  if (!(await page.locator(".acal--month").count())) await page.click('[data-cal-mode="mes"]');
   await page.waitForSelector(".acal--month");
 });
 
@@ -172,6 +176,7 @@ await step("Lista continua disponível (com seleção em massa)", async () => {
   assert.equal(await page.isVisible('#filters [name="from"]'), true);
   assert.equal(await page.isVisible("#contents-calendar"), false);
   await page.click('[data-cal-mode="mes"]');
+  if (!(await page.locator(".acal--month").count())) await page.click('[data-cal-mode="mes"]');
   await page.waitForSelector(".acal--month");
 });
 
@@ -203,6 +208,7 @@ await step("Excluir em lote: duas confirmações (a segunda pede EXCLUIR)", asyn
   assert.equal(store.peekContent(a1.id), null);
   assert.equal(store.peekContent(a2.id), null);
   await page.click('[data-cal-mode="mes"]');
+  if (!(await page.locator(".acal--month").count())) await page.click('[data-cal-mode="mes"]');
   await page.waitForSelector(".acal--month");
 });
 
@@ -251,6 +257,7 @@ await step("Precisam de atenção: mostra o atrasado e abre o conteúdo", async 
 
 await step("Prazos das cores: o administrador ajusta e vale na hora", async () => {
   await page.click('[data-cal-mode="mes"]');
+  if (!(await page.locator(".acal--month").count())) await page.click('[data-cal-mode="mes"]');
   await page.waitForSelector(".acal--month");
   await page.click('[data-action="alert-settings"]');
   await page.waitForSelector("#alert-modal[open]");
@@ -273,6 +280,7 @@ page = await newPage({ ...devices["iPhone 13"] }, "celular");
 await step("Celular: menu embaixo com 'Mais', topo enxuto e botão flutuante", async () => {
   await page.goto(`${ORIGIN}/admin/#/conteudos`);
   await signIn();
+  if (!(await page.locator(".acal--month").count())) await page.click('[data-cal-mode="mes"]');
   await page.waitForSelector(".acal--month");
   const nav = await page.$eval(".admin-nav", (n) => { const r = n.getBoundingClientRect(); return { bottom: Math.round(innerHeight - r.bottom), pos: getComputedStyle(n).position }; });
   assert.equal(nav.pos, "fixed");
@@ -303,6 +311,7 @@ await step("Celular: filtros abrem pelo botão e mostram quantos estão ativos",
   await page.waitForFunction(() => document.querySelector(".filters-toggle__count")?.textContent === "1");
   await shot("cal06-celular-filtros");
   await page.click(".filters-toggle");
+  if (!(await page.locator(".acal--month").count())) await page.click('[data-cal-mode="mes"]');
   await page.waitForSelector(".acal--month");
   assert.equal(await page.locator(`${cell(busyDay)} .acal__dots .tdot`).count(), 1, "só a Padaria nesse dia");
 });
@@ -317,6 +326,7 @@ await step("Celular: 'Mais' abre as outras seções", async () => {
   assert.equal(await page.isHidden("#nav-sheet"), true);
   assert.match(await page.getAttribute("[data-nav-more]", "class"), /is-current/);
   await page.click('.admin-nav [data-route="conteudos"]');
+  if (!(await page.locator(".acal--month").count())) await page.click('[data-cal-mode="mes"]');
   await page.waitForSelector(".acal--month");
 });
 

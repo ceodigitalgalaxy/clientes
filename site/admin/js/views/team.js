@@ -4,14 +4,14 @@
    (a chave secreta fica no servidor). Nome, função, perfil, clientes e
    permissões são gravados direto no banco, que só deixa o administrador. */
 
-import { $, esc, on } from "../../../js/lib/dom.js?v=17bcd6fdd7";
-import { icon } from "../../../js/lib/icons.js?v=17bcd6fdd7";
-import { ROLES, validateMember, parseUsername } from "../domain/rules.js?v=17bcd6fdd7";
-import { closeDialog, wireDialog, showFieldErrors, setBusy } from "../ui/dialogs.js?v=17bcd6fdd7";
-import { stateBlock, loadingCards } from "../ui/states.js?v=17bcd6fdd7";
-import { generatePassword } from "./access.js?v=17bcd6fdd7";
-import { daysUntil } from "./contents.js?v=17bcd6fdd7";
-import { deadlineOf, isOpenTask } from "./tasks.js?v=17bcd6fdd7";
+import { $, esc, on } from "../../../js/lib/dom.js?v=cef16017bf";
+import { icon } from "../../../js/lib/icons.js?v=cef16017bf";
+import { ROLES, validateMember, parseUsername } from "../domain/rules.js?v=cef16017bf";
+import { closeDialog, wireDialog, showFieldErrors, setBusy } from "../ui/dialogs.js?v=cef16017bf";
+import { stateBlock, loadingCards } from "../ui/states.js?v=cef16017bf";
+import { generatePassword } from "./access.js?v=cef16017bf";
+import { daysUntil } from "./contents.js?v=cef16017bf";
+import { deadlineOf, isOpenTask } from "./tasks.js?v=cef16017bf";
 
 const PANEL_URL = "https://clientes.digitalgalaxy.com.br/admin/";
 
@@ -48,7 +48,7 @@ export function setupTeam({ api, state, toast, confirm, loadTeam }) {
           <span class="avatar avatar--lg">${esc(nameOf(m).split(/\s+/).slice(0, 2).map((w) => w[0]).join("").toUpperCase())}</span>
           <div class="member-card__who">
             <p class="member-card__name">${esc(nameOf(m))}${me ? ' <span class="field__optional">(você)</span>' : ""}</p>
-            <p class="member-card__job">${esc(m.job_title || ROLES[m.role] || "")} · <span class="member-card__user">@${esc(m.username || "")}</span></p>
+            <p class="member-card__job">${m.job_title ? `${esc(m.job_title)} · ` : ""}<span class="member-card__user">@${esc(m.username || "")}</span></p>
           </div>
           <span class="appr-chip ${m.active === false ? "appr-chip--neutral" : m.role === "admin" ? "appr-chip--reenviado" : "appr-chip--aprovado"}">${esc(m.active === false ? "Desativado" : ROLES[m.role] || m.role)}</span>
         </div>

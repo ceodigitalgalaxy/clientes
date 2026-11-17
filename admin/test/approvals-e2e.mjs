@@ -114,7 +114,7 @@ await step("Painel: seção Aprovações vazia, com chamada para criar o lote", 
   await admin.waitForSelector("#app:not([hidden])");
   await admin.waitForSelector("#batches-list .state__title");
   assert.equal(await admin.textContent("#batches-list .state__title"), "Nenhum lote de aprovação ainda");
-  assert.match(await admin.textContent("#aprovacoes-title"), /Aprovações de Conteúdo/);
+  assert.match(await admin.textContent("#aprovacoes-title"), /^Aprovações$/);
 });
 
 await step("Criar lote: valida, cria e já abre a escolha de conteúdos do mês", async () => {

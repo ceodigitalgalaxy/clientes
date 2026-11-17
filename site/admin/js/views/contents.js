@@ -1,18 +1,18 @@
 /* Seção Conteúdos: filtros, lista, detalhes, cadastro, edição e exclusão */
 
-import { $, esc, on } from "../../../js/lib/dom.js?v=17bcd6fdd7";
-import { icon } from "../../../js/lib/icons.js?v=17bcd6fdd7";
-import { longDayLabel, timeLabel, todayISO, stampLabel, addDays } from "../../../js/lib/dates.js?v=17bcd6fdd7";
-import { typeBadge } from "../../../js/ui/badges.js?v=17bcd6fdd7";
-import { renderMedia, wireMediaFallbacks } from "../../../js/ui/media.js?v=17bcd6fdd7";
-import { PRIORITIES } from "../domain/rules.js?v=17bcd6fdd7";
-import { CONTENT_STATUS, CLIENT_VISIBLE_STATUS, APPROVAL_STATUS, PRODUCTION_STATUS, NETWORKS, FORMATS, LIMITS, validateContent, validateContentFilters } from "../domain/rules.js?v=17bcd6fdd7";
-import { closeDialog, wireDialog, showFieldErrors, setBusy } from "../ui/dialogs.js?v=17bcd6fdd7";
-import { stateBlock, loadingRows, button } from "../ui/states.js?v=17bcd6fdd7";
-import { reviewSections, mountReview } from "./content-review.js?v=17bcd6fdd7";
-import { describeMedia, mediaCover, coverHtml } from "../../../js/ui/media.js?v=17bcd6fdd7";
-import { kebab } from "../ui/menu.js?v=17bcd6fdd7";
-import { CAL_MODES, BOARD_COLUMNS, renderCalendar, calendarRange, stepCursor, calendarTitle, attentionItems, renderAttention } from "./contents-calendar.js?v=17bcd6fdd7";
+import { $, esc, on } from "../../../js/lib/dom.js?v=cef16017bf";
+import { icon } from "../../../js/lib/icons.js?v=cef16017bf";
+import { longDayLabel, timeLabel, todayISO, stampLabel, addDays } from "../../../js/lib/dates.js?v=cef16017bf";
+import { typeBadge } from "../../../js/ui/badges.js?v=cef16017bf";
+import { renderMedia, wireMediaFallbacks } from "../../../js/ui/media.js?v=cef16017bf";
+import { PRIORITIES } from "../domain/rules.js?v=cef16017bf";
+import { CONTENT_STATUS, CLIENT_VISIBLE_STATUS, APPROVAL_STATUS, PRODUCTION_STATUS, NETWORKS, FORMATS, LIMITS, validateContent, validateContentFilters } from "../domain/rules.js?v=cef16017bf";
+import { closeDialog, wireDialog, showFieldErrors, setBusy } from "../ui/dialogs.js?v=cef16017bf";
+import { stateBlock, loadingRows, button } from "../ui/states.js?v=cef16017bf";
+import { reviewSections, mountReview } from "./content-review.js?v=cef16017bf";
+import { describeMedia, mediaCover, coverHtml } from "../../../js/ui/media.js?v=cef16017bf";
+import { kebab } from "../ui/menu.js?v=cef16017bf";
+import { CAL_MODES, BOARD_COLUMNS, renderCalendar, calendarRange, stepCursor, calendarTitle, attentionItems, renderAttention } from "./contents-calendar.js?v=cef16017bf";
 
 const shortDate = (iso) => iso.split("-").reverse().join("/");
 const statusChip = (status) => `<span class="content-status cs--${esc(status)}">${esc(CONTENT_STATUS[status]?.label || status)}</span>`;
@@ -121,7 +121,8 @@ export function setupContents({ api, state, toast, confirm, navigate }) {
   const calendar = $("#contents-calendar");
   const calTitle = $("#cal-title");
   const MODE_KEY = "dg-painel-conteudos-modo";
-  let mode = (() => { try { const m = localStorage.getItem(MODE_KEY); return CAL_MODES[m] ? m : "mes"; } catch { return "mes"; } })();
+  // Sem escolha salva, abre na Semana (o dia a dia); a escolha da pessoa fica lembrada
+  let mode = (() => { try { const m = localStorage.getItem(MODE_KEY); return CAL_MODES[m] ? m : "semana"; } catch { return "semana"; } })();
   let cursor = todayISO();
   let selected = todayISO();
   const phone = matchMedia("(max-width: 768px)");
@@ -945,14 +946,14 @@ export function setupContents({ api, state, toast, confirm, navigate }) {
   }
 
   /** Vindo do Início: abre Conteúdos num modo (mes, semana, quadro…) e/ou com "Precisam de atenção" aberto */
-  function focus({ mode: next = null, attention: openAttention = false } = {}) {
+  function focus({ mode: next = null, attention: openAttention = false, client = undefined } = {}) {
     if (next && CAL_MODES[next]) {
       mode = next;
       cursor = selected = todayISO();
       try { localStorage.setItem(MODE_KEY, mode); } catch { /* só não lembra */ }
     }
     if (openAttention) attentionOpen = true;
-    navigate("conteudos");
+    navigate("conteudos", client ? { client_id: client } : {});
   }
 
   return { load, renderLoading, openForm, openById, focus };

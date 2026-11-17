@@ -8,13 +8,13 @@
      a etapa (no celular, um seletor no cartão faz o mesmo).
    Só monta o HTML; os cliques e o arrastar ficam em contents.js. */
 
-import { esc } from "../../../js/lib/dom.js?v=17bcd6fdd7";
-import { icon } from "../../../js/lib/icons.js?v=17bcd6fdd7";
-import { monthGrid, weekDays, weekLabel, monthLabel, longDayLabel, timeLabel, WEEKDAYS_SHORT, addDays, fromISO, toISO } from "../../../js/lib/dates.js?v=17bcd6fdd7";
-import { typeBadge } from "../../../js/ui/badges.js?v=17bcd6fdd7";
-import { TONES, alertTone, nearestDeadline, daysFrom } from "../domain/deadlines.js?v=17bcd6fdd7";
-import { kebab } from "../ui/menu.js?v=17bcd6fdd7";
-import { PRODUCTION_STATUS } from "../domain/rules.js?v=17bcd6fdd7";
+import { esc } from "../../../js/lib/dom.js?v=cef16017bf";
+import { icon } from "../../../js/lib/icons.js?v=cef16017bf";
+import { monthGrid, weekDays, weekLabel, monthLabel, longDayLabel, timeLabel, WEEKDAYS_SHORT, addDays, fromISO, toISO } from "../../../js/lib/dates.js?v=cef16017bf";
+import { typeBadge } from "../../../js/ui/badges.js?v=cef16017bf";
+import { TONES, alertTone, nearestDeadline, daysFrom } from "../domain/deadlines.js?v=cef16017bf";
+import { kebab } from "../ui/menu.js?v=cef16017bf";
+import { PRODUCTION_STATUS } from "../domain/rules.js?v=cef16017bf";
 
 export const CAL_MODES = { mes: "Mês", semana: "Semana", dia: "Dia", quadro: "Quadro", lista: "Lista" };
 /** Colunas do quadro: "" = ainda não começou */
@@ -40,7 +40,8 @@ export function stepCursor(mode, cursor, delta) {
 }
 
 export function calendarTitle(mode, cursor) {
-  if (mode === "semana") return weekLabel(cursor);
+  // Semana do ano corrente sem o ano: o título cabe inteiro no celular ("15 a 21 de novembro")
+  if (mode === "semana") { const label = weekLabel(cursor); const year = ` de ${new Date().getFullYear()}`; return label.endsWith(year) && !label.slice(0, -year.length).includes(" de 20") ? label.slice(0, -year.length) : label; }
   if (mode === "dia") return longDayLabel(cursor);
   return monthLabel(cursor.slice(0, 7));
 }
