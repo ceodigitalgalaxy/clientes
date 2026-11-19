@@ -17,9 +17,9 @@
   <link rel="preload" href="../fonts/sora-latin-400-normal.woff2" as="font" type="font/woff2" crossorigin>
   <link rel="preload" href="../fonts/sora-latin-600-normal.woff2" as="font" type="font/woff2" crossorigin>
   <!-- Mesmos tokens e componentes do portal do cliente -->
-  <link rel="stylesheet" href="../css/style.css?v=f928e45bc8">
-  <link rel="stylesheet" href="css/admin.css?v=f928e45bc8">
-  <script type="module" src="js/main.js?v=f928e45bc8"></script>
+  <link rel="stylesheet" href="../css/style.css?v=821fef48a0">
+  <link rel="stylesheet" href="css/admin.css?v=821fef48a0">
+  <script type="module" src="js/main.js?v=821fef48a0"></script>
 </head>
 <body class="admin">
   <!-- Tela de entrada: aparece enquanto ninguém estiver logado -->
@@ -63,6 +63,7 @@
         <a class="admin-nav__link" href="#/aprovacoes" data-route="aprovacoes" data-icon="check" data-needs="send">Aprovações<span class="nav-badge" data-approvals-attention hidden></span></a>
         <a class="admin-nav__link" href="#/anuncios" data-route="anuncios" data-icon="megaphone">Anúncios<span class="nav-badge" data-ads-attention hidden></span></a>
         <a class="admin-nav__link" href="#/clientes" data-route="clientes" data-icon="users" data-needs="admin">Clientes</a>
+        <a class="admin-nav__link" href="#/financeiro" data-route="financeiro" data-icon="wallet" data-needs="finance">Financeiro</a>
         <a class="admin-nav__link" href="#/equipe" data-route="equipe" data-icon="user" data-needs="admin">Equipe</a>
         <button class="admin-nav__link admin-nav__more" type="button" data-nav-more aria-expanded="false" aria-controls="nav-sheet" hidden data-icon="more">Mais</button>
       </nav>
@@ -204,6 +205,65 @@
       </div>
       <div class="task-summary" id="task-summary" aria-live="polite"></div>
       <div class="task-board" id="task-list" aria-busy="true"></div>
+    </section>
+
+    <!-- Financeiro (js/views/finance.js): só administrador e quem tem acesso de consulta -->
+    <section class="view" id="view-financeiro" data-view="financeiro" aria-labelledby="financeiro-title" hidden>
+      <div class="view__head">
+        <div>
+          <h1 class="view__title" id="financeiro-title">Financeiro</h1>
+          <p class="view__count" data-fin-readonly hidden>Acesso só para consulta</p>
+        </div>
+        <div class="view__buttons" data-needs="finmanage">
+          <button class="btn btn--ghost" type="button" data-fin-new="despesa" data-icon="arrowRight">Nova despesa</button>
+          <button class="btn btn--primary" type="button" data-fin-new="receita" data-icon="sparkle">Nova receita</button>
+        </div>
+      </div>
+      <div class="seg fin-tabs" role="tablist" aria-label="Partes do financeiro">
+        <button type="button" role="tab" data-fin-tab="lancamentos" aria-selected="true">Lançamentos</button>
+        <button type="button" role="tab" data-fin-tab="contas" aria-selected="false">Contas</button>
+        <button type="button" role="tab" data-fin-tab="categorias" aria-selected="false" data-needs="finmanage">Categorias</button>
+      </div>
+      <div class="fin-panel" data-fin-panel="lancamentos">
+        <div class="fin-bar">
+          <div class="fin-month">
+            <button class="icon-btn" type="button" data-fin-month="-1" aria-label="Mês anterior" data-icon="chevronLeft"></button>
+            <p class="fin-month__label" data-fin-month-label aria-live="polite"></p>
+            <button class="icon-btn" type="button" data-fin-month="1" aria-label="Próximo mês" data-icon="chevronRight"></button>
+          </div>
+          <div class="seg seg--sm" role="group" aria-label="Contar o mês por">
+            <button type="button" data-fin-basis="vencimento" aria-pressed="true" title="Regime de caixa: pela data de vencimento">Vencimento</button>
+            <button type="button" data-fin-basis="competencia" aria-pressed="false" title="Regime de competência: pelo mês a que pertence">Competência</button>
+          </div>
+        </div>
+        <form class="filters" id="fin-filters" role="search" aria-label="Filtrar lançamentos" novalidate>
+          <label class="field"><span class="field__label">Tipo</span><select class="field__input" name="direction"><option value="">Receitas e despesas</option><option value="receita">Só receitas</option><option value="despesa">Só despesas</option></select></label>
+          <label class="field"><span class="field__label">Situação</span><select class="field__input" name="status"><option value="">Todas</option><option value="pendente">Em aberto (a receber/pagar)</option><option value="vencido">Vencidos</option><option value="parcial">Em parte</option><option value="quitado">Recebidos/pagos</option><option value="previsto">Previstos</option><option value="cancelado">Cancelados</option></select></label>
+          <label class="field"><span class="field__label">Categoria</span><select class="field__input" name="category_id"><option value="">Todas</option></select></label>
+          <label class="field"><span class="field__label">Conta</span><select class="field__input" name="account_id"><option value="">Todas</option></select></label>
+          <label class="field"><span class="field__label">Cliente</span><select class="field__input" name="client_id"><option value="">Todos</option></select></label>
+          <label class="field"><span class="field__label">Buscar</span><input class="field__input" name="q" type="search" maxlength="80" placeholder="Descrição, fornecedor, nota"></label>
+        </form>
+        <div class="fin-notice" data-fin-notice hidden></div>
+        <ul class="fin-sums" id="fin-sums" aria-label="Totais do mês"></ul>
+        <div class="fin-list" id="fin-list" aria-busy="true"></div>
+      </div>
+      <div class="fin-panel" data-fin-panel="contas" hidden>
+        <div class="list-tools"><p class="list-count">Saldo calculado pelos recebimentos e pagamentos registrados.</p><button class="btn btn--ghost btn--sm" type="button" data-fin-account-new data-needs="finmanage" data-icon="sparkle">Nova conta</button></div>
+        <div class="fin-accounts" id="fin-accounts"></div>
+        <section class="fin-setting" data-needs="finmanage">
+          <h2 class="detail__title">Início do histórico</h2>
+          <form class="fin-history" data-fin-history novalidate>
+            <label class="field"><span class="field__label">A partir de quando os números valem</span><input class="field__input" type="date" name="history_start"><span class="field__hint">Antes dessa data o painel não mostra totais como se estivessem completos.</span></label>
+            <p class="form-error" role="alert" hidden></p>
+            <button class="btn btn--ghost btn--sm" type="submit"><span>Salvar data</span></button>
+          </form>
+        </section>
+      </div>
+      <div class="fin-panel" data-fin-panel="categorias" hidden>
+        <div class="list-tools"><p class="list-count">Categorias desativadas somem dos formulários, mas os lançamentos antigos continuam com elas.</p><button class="btn btn--ghost btn--sm" type="button" data-fin-category-new data-icon="sparkle">Nova categoria</button></div>
+        <div class="fin-categories" id="fin-categories"></div>
+      </div>
     </section>
 
     <!-- Equipe (js/views/team.js) -->
@@ -804,11 +864,45 @@
           <legend class="field__label">Aprovações</legend>
           <label class="check"><input type="checkbox" name="can_send_approval"><span>Pode enviar para o cliente aprovar (montar lotes, gerar e copiar links)</span></label>
         </fieldset>
+        <fieldset class="field radio-row form-grid__wide" data-collab-only data-edit-only>
+          <legend class="field__label">Financeiro</legend>
+          <label class="check check--card"><input type="radio" name="finance_access" value="nenhum" checked><span><b>Não vê</b> · o menu Financeiro não aparece e o banco não entrega nada</span></label>
+          <label class="check check--card"><input type="radio" name="finance_access" value="ver"><span><b>Só consulta</b> · vê lançamentos, contas e totais, sem poder mudar nada</span></label>
+        </fieldset>
       </div>
       <p class="form-error" role="alert" hidden></p>
       <div class="modal__actions">
         <button class="btn btn--ghost" type="button" data-action="close-modal">Cancelar</button>
         <button class="btn btn--primary" type="submit"><span>Criar acesso</span></button>
+      </div>
+    </form>
+  </dialog>
+
+  <!-- Financeiro: lançamento (detalhe) e formulários (js/views/finance.js) -->
+  <dialog class="drawer" id="fin-drawer" aria-labelledby="fin-drawer-title">
+    <div class="drawer__panel">
+      <div class="drawer__header">
+        <div class="drawer__badges" id="fin-badges"></div>
+        <button class="icon-btn" type="button" data-action="close-drawer" aria-label="Fechar" data-icon="close"></button>
+      </div>
+      <div class="drawer__body" id="fin-body"></div>
+    </div>
+  </dialog>
+  <dialog class="modal modal--wide" id="fin-modal" aria-labelledby="fin-modal-title">
+    <form class="modal__form" method="dialog" novalidate>
+      <div class="modal__head">
+        <span class="modal__icon modal__icon--brand" data-fin-modal-icon></span>
+        <div>
+          <h2 class="modal__title" id="fin-modal-title"></h2>
+          <p class="modal__text" data-fin-modal-text></p>
+        </div>
+        <button class="icon-btn modal__close" type="button" data-action="close-modal" aria-label="Fechar" data-icon="close"></button>
+      </div>
+      <div class="form-grid" data-fin-fields></div>
+      <p class="form-error" role="alert" hidden></p>
+      <div class="modal__actions">
+        <button class="btn btn--ghost" type="button" data-action="close-modal">Cancelar</button>
+        <button class="btn btn--primary" type="submit"><span>Salvar</span></button>
       </div>
     </form>
   </dialog>

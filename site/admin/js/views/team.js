@@ -4,14 +4,14 @@
    (a chave secreta fica no servidor). Nome, função, perfil, clientes e
    permissões são gravados direto no banco, que só deixa o administrador. */
 
-import { $, esc, on } from "../../../js/lib/dom.js?v=f928e45bc8";
-import { icon } from "../../../js/lib/icons.js?v=f928e45bc8";
-import { ROLES, validateMember, parseUsername } from "../domain/rules.js?v=f928e45bc8";
-import { closeDialog, wireDialog, showFieldErrors, setBusy } from "../ui/dialogs.js?v=f928e45bc8";
-import { stateBlock, loadingCards } from "../ui/states.js?v=f928e45bc8";
-import { generatePassword } from "./access.js?v=f928e45bc8";
-import { daysUntil } from "./contents.js?v=f928e45bc8";
-import { deadlineOf, isOpenTask } from "./tasks.js?v=f928e45bc8";
+import { $, esc, on } from "../../../js/lib/dom.js?v=821fef48a0";
+import { icon } from "../../../js/lib/icons.js?v=821fef48a0";
+import { ROLES, validateMember, parseUsername } from "../domain/rules.js?v=821fef48a0";
+import { closeDialog, wireDialog, showFieldErrors, setBusy } from "../ui/dialogs.js?v=821fef48a0";
+import { stateBlock, loadingCards } from "../ui/states.js?v=821fef48a0";
+import { generatePassword } from "./access.js?v=821fef48a0";
+import { daysUntil } from "./contents.js?v=821fef48a0";
+import { deadlineOf, isOpenTask } from "./tasks.js?v=821fef48a0";
 
 const PANEL_URL = "https://clientes.digitalgalaxy.com.br/admin/";
 
@@ -23,6 +23,7 @@ export function setupTeam({ api, state, toast, confirm, loadTeam }) {
   let editing = null;
   let saving = false;
   let contents = [];
+  let finance = new Map();   // pessoa → acesso ao financeiro ("nenhum" | "ver")
 
   wireDialog(dialog, { canClose: () => !saving });
   dialog.addEventListener("close", () => { form.elements.password.value = ""; });
@@ -41,7 +42,8 @@ export function setupTeam({ api, state, toast, confirm, loadTeam }) {
     const w = workload(m.user_id);
     const me = m.user_id === state.me?.user_id;
     const clients = m.role === "admin" || m.all_clients ? "Todos os clientes" : (m.client_ids || []).map(clientName).join(", ") || "Nenhum cliente";
-    const perms = m.role === "admin" ? "Acesso completo" : [m.edit_scope === "todos" ? "Edita todos os conteúdos" : "Edita só as próprias demandas", m.can_send_approval ? "envia para aprovação" : "não envia para aprovação"].join(" · ");
+    const perms = m.role === "admin" ? "Acesso completo" : [m.edit_scope === "todos" ? "Edita todos os conteúdos" : "Edita só as próprias demandas", m.can_send_approval ? "envia para aprovação" : "não envia para aprovação",
+      ...(finance.get(m.user_id) === "ver" ? ["consulta o financeiro"] : [])].join(" · ");
     return `
       <article class="member-card${m.active === false ? " is-off" : ""}" data-member="${esc(m.user_id)}">
         <div class="member-card__head">
@@ -82,8 +84,9 @@ export function setupTeam({ api, state, toast, confirm, loadTeam }) {
     list.setAttribute("aria-busy", "true");
     list.innerHTML = loadingCards();
     try {
-      const [, rows] = await Promise.all([loadTeam(), api.listContents({})]);
+      const [, rows, access] = await Promise.all([loadTeam(), api.listContents({}), api.memberFinanceAccess().catch(() => [])]);
       contents = rows;
+      finance = new Map(access.map((r) => [r.user_id, r.finance_access]));
       render();
     } catch (error) {
       list.setAttribute("aria-busy", "false");
@@ -94,7 +97,7 @@ export function setupTeam({ api, state, toast, confirm, loadTeam }) {
   /* ---------- Formulário ---------- */
   function syncRole() {
     const collab = form.querySelector("[name=role]:checked")?.value !== "admin";
-    form.querySelectorAll("[data-collab-only]").forEach((el) => { el.hidden = !collab; });
+    form.querySelectorAll("[data-collab-only]").forEach((el) => { el.hidden = !collab || el.dataset.editHidden === "1"; });
     const all = form.elements.all_clients.checked;
     form.querySelector("[data-member-clients]").hidden = all;
   }
@@ -105,6 +108,7 @@ export function setupTeam({ api, state, toast, confirm, loadTeam }) {
     dialog.querySelector("#member-modal-title").textContent = member ? `Editar ${nameOf(member)}` : "Nova pessoa na equipe";
     submit.querySelector("span").textContent = member ? "Salvar" : "Criar acesso";
     form.querySelectorAll("[data-create-only]").forEach((el) => { el.hidden = Boolean(member); });
+    form.querySelectorAll("[data-edit-only]").forEach((el) => { el.dataset.editHidden = member ? "" : "1"; });
     const chosen = new Set(member?.client_ids || []);
     form.querySelector("[data-member-clients]").innerHTML = state.clients.length
       ? state.clients.map((c) => `<label class="check"><input type="checkbox" name="client_id" value="${esc(c.id)}" ${chosen.has(c.id) ? "checked" : ""}><span>${esc(c.name)}${c.active ? "" : ' <span class="field__optional">(inativo)</span>'}</span></label>`).join("")
@@ -117,6 +121,7 @@ export function setupTeam({ api, state, toast, confirm, loadTeam }) {
       form.elements.all_clients.checked = Boolean(member.all_clients);
       form.querySelector(`[name=edit_scope][value="${member.edit_scope || "atribuidos"}"]`).checked = true;
       form.elements.can_send_approval.checked = Boolean(member.can_send_approval);
+      form.querySelector(`[name=finance_access][value="${finance.get(member.user_id) === "ver" ? "ver" : "nenhum"}"]`).checked = true;
       // Ninguém tira o próprio perfil de administrador (o banco também recusa)
       form.querySelectorAll("[name=role]").forEach((r) => { r.disabled = member.user_id === state.me?.user_id; });
     } else {
@@ -137,6 +142,7 @@ export function setupTeam({ api, state, toast, confirm, loadTeam }) {
     data.all_clients = form.elements.all_clients.checked;
     data.can_send_approval = form.elements.can_send_approval.checked;
     data.client_ids = [...form.querySelectorAll("[name=client_id]:checked")].map((b) => b.value);
+    if (editing) data.finance_access = form.querySelector("[name=finance_access]:checked")?.value || "nenhum";
     return data;
   };
 

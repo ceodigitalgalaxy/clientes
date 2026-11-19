@@ -84,6 +84,17 @@ Para mandar material bruto e o que editar para o editor de vídeo, sem se perder
 - **Rodadas:** o editor abre a pasta, edita e cola o **link do vídeo pronto** em **Entregar** (com observação opcional) → a demanda vai para **Em revisão** e quem pediu é avisado. Quem pediu **Aprova** (→ Concluído) ou **Pede ajuste** escrevendo os pontos → abre a rodada 2, a demanda vai para **Ajustes solicitados** e o editor é avisado. O painel mostra todas as rodadas (o que foi pedido, a entrega, a decisão) e o card mostra a rodada atual (R1, R2…).
 - **Quem pode:** só o editor responsável (ou o administrador/quem criou, se não houver responsável) entrega; só quem pediu, o administrador ou quem edita o cliente aprova ou pede ajuste. Os links nunca vão para o cliente. Tudo conferido no banco (migração `20261119120000_pedido_de_edicao.sql`: funções `edit_deliver` e `edit_review`; tabela `task_rounds` só para leitura).
 
+### Financeiro da agência (Fase A: base)
+
+Menu **Financeiro**, só para o administrador (gerencia) e para quem tiver o acesso **Só consulta** (definido em Equipe → Editar → Financeiro). Para o resto da equipe o menu não aparece e o banco não entrega nada.
+
+- **Lançamentos:** receitas e despesas do mês, contadas pelo **vencimento** (caixa) ou pela **competência** (mês a que pertencem); filtros por tipo, situação, categoria, conta, cliente e busca (ficam no endereço). Totais do mês: receitas, despesas, resultado e vencido.
+- **Recebimento/pagamento** pode ser parcial; o painel não deixa passar do que falta. Ao lançar dá para marcar "Já recebi/Já paguei". Registrar **não faz nenhuma transferência**: é só o controle.
+- **Nada se apaga:** lançamento é **cancelado** e recebimento/pagamento é **estornado**, sempre com motivo; lançamento com recebimento ativo só é cancelado depois do estorno. Tudo fica no **Histórico** (quem fez e quando).
+- **Contas:** saldo = saldo inicial + entradas − saídas registradas. Enquanto o saldo inicial não for informado, o painel avisa que o saldo mostra só a movimentação. Não se guarda número de conta, agência ou cartão. A data de **início do histórico** também fica nesta aba.
+- **Categorias** (só administrador): criar, renomear e desativar (as desativadas somem dos formulários; os lançamentos antigos continuam com elas).
+- **Como funciona:** migração `20261121120000_financeiro_base.sql`. Valores em **centavos** (`bigint`); status e saldos calculados nas visões `fin_entries_view` e `fin_account_balances` (com a RLS de quem consulta); gatilhos impedem baixa acima do valor, edição de baixa, mudança em lançamento cancelado, cancelamento com baixa ativa e gravação por cima de versão antiga; cada envio tem `request_id` único (clique duplo não duplica); trilha em `fin_audit`.
+
 ### Avisos no celular (notificações push)
 
 O painel pode ser instalado como aplicativo (ícone na tela de início) e mandar os avisos do sininho para o celular ou computador, mesmo com o painel fechado. Cada pessoa ativa no próprio aparelho: **sininho → Ativar avisos neste aparelho** (o navegador pede a permissão e chega um aviso de teste).
@@ -267,6 +278,8 @@ PLAYWRIGHT=$P node admin/test/push-e2e.mjs        # avisos no celular pela tela:
 PLAYWRIGHT=$P node admin/test/minhas-e2e.mjs      # duas pessoas: demanda passada no quadro chega sozinha em Minhas/Início do responsável; Nova, etapa, concluir
 PLAYWRIGHT=$P node admin/test/edicao-e2e.mjs     # pedido de edição: pedido com pasta do Drive, editor entrega pelo celular, ajuste (rodada 2), aprovação, permissões
 PLAYWRIGHT=$P node admin/test/navegacao-e2e.mjs  # rotas: endereço direto, título/menu, inexistente, voltar/avançar, filtros no endereço, permissões (inclusive no servidor)
+node admin/test/finance.test.mjs                 # financeiro: centavos, validação, totais
+PLAYWRIGHT=$P node admin/test/financeiro-e2e.mjs # financeiro: lançar, parcial, estorno, cancelar, clique duplo, sócio só consulta, sem acesso, celular
 PLAYWRIGHT=$P node admin/test/busca-e2e.mjs       # busca rápida (Ctrl+K): demandas, conteúdos, clientes e seções; teclado; permissões; celular
 PLAYWRIGHT=$P node admin/test/movimento-e2e.mjs   # interações: tempos do movimento, cliques repetidos, teclado, toque, "reduzir movimento", nada animando à toa
 PLAYWRIGHT=$P node admin/test/equipe-e2e.mjs      # equipe: criar colaborador, demanda com prazo, o que ele vê e o que o servidor recusa, desativar

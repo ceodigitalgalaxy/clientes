@@ -12,6 +12,8 @@
    português.
    ========================================================================== */
 
+import { FINANCE_ERRORS } from "../domain/finance.js?v=821fef48a0";
+
 export class StoreError extends Error {
   constructor(status, message, code) {
     super(message);
@@ -25,7 +27,9 @@ const AD_FIELDS = "id,client_id,title,campaign_context,objective,platform,platfo
 const TASK_COMMENT_FIELDS = "id,task_id,parent_id,author_id,author_name,body,mentions,edited_at,deleted_at,created_at";
 const TASK_FIELDS = "id,parent_id,client_id,project_id,content_id,title,description,status,column_id,priority,due_at,position,created_by,completed_at,completed_by,archived_at,version,created_at,updated_at,kind,drive_url,reference_url,video_format,video_duration";
 const ROUND_FIELDS = "id,task_id,round,requested_notes,requested_name,requested_at,delivery_url,delivery_note,delivered_name,delivered_at,decision,decided_at";
-const MEMBER_FIELDS = "user_id,role,active,name,email,job_title,all_clients,edit_scope,can_send_approval";
+const MEMBER_FIELDS = "user_id,role,active,name,email,job_title,all_clients,edit_scope,can_send_approval,finance_access";
+const FIN_ENTRY_FIELDS = "id,direction,description,amount_cents,category_id,account_id,client_id,revenue_kind,counterparty,competence_date,due_date,confirmed,invoice_number,notes,cancelled_at,cancel_reason,request_id,version,created_by,created_at,updated_at,settled_cents,open_cents,last_paid_on,status";
+const FIN_SETTLEMENT_FIELDS = "id,entry_id,account_id,amount_cents,paid_on,method,notes,voided_at,void_reason,request_id,created_by,created_at";
 const AD_ASSET_FIELDS = "id,ad_id,kind,storage_path,url,position,created_at";
 
 /** Recusas das funções do fluxo de anúncios (raise exception) em português */
@@ -72,6 +76,7 @@ const ASSET_FIELDS = "id,content_id,kind,role,name,storage_path,url,position,cre
 function translate(status, body, withSession) {
   const code = body && body.code;
   if (code === "P0001" && AD_ERRORS[body.message]) return new StoreError(409, AD_ERRORS[body.message], body.message);
+  if (code === "P0001" && FINANCE_ERRORS[body.message]) return new StoreError(409, FINANCE_ERRORS[body.message], body.message);
   if (code === "23505") return new StoreError(409, "Já existe um cliente com esse identificador. Escolha outro.", code);
   if (code === "23503") return new StoreError(409, "Este cliente tem conteúdos ou anúncios cadastrados e não pode ser excluído. Você pode inativá-lo.", code);
   if (code === "23514" || code === "22P02" || code === "22007" || code === "22008") return new StoreError(400, "Algum campo está fora do formato aceito. Revise e tente de novo.", code);
@@ -372,6 +377,10 @@ export function createSupabaseStore({ url, apiKey, secretKey, getToken, onUnauth
     async teamDirectory() {
       return request("rpc/team_directory", { method: "POST", body: {} });
     },
+    /** Acesso de cada pessoa ao financeiro (o banco só entrega a lista inteira ao administrador) */
+    async memberFinanceAccess() {
+      return request("agency_members?select=user_id,finance_access");
+    },
     async updateMember(userId, value) {
       return request(`agency_members?select=${MEMBER_FIELDS}&user_id=eq.${enc(userId)}`, { method: "PATCH", body: value, single: true, prefer: "return=representation" });
     },
@@ -522,6 +531,81 @@ export function createSupabaseStore({ url, apiKey, secretKey, getToken, onUnauth
     async markNotificationsRead(ids = null) {
       const filter = ids ? `id=in.(${ids.map(enc).join(",")})` : "read_at=is.null";
       await request(`notifications?${filter}`, { method: "PATCH", body: { read_at: new Date().toISOString() }, prefer: "return=minimal" });
+    },
+
+    /* ---------- Financeiro (só quem tem acesso; mudar, só o administrador — RLS) ---------- */
+    async finSettings() {
+      const rows = await request("fin_settings?select=history_start,updated_at&id=eq.true");
+      return Array.isArray(rows) && rows.length ? rows[0] : null;
+    },
+    async finUpdateSettings(value) {
+      return request("fin_settings?select=history_start,updated_at&id=eq.true", { method: "PATCH", body: value, single: true, prefer: "return=representation" });
+    },
+    async finAccounts() {
+      return request("fin_account_balances?select=*&order=active.desc,name.asc");
+    },
+    async finCreateAccount(value) {
+      return request("fin_accounts?select=id", { method: "POST", body: value, single: true, prefer: "return=representation" });
+    },
+    async finUpdateAccount(id, value) {
+      return request(`fin_accounts?select=id&id=eq.${enc(id)}`, { method: "PATCH", body: value, single: true, prefer: "return=representation" });
+    },
+    async finCategories() {
+      return request("fin_categories?select=id,direction,name,active,position&order=direction.asc,position.asc,name.asc");
+    },
+    async finCreateCategory(value) {
+      return request("fin_categories?select=id,direction,name,active,position", { method: "POST", body: value, single: true, prefer: "return=representation" });
+    },
+    async finUpdateCategory(id, value) {
+      return request(`fin_categories?select=id,direction,name,active,position&id=eq.${enc(id)}`, { method: "PATCH", body: value, single: true, prefer: "return=representation" });
+    },
+    /** Lançamentos já com o status e o saldo calculados pelo banco */
+    async finEntries({ from, to, basis = "vencimento", direction, status, category_id, account_id, client_id } = {}) {
+      const col = basis === "competencia" ? "competence_date" : "due_date";
+      const q = [`select=${FIN_ENTRY_FIELDS}`, `order=${col}.asc,created_at.asc`, "limit=2000"];
+      if (from) q.push(`${col}=gte.${enc(from)}`);
+      if (to) q.push(`${col}=lte.${enc(to)}`);
+      if (direction) q.push(`direction=eq.${enc(direction)}`);
+      if (status === "pendente") q.push("status=in.(aberto,parcial,vencido,previsto)");
+      else if (status) q.push(`status=eq.${enc(status)}`);
+      for (const [k, v] of Object.entries({ category_id, account_id, client_id })) if (v) q.push(`${k}=eq.${enc(v)}`);
+      return request(`fin_entries_view?${q.join("&")}`);
+    },
+    async finEntry(id) {
+      return request(`fin_entries_view?select=${FIN_ENTRY_FIELDS}&id=eq.${enc(id)}`, { single: true });
+    },
+    async finEntryByRequest(requestId) {
+      const rows = await request(`fin_entries_view?select=${FIN_ENTRY_FIELDS}&request_id=eq.${enc(requestId)}`);
+      return rows?.[0] || null;
+    },
+    async finCreateEntry(value) {
+      return request("fin_entries?select=id", { method: "POST", body: value, single: true, prefer: "return=representation" });
+    },
+    /** Grava só se ninguém salvou antes (version) */
+    async finUpdateEntry(id, version, value) {
+      const rows = await request(`fin_entries?select=id&id=eq.${enc(id)}&version=eq.${Number(version)}`, { method: "PATCH", body: { ...value, version: Number(version) }, prefer: "return=representation" });
+      if (!Array.isArray(rows) || !rows.length) throw new StoreError(409, FINANCE_ERRORS.versao_desatualizada, "versao_desatualizada");
+      return rows[0];
+    },
+    async finSettlements(entryId) {
+      return request(`fin_settlements?select=${FIN_SETTLEMENT_FIELDS}&entry_id=eq.${enc(entryId)}&order=paid_on.asc,created_at.asc`);
+    },
+    async finSettlementByRequest(requestId) {
+      const rows = await request(`fin_settlements?select=${FIN_SETTLEMENT_FIELDS}&request_id=eq.${enc(requestId)}`);
+      return rows?.[0] || null;
+    },
+    async finCreateSettlement(value) {
+      return request(`fin_settlements?select=${FIN_SETTLEMENT_FIELDS}`, { method: "POST", body: value, single: true, prefer: "return=representation" });
+    },
+    async finVoidSettlement(id, reason) {
+      const rows = await request(`fin_settlements?select=${FIN_SETTLEMENT_FIELDS}&id=eq.${enc(id)}&voided_at=is.null`, { method: "PATCH", body: { voided_at: new Date().toISOString(), void_reason: reason }, prefer: "return=representation" });
+      if (!Array.isArray(rows) || !rows.length) throw new StoreError(409, FINANCE_ERRORS.baixa_ja_estornada, "baixa_ja_estornada");
+      return rows[0];
+    },
+    async finAudit({ rowIds = [], limit = 50 } = {}) {
+      const q = ["select=id,table_name,row_id,action,actor_name,at,before,after", "order=at.desc", `limit=${Number(limit) || 50}`];
+      if (rowIds.length) q.push(`row_id=in.(${rowIds.map(enc).join(",")})`);
+      return request(`fin_audit?${q.join("&")}`);
     },
 
     async ping() {

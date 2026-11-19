@@ -2,10 +2,11 @@
    Valida os dados antes de enviar (domain/rules.js); o banco confere de novo
    com as próprias regras e só aceita membros da equipe (RLS). */
 
-import { validateClient, validateContent, validateContentFilters, parseUsername, passwordProblem, CONTENT_STATUS, PRODUCTION_STATUS, isUuid, validateAd, validateAdFilters, AD_LIMITS, validateBrandKit, validateBatch, validateMember } from "./domain/rules.js?v=f928e45bc8";
-import { validateTask, isId, TASK_STATUS, COLORS, httpsUrl } from "./domain/tasks.js?v=f928e45bc8";
-import { ALERT_DEFAULTS, validateAlertSettings } from "./domain/deadlines.js?v=f928e45bc8";
-import { UPLOAD_LIMITS, fileName, fileProblem, resizeImage } from "../../js/lib/storage.js?v=f928e45bc8";
+import { validateClient, validateContent, validateContentFilters, parseUsername, passwordProblem, CONTENT_STATUS, PRODUCTION_STATUS, isUuid, validateAd, validateAdFilters, AD_LIMITS, validateBrandKit, validateBatch, validateMember } from "./domain/rules.js?v=821fef48a0";
+import { validateTask, isId, TASK_STATUS, COLORS, httpsUrl } from "./domain/tasks.js?v=821fef48a0";
+import { ALERT_DEFAULTS, validateAlertSettings } from "./domain/deadlines.js?v=821fef48a0";
+import { validateEntry, validateSettlement, validateAccount, validateCategory, validateReason, validateEntryFilters, monthRange, isDate } from "./domain/finance.js?v=821fef48a0";
+import { UPLOAD_LIMITS, fileName, fileProblem, resizeImage } from "../../js/lib/storage.js?v=821fef48a0";
 
 export class ApiError extends Error {
   constructor(status, message, fields) { super(message); this.status = status; this.fields = fields || {}; }
@@ -274,9 +275,84 @@ export function createApi({ store, onSessionLost, access = null, storage = null,
     markRead: guard((eventIds = null) => store.approvalRpc("approval_mark_read", { p_ids: eventIds ? ids(eventIds) : null }))
   };
 
+  /* ---------- Financeiro ----------
+     Cada envio leva um request_id (gerado quando o formulário abre). Se o mesmo
+     envio chegar duas vezes, o banco recusa o repetido (23505) e a tela recebe
+     o registro que já foi gravado — nada duplica. */
+  const sameRequest = async (create, lookup, requestId, duplicateMessage) => {
+    try { return await create(); }
+    catch (error) {
+      if (error?.code !== "23505") throw error;
+      const existing = await lookup(requestId).catch(() => null);
+      if (existing) return { ...existing, repeated: true };
+      throw new ApiError(409, duplicateMessage);
+    }
+  };
+  const requireRequestId = (id) => { if (!isUuid(id)) throw new ApiError(422, "Envio inválido. Feche e abra o formulário de novo."); return id; };
+  const finance = {
+    finSettings: guard(() => store.finSettings()),
+    finSaveHistoryStart: guard((date) => {
+      if (date && !isDate(date)) throw new ApiError(422, "Data inválida.", { history_start: "Data inválida." });
+      return store.finUpdateSettings({ history_start: date || null });
+    }),
+    finAccounts: guard(() => store.finAccounts()),
+    finSaveAccount: guard(async (id, data) => {
+      const value = requireValid(validateAccount(data));
+      try { return id ? await store.finUpdateAccount(requireId(id), value) : await store.finCreateAccount(value); }
+      catch (error) { if (error?.code === "23505") throw new ApiError(409, "Já existe uma conta com esse nome.", { name: "Já existe uma conta com esse nome." }); throw error; }
+    }),
+    finCategories: guard(() => store.finCategories()),
+    finSaveCategory: guard(async (id, data) => {
+      const { value, errors } = validateCategory(data);
+      requireValid({ value, errors });
+      try {
+        if (id) return await store.finUpdateCategory(requireId(id), { name: value.name, active: value.active });
+        return await store.finCreateCategory({ ...value, position: Number(data.position) || 99 });
+      } catch (error) { if (error?.code === "23505") throw new ApiError(409, "Já existe uma categoria com esse nome.", { name: "Já existe uma categoria com esse nome." }); throw error; }
+    }),
+    finEntries: guard((filters = {}) => {
+      const f = validateEntryFilters(filters);
+      const range = f.month ? monthRange(f.month) : {};
+      return store.finEntries({ ...f, ...range });
+    }),
+    finEntry: guard((id) => store.finEntry(requireId(id))),
+    finCreateEntry: guard(async (data, requestId, { categories = [] } = {}) => {
+      const value = requireValid(validateEntry(data, { categories }));
+      const rid = requireRequestId(requestId);
+      const saved = await sameRequest(() => store.finCreateEntry({ ...value, request_id: rid }), (r) => store.finEntryByRequest(r), rid, "Este lançamento já foi enviado.");
+      return store.finEntry(saved.id);
+    }),
+    finUpdateEntry: guard(async (id, version, data, { categories = [] } = {}) => {
+      const { direction, ...value } = requireValid(validateEntry(data, { categories }));
+      await store.finUpdateEntry(requireId(id), version, value);
+      return store.finEntry(id);
+    }),
+    finCancelEntry: guard(async (id, version, reason) => {
+      const r = validateReason(reason);
+      if (r.error) throw new ApiError(422, r.error, { reason: r.error });
+      await store.finUpdateEntry(requireId(id), version, { cancelled_at: new Date().toISOString(), cancel_reason: r.value });
+      return store.finEntry(id);
+    }),
+    finSettlements: guard((entryId) => store.finSettlements(requireId(entryId))),
+    finSettle: guard(async (data, requestId, { openCents = null } = {}) => {
+      const value = requireValid(validateSettlement(data, { openCents }));
+      const rid = requireRequestId(requestId);
+      await sameRequest(() => store.finCreateSettlement({ ...value, request_id: rid }), (r) => store.finSettlementByRequest(r), rid, "Este registro já foi enviado.");
+      return store.finEntry(value.entry_id);
+    }),
+    finVoidSettlement: guard(async (settlement, reason) => {
+      const r = validateReason(reason);
+      if (r.error) throw new ApiError(422, r.error, { reason: r.error });
+      await store.finVoidSettlement(requireId(settlement.id), r.value);
+      return store.finEntry(settlement.entry_id);
+    }),
+    finAudit: guard((rowIds = []) => store.finAudit({ rowIds: rowIds.filter(isUuid) }))
+  };
+
   return {
     ...ads,
     ...approvals,
+    ...finance,
     logoUrl: (path) => (storage && path ? storage.publicUrl("client-logos", path) : null),
 
     /** Foto do cliente: diminui no navegador, envia e troca a antiga */
@@ -412,8 +488,11 @@ export function createApi({ store, onSessionLost, access = null, storage = null,
       requireValid({ value, errors });
       return callTeam({ action: "criar", username, password: data.password, ...value, client_ids: clientIds });
     }),
+    memberFinanceAccess: guard(() => store.memberFinanceAccess()),
     updateMember: guard(async (userId, data, currentClientIds = []) => {
       const { value, clientIds } = requireValidMember(validateMember(data));
+      // Financeiro: só "ver" ou "nenhum" (o administrador sempre gerencia)
+      if (data.finance_access !== undefined) value.finance_access = value.role === "colaborador" && data.finance_access === "ver" ? "ver" : "nenhum";
       const saved = await store.updateMember(userId, value);
       await store.setMemberClients(userId, value.all_clients ? [] : clientIds, currentClientIds);
       return saved;

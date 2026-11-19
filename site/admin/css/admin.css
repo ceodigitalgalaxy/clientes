@@ -1673,3 +1673,105 @@ kbd, .qs-toggle__kbd { padding: 1px 6px; border: 1px solid var(--line); border-r
 @media (hover: none) {
   .icon-btn:hover:not([aria-expanded="true"]) { color: var(--text-muted); border-color: var(--line-strong); background: var(--surface); }
 }
+
+/* ==========================================================================
+   Financeiro (js/views/finance.js)
+   ========================================================================== */
+.fin-tabs { margin-bottom: 16px; }
+.fin-tabs button[hidden] { display: none; }
+.fin-bar { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 12px; }
+.fin-month { display: flex; align-items: center; gap: 4px; }
+.fin-month__label { min-width: 168px; font-family: var(--font-display); font-size: 18px; font-weight: 600; text-align: center; }
+.seg--sm button { min-height: 32px; padding: 0 12px; font-size: 12.5px; }
+#fin-filters { grid-template-columns: repeat(5, minmax(0, 1fr)) minmax(0, 1.4fr); margin-bottom: 12px; }
+.fin-notice { display: grid; gap: 4px; margin-bottom: 12px; padding: 10px 14px; border: 1px solid var(--aguardando-line); border-radius: var(--radius); background: var(--aguardando-soft); color: var(--aguardando-ink); font-size: 13px; }
+.fin-notice p { display: flex; align-items: flex-start; gap: 8px; }
+.fin-notice .icon { flex: none; width: 16px; height: 16px; margin-top: 1px; }
+
+.fin-sums { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 12px; margin-bottom: 16px; }
+.fin-sum { position: relative; display: grid; gap: 2px; padding: 12px 16px; border: 1px solid var(--line); border-radius: var(--radius-lg); background: var(--surface); box-shadow: var(--shadow-card); overflow: hidden; }
+.fin-sum::before { content: ""; position: absolute; inset: 0 auto 0 0; width: 4px; background: var(--k, var(--line-strong)); }
+.fin-sum--in { --k: var(--aprovado); } .fin-sum--out { --k: var(--ajustes); } .fin-sum--res { --k: var(--brand); } .fin-sum--neg { --k: var(--ajustes); } .fin-sum--late { --k: var(--ajustes); } .fin-sum--ok { --k: var(--line-strong); }
+.fin-sum__label { font-size: 12px; font-weight: 600; color: var(--text-muted); }
+.fin-sum__value { font-size: 20px; font-weight: 700; font-variant-numeric: tabular-nums; letter-spacing: -0.01em; }
+.fin-sum--neg .fin-sum__value, .fin-sum--late .fin-sum__value { color: var(--ajustes-ink); }
+.fin-sum__sub { font-size: 12px; color: var(--text-subtle); }
+
+.fin-rows { display: grid; border: 1px solid var(--line); border-radius: var(--radius-lg); background: var(--surface); box-shadow: var(--shadow-card); overflow: hidden; }
+.fin-rows > li + li { border-top: 1px solid var(--line); }
+.fin-row { display: grid; grid-template-columns: 56px minmax(0, 1fr) auto auto; align-items: center; gap: 16px; width: 100%; min-height: 56px; padding: 8px 16px; border: 0; background: transparent; font: inherit; text-align: left; color: var(--text); cursor: pointer; transition: background-color var(--dur-fast) var(--ease-out); }
+@media (hover: hover) { .fin-row:hover { background: var(--surface-hover); } }
+.fin-row:focus-visible { outline: none; box-shadow: inset var(--ring); }
+.fin-row.is-cancelled .fin-row__title, .fin-row.is-cancelled .fin-row__amount { color: var(--text-subtle); text-decoration: line-through; }
+.fin-row__date { font-size: 13px; font-weight: 600; color: var(--text-muted); font-variant-numeric: tabular-nums; }
+.fin-row__main { display: grid; min-width: 0; }
+.fin-row__title { overflow: hidden; font-size: 14px; font-weight: 600; text-overflow: ellipsis; white-space: nowrap; }
+.fin-row__meta { overflow: hidden; font-size: 12px; color: var(--text-subtle); text-overflow: ellipsis; white-space: nowrap; }
+.fin-row__amount { display: grid; justify-items: end; font-size: 14px; font-weight: 700; font-variant-numeric: tabular-nums; white-space: nowrap; }
+.fin-row__amount--receita { color: var(--aprovado-ink); }
+.fin-row__amount--despesa { color: var(--text); }
+.fin-row__amount small { font-size: 11.5px; font-weight: 600; color: var(--text-subtle); }
+
+.fin-chip { display: inline-flex; align-items: center; height: 24px; padding: 0 10px; border: 1px solid var(--line); border-radius: 999px; font-size: 11.5px; font-weight: 600; white-space: nowrap; color: var(--text-muted); background: var(--surface-muted); }
+.fin-chip--success, .fin-chip--in { color: var(--aprovado-ink); background: var(--aprovado-soft); border-color: var(--aprovado-line); }
+.fin-chip--danger, .fin-chip--out { color: var(--ajustes-ink); background: var(--ajustes-soft); border-color: var(--ajustes-line); }
+.fin-chip--info { color: var(--brand-ink); background: var(--brand-soft); border-color: #DCCBFB; }
+.fin-chip--muted { color: var(--text-subtle); border-style: dashed; }
+
+/* Detalhe */
+.fin-money { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; margin: 16px 0; }
+.fin-money li { display: grid; gap: 2px; padding: 10px 12px; border-radius: var(--radius); background: var(--surface-muted); border: 1px solid var(--line); }
+.fin-money span { font-size: 12px; color: var(--text-muted); }
+.fin-money b { font-size: 16px; font-variant-numeric: tabular-nums; }
+.fin-money .is-open b { color: var(--ajustes-ink); }
+.fin-settlements { display: grid; gap: 8px; }
+.fin-settlements li { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 10px 12px; border: 1px solid var(--line); border-radius: var(--radius); font-size: 14px; font-variant-numeric: tabular-nums; }
+.fin-settlements li.is-void { color: var(--text-subtle); background: var(--surface-muted); }
+.fin-settlements li.is-void b { text-decoration: line-through; }
+.fin-settlements__meta { display: block; font-size: 12px; color: var(--text-subtle); }
+.fin-paid-now { gap: 12px; }
+
+/* Contas e categorias */
+.fin-accounts { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 12px; margin-bottom: 24px; }
+.fin-account { display: grid; gap: 4px; padding: 16px; border: 1px solid var(--line); border-radius: var(--radius-lg); background: var(--surface); box-shadow: var(--shadow-card); }
+.fin-account.is-off { opacity: 0.6; }
+.fin-account__head { display: flex; align-items: center; gap: 12px; margin-bottom: 8px; }
+.fin-account__head > div { flex: 1; min-width: 0; }
+.fin-account__icon { display: grid; place-items: center; width: 36px; height: 36px; border-radius: 10px; color: var(--brand); background: var(--brand-soft); }
+.fin-account__icon .icon { width: 18px; height: 18px; }
+.fin-account__name { font-weight: 700; }
+.fin-account__kind, .fin-account__sub { font-size: 12.5px; color: var(--text-muted); }
+.fin-account__balance { font-size: 24px; font-weight: 700; font-variant-numeric: tabular-nums; letter-spacing: -0.01em; }
+.fin-account__balance.is-neg { color: var(--ajustes-ink); }
+.fin-warn { font-weight: 600; color: var(--aguardando-ink); }
+.fin-setting { max-width: 480px; }
+.fin-history { display: grid; gap: 8px; justify-items: start; }
+.fin-history .field { width: 100%; }
+.fin-categories { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; }
+.fin-cats ul { display: grid; border: 1px solid var(--line); border-radius: var(--radius-lg); background: var(--surface); overflow: hidden; }
+.fin-cats li { display: flex; align-items: center; justify-content: space-between; gap: 8px; min-height: 48px; padding: 4px 8px 4px 16px; font-size: 14px; }
+.fin-cats li + li { border-top: 1px solid var(--line); }
+.fin-cats li.is-off { color: var(--text-subtle); }
+
+@media (max-width: 1100px) {
+  #fin-filters { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+}
+@media (max-width: 768px) {
+  .fin-tabs, .fin-bar .seg { display: flex; width: 100%; }
+  .fin-tabs button, .fin-bar .seg button { flex: 1 1 0; min-width: 0; padding: 0 8px; }
+  .fin-month { width: 100%; justify-content: space-between; }
+  .fin-month__label { min-width: 0; font-size: 16px; }
+  .fin-sums { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
+  .fin-sum__sub { display: none; }
+  .fin-sum { padding: 10px 12px; }
+  .fin-sum__value { font-size: 17px; }
+  .fin-bar { justify-content: center; }
+  #fin-filters { grid-template-columns: minmax(0, 1fr); }
+  .fin-row { grid-template-columns: minmax(0, 1fr) auto; grid-template-areas: "main amount" "date chip"; gap: 2px 12px; padding: 10px 14px; }
+  .fin-row__main { grid-area: main; }
+  .fin-row__amount { grid-area: amount; }
+  .fin-row__date { grid-area: date; font-size: 12px; font-weight: 500; }
+  .fin-row .fin-chip { grid-area: chip; justify-self: end; height: 20px; font-size: 11px; }
+  .fin-categories { grid-template-columns: minmax(0, 1fr); }
+  .fin-money b { font-size: 14px; }
+}

@@ -52,7 +52,7 @@ async function newPage(user, pass, name) {
 }
 const visibleView = (p) => p.evaluate(() => document.querySelector("[data-view]:not([hidden])")?.dataset.view);
 const hashRoute = (p) => p.evaluate(() => location.hash.replace(/^#\/?/, "").split("?")[0]);
-const ROUTES = { inicio: "Início", demandas: "Minhas demandas", gestao: "Demandas", conteudos: "Conteúdos", aprovacoes: "Aprovações", anuncios: "Anúncios", clientes: "Clientes", importar: "Importar por planilha", equipe: "Equipe" };
+const ROUTES = { inicio: "Início", demandas: "Minhas demandas", gestao: "Demandas", conteudos: "Conteúdos", aprovacoes: "Aprovações", anuncios: "Anúncios", clientes: "Clientes", importar: "Importar por planilha", financeiro: "Financeiro", equipe: "Equipe" };
 
 const admin = await newPage("admdg-teste", "Senha-de-teste-123", "bruna");
 
@@ -109,7 +109,7 @@ await step('Link "?abrir=" malformado não abre nada nem quebra; o endereço fic
 const ana = await newPage("ana.design", "Senha-da-Ana-123", "ana");
 
 await step("Colaboradora: seções do administrador não aparecem no menu e o endereço direto cai no Início", async () => {
-  for (const route of ["clientes", "equipe", "importar", "aprovacoes"]) {
+  for (const route of ["clientes", "equipe", "importar", "aprovacoes", "financeiro"]) {
     assert.equal(await ana.isVisible(`.admin-nav [data-route="${route}"]`), false, `menu sem ${route}`);
     await ana.goto(`${ORIGIN}/admin/#/${route}`);
     await ana.waitForFunction(() => location.hash === "#/inicio");

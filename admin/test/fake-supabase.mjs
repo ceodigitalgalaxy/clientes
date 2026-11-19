@@ -17,6 +17,7 @@ import { pairFromStatus } from "../../site/js/domain/approvals.js";
 import { createHandler as createApprovalHandler } from "../../supabase/functions/aprovacao/handler.js";
 import { createFakeTasks } from "./fake-tasks.mjs";
 import { createHandler as createPushHandler } from "../../supabase/functions/avisos-push/handler.js";
+import { createFakeFinance } from "./fake-finance.mjs";
 import { pushOrigin } from "../../supabase/functions/avisos-push/webpush.js";
 
 /** Chave secreta de mentira: só o "servidor" (a função) conhece */
@@ -56,13 +57,13 @@ export function createFakeSupabase({ store, publishableKey }) {
   const editsContent = (u, c) => Boolean(c) && (editsClient(u, c.client_id) || (sees(u, c.client_id) && store.listAssignees(c.id).includes(u.id)));
   const memberName = (u) => u?.profile?.name || usernameFromEmail(u?.email) || "Sistema";
   const memberRow = (u) => ({ user_id: u.id, role: u.profile.role, active: u.profile.active !== false, name: u.profile.name ?? null, email: u.profile.email ?? null,
-    job_title: u.profile.job_title ?? null, all_clients: u.profile.all_clients, edit_scope: u.profile.edit_scope, can_send_approval: u.profile.can_send_approval });
+    job_title: u.profile.job_title ?? null, all_clients: u.profile.all_clients, edit_scope: u.profile.edit_scope, can_send_approval: u.profile.can_send_approval, finance_access: u.profile.finance_access || "nenhum" });
   const rlsDenied = () => ({ error: json(403, { code: "42501", message: "new row violates row-level security policy" }) });
   const raise = (key) => ({ error: json(400, { code: "P0001", message: key }) });
   // Avisos: só para quem está ativo e enxerga o cliente (como private.notify)
   store.canReceive = (userId, clientId) => sees(userById(userId), clientId);
   store.adminIds = () => teamMembers().filter((u) => isAdmin(u)).map((u) => u.id);
-  const defaultProfile = (extra = {}) => ({ role: "admin", active: true, all_clients: true, client_ids: [], edit_scope: "todos", can_send_approval: true, name: null, email: null, job_title: null, ...extra });
+  const defaultProfile = (extra = {}) => ({ role: "admin", active: true, all_clients: true, client_ids: [], edit_scope: "todos", can_send_approval: true, finance_access: "nenhum", name: null, email: null, job_title: null, ...extra });
   /** Como o gatilho agency_members_guard */
   function memberGuard(target, next, actorId) {
     if (actorId && target.id === actorId && (next.role !== "admin" || next.active === false)) return "nao_pode_proprio_acesso";
@@ -76,6 +77,7 @@ export function createFakeSupabase({ store, publishableKey }) {
     const value = params.get(column);
     return value && value.startsWith(`${op}.`) ? decodeURIComponent(value.slice(op.length + 1)) : undefined;
   }
+  const finance = createFakeFinance({ h: { isAdmin, active, memberName, json, raise, rlsDenied, eq } });
   const tasks = createFakeTasks({ store, h: { sees, editsClient, isAdmin, active, memberName, userById, json, raise, rlsDenied, eq } });
   {
     const notify = store.notifyAdjustment.bind(store);
@@ -210,6 +212,7 @@ export function createFakeSupabase({ store, publishableKey }) {
       if (!active(user)) return method === "GET" ? [] : rlsDenied();
       return tasks.route(method, table, params, body, user);
     }
+    if (finance.tables.includes(table)) return finance.route(method, table, params, body, user);
     if (table === "agency_members") {
       const id = eq(params, "user_id");
       if (method === "GET") {
@@ -717,5 +720,6 @@ export function createFakeSupabase({ store, publishableKey }) {
       headers: { "content-type": "application/json", "x-hook-secret": pushHookFor(n.id) }, body: JSON.stringify({ action: "enviar", id: n.id }) })).catch(() => {});
   };
   fake.tasks = tasks;
+  fake.finance = finance;
   return fake;
 }

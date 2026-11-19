@@ -11,7 +11,7 @@
    Sem dependências: roda no navegador e nos testes (Node).
    ========================================================================== */
 
-import { validateContent, NETWORKS, CONTENT_STATUS } from "./rules.js?v=f928e45bc8";
+import { validateContent, NETWORKS, CONTENT_STATUS } from "./rules.js?v=821fef48a0";
 
 export const MAX_IMPORT_ROWS = 500;
 
