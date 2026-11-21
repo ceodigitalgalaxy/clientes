@@ -17,9 +17,9 @@
   <link rel="preload" href="../fonts/sora-latin-400-normal.woff2" as="font" type="font/woff2" crossorigin>
   <link rel="preload" href="../fonts/sora-latin-600-normal.woff2" as="font" type="font/woff2" crossorigin>
   <!-- Mesmos tokens e componentes do portal do cliente -->
-  <link rel="stylesheet" href="../css/style.css?v=821fef48a0">
-  <link rel="stylesheet" href="css/admin.css?v=821fef48a0">
-  <script type="module" src="js/main.js?v=821fef48a0"></script>
+  <link rel="stylesheet" href="../css/style.css?v=7a96e4cef6">
+  <link rel="stylesheet" href="css/admin.css?v=7a96e4cef6">
+  <script type="module" src="js/main.js?v=7a96e4cef6"></script>
 </head>
 <body class="admin">
   <!-- Tela de entrada: aparece enquanto ninguém estiver logado -->
@@ -221,21 +221,22 @@
       </div>
       <div class="seg fin-tabs" role="tablist" aria-label="Partes do financeiro">
         <button type="button" role="tab" data-fin-tab="lancamentos" aria-selected="true">Lançamentos</button>
+        <button type="button" role="tab" data-fin-tab="metas" aria-selected="false">Metas</button>
         <button type="button" role="tab" data-fin-tab="contas" aria-selected="false">Contas</button>
         <button type="button" role="tab" data-fin-tab="categorias" aria-selected="false" data-needs="finmanage">Categorias</button>
       </div>
-      <div class="fin-panel" data-fin-panel="lancamentos">
-        <div class="fin-bar">
-          <div class="fin-month">
-            <button class="icon-btn" type="button" data-fin-month="-1" aria-label="Mês anterior" data-icon="chevronLeft"></button>
-            <p class="fin-month__label" data-fin-month-label aria-live="polite"></p>
-            <button class="icon-btn" type="button" data-fin-month="1" aria-label="Próximo mês" data-icon="chevronRight"></button>
-          </div>
-          <div class="seg seg--sm" role="group" aria-label="Contar o mês por">
-            <button type="button" data-fin-basis="vencimento" aria-pressed="true" title="Regime de caixa: pela data de vencimento">Vencimento</button>
-            <button type="button" data-fin-basis="competencia" aria-pressed="false" title="Regime de competência: pelo mês a que pertence">Competência</button>
-          </div>
+      <div class="fin-bar" data-fin-monthbar>
+        <div class="fin-month">
+          <button class="icon-btn" type="button" data-fin-month="-1" aria-label="Mês anterior" data-icon="chevronLeft"></button>
+          <p class="fin-month__label" data-fin-month-label aria-live="polite"></p>
+          <button class="icon-btn" type="button" data-fin-month="1" aria-label="Próximo mês" data-icon="chevronRight"></button>
         </div>
+        <div class="seg seg--sm" role="group" aria-label="Contar o mês por" data-fin-basis-wrap>
+          <button type="button" data-fin-basis="vencimento" aria-pressed="true" title="Regime de caixa: pela data de vencimento">Vencimento</button>
+          <button type="button" data-fin-basis="competencia" aria-pressed="false" title="Regime de competência: pelo mês a que pertence">Competência</button>
+        </div>
+      </div>
+      <div class="fin-panel" data-fin-panel="lancamentos">
         <form class="filters" id="fin-filters" role="search" aria-label="Filtrar lançamentos" novalidate>
           <label class="field"><span class="field__label">Tipo</span><select class="field__input" name="direction"><option value="">Receitas e despesas</option><option value="receita">Só receitas</option><option value="despesa">Só despesas</option></select></label>
           <label class="field"><span class="field__label">Situação</span><select class="field__input" name="status"><option value="">Todas</option><option value="pendente">Em aberto (a receber/pagar)</option><option value="vencido">Vencidos</option><option value="parcial">Em parte</option><option value="quitado">Recebidos/pagos</option><option value="previsto">Previstos</option><option value="cancelado">Cancelados</option></select></label>
@@ -247,6 +248,9 @@
         <div class="fin-notice" data-fin-notice hidden></div>
         <ul class="fin-sums" id="fin-sums" aria-label="Totais do mês"></ul>
         <div class="fin-list" id="fin-list" aria-busy="true"></div>
+      </div>
+      <div class="fin-panel" data-fin-panel="metas" hidden>
+        <div class="fin-goals" id="fin-goals" aria-busy="true"></div>
       </div>
       <div class="fin-panel" data-fin-panel="contas" hidden>
         <div class="list-tools"><p class="list-count">Saldo calculado pelos recebimentos e pagamentos registrados.</p><button class="btn btn--ghost btn--sm" type="button" data-fin-account-new data-needs="finmanage" data-icon="sparkle">Nova conta</button></div>

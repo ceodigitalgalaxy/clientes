@@ -13,9 +13,9 @@
    - Cada linha passa pela MESMA validação do cadastro manual (validateAd).
    ========================================================================== */
 
-import { validateAd, adCanSend, AD_PLATFORMS, AD_FORMATS } from "./rules.js?v=821fef48a0";
-import { norm, lookup, isEmptyRow, MAX_IMPORT_ROWS } from "./import.js?v=821fef48a0";
-import { describeMedia } from "../../../js/ui/media.js?v=821fef48a0";
+import { validateAd, adCanSend, AD_PLATFORMS, AD_FORMATS } from "./rules.js?v=7a96e4cef6";
+import { norm, lookup, isEmptyRow, MAX_IMPORT_ROWS } from "./import.js?v=7a96e4cef6";
+import { describeMedia } from "../../../js/ui/media.js?v=7a96e4cef6";
 
 export const AD_COLUMNS = {
   title: ["titulo", "titulo do anuncio", "nome do anuncio", "anuncio", "nome"],

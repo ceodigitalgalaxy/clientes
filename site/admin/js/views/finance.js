@@ -8,14 +8,15 @@
    - Nada é apagado: lançamento é cancelado e recebimento/pagamento é estornado,
      sempre com motivo, e tudo fica no histórico. */
 
-import { $, esc, on } from "../../../js/lib/dom.js?v=821fef48a0";
-import { icon } from "../../../js/lib/icons.js?v=821fef48a0";
-import { closeDialog, wireDialog, showFieldErrors, setBusy } from "../ui/dialogs.js?v=821fef48a0";
-import { stateBlock, loadingRows } from "../ui/states.js?v=821fef48a0";
+import { $, esc, on } from "../../../js/lib/dom.js?v=7a96e4cef6";
+import { icon } from "../../../js/lib/icons.js?v=7a96e4cef6";
+import { closeDialog, wireDialog, showFieldErrors, setBusy } from "../ui/dialogs.js?v=7a96e4cef6";
+import { stateBlock, loadingRows } from "../ui/states.js?v=7a96e4cef6";
 import {
   STATUS, statusLabel, METHODS, ACCOUNT_KINDS, REVENUE_KINDS, formatMoney, moneyInput, todayBR, monthRange, shiftMonth, monthLabel, monthTitle, shortDate,
-  validateEntry, validateSettlement, validateAccount, validateCategory, validateReason, validateEntryFilters, entryTotals, newRequestId
-} from "../domain/finance.js?v=821fef48a0";
+  validateEntry, validateSettlement, validateAccount, validateCategory, validateReason, validateEntryFilters, entryTotals, newRequestId,
+  GOAL_KINDS, GOAL_BASIS, validateGoal, goalReading, meiReading, percent
+} from "../domain/finance.js?v=7a96e4cef6";
 
 const norm = (s) => String(s || "").normalize("NFD").replace(/[̀-ͯ]/g, "").toLowerCase();
 const AUDIT_ACTIONS = { criou: "criou", alterou: "alterou", cancelou: "cancelou", estornou: "estornou" };
@@ -61,7 +62,7 @@ export function setupFinance({ api, state, toast, confirm }) {
     history.replaceState(null, "", `#/financeiro${q ? `?${q}` : ""}`);
   }
   function readAddress(query = {}) {
-    st.tab = ["contas", "categorias"].includes(query.aba) && (query.aba !== "categorias" || manages()) ? query.aba : "lancamentos";
+    st.tab = ["metas", "contas", "categorias"].includes(query.aba) && (query.aba !== "categorias" || manages()) ? query.aba : "lancamentos";
     st.month = monthRange(query.mes) ? query.mes : todayBR().slice(0, 7);
     st.basis = query.base === "competencia" ? "competencia" : "vencimento";
     const f = validateEntryFilters(query);
@@ -103,6 +104,7 @@ export function setupFinance({ api, state, toast, confirm }) {
       return;
     }
     if (st.tab === "lancamentos") await loadEntries();
+    if (st.tab === "metas") await loadGoals();
     renderAccounts();
     renderCategories();
   }
@@ -113,14 +115,22 @@ export function setupFinance({ api, state, toast, confirm }) {
     view.querySelectorAll("[data-fin-panel]").forEach((p) => { p.hidden = p.dataset.finPanel !== st.tab; });
     view.querySelector("[data-fin-month-label]").textContent = monthTitle(st.month);
     view.querySelectorAll("[data-fin-basis]").forEach((b) => b.setAttribute("aria-pressed", String(b.dataset.finBasis === st.basis)));
+    // O mês vale para Lançamentos e Metas; vencimento × competência, só para Lançamentos
+    view.querySelector("[data-fin-monthbar]").hidden = !["lancamentos", "metas"].includes(st.tab);
+    view.querySelector("[data-fin-basis-wrap]").hidden = st.tab !== "lancamentos";
   }
   on(view, "click", "[data-fin-tab]", async (event, b) => {
     st.tab = b.dataset.finTab;
     syncTabs(); writeAddress();
     if (st.tab === "lancamentos") await loadEntries();
+    else if (st.tab === "metas") await loadGoals();
     else { await loadRefs().catch(() => {}); renderAccounts(); renderCategories(); }
   });
-  on(view, "click", "[data-fin-month]", (event, b) => { st.month = shiftMonth(st.month, Number(b.dataset.finMonth)); syncTabs(); writeAddress(); loadEntries(); });
+  on(view, "click", "[data-fin-month]", (event, b) => {
+    st.month = shiftMonth(st.month, Number(b.dataset.finMonth));
+    syncTabs(); writeAddress();
+    if (st.tab === "metas") loadGoals(); else loadEntries();
+  });
   on(view, "click", "[data-fin-basis]", (event, b) => { st.basis = b.dataset.finBasis; syncTabs(); writeAddress(); loadEntries(); });
 
   /* ---------- Filtros ---------- */
@@ -241,6 +251,184 @@ export function setupFinance({ api, state, toast, confirm }) {
           <button class="icon-btn" type="button" data-fin-category-edit="${esc(c.id)}" aria-label="Editar ${esc(c.name)}" title="Editar">${icon("edit")}</button></li>`).join("")}</ul></section>`;
     root.innerHTML = col("receita", "Receitas") + col("despesa", "Despesas");
   }
+
+  /* ---------- Metas ----------
+     Valores e metas só o administrador define; o realizado vem do banco. */
+  const goalsRoot = $("#fin-goals");
+  const gs = { year: null, goals: [], revenue: null, seq: 0 };
+  async function loadGoals() {
+    const year = st.month.slice(0, 4);
+    const seq = ++gs.seq;
+    goalsRoot.setAttribute("aria-busy", "true");
+    if (gs.year !== year || !gs.goals.length) goalsRoot.innerHTML = loadingRows(3);
+    try {
+      const { goals, revenue } = await api.finGoals(year);
+      if (seq !== gs.seq) return;
+      Object.assign(gs, { year, goals, revenue });
+      renderGoals();
+    } catch (error) {
+      if (seq !== gs.seq) return;
+      goalsRoot.setAttribute("aria-busy", "false");
+      goalsRoot.innerHTML = stateBlock({ iconName: "message", tone: "error", title: "Não foi possível carregar as metas", text: error.message });
+    }
+  }
+  const goalName = (g) => (g.kind === "limite_categoria" ? `Gasto com ${category(g.category_id)?.name || "categoria"}` : GOAL_KINDS[g.kind]?.short || g.kind);
+  const goalValue = (g, v) => (GOAL_KINDS[g.kind]?.money ? formatMoney(v) : `${v} ${Number(v) === 1 ? "cliente" : "clientes"}`);
+  const TONE_CHIP = { success: "success", warn: "info", danger: "danger", neutral: "muted" };
+
+  function goalCard(g) {
+    const k = GOAL_KINDS[g.kind];
+    const r = goalReading(g);
+    const lines = [];
+    if (k.higher) lines.push(r.remaining > 0 ? `Falta ${goalValue(g, r.remaining)}` : g.actual > g.target ? `${goalValue(g, g.actual - g.target)} acima da meta` : "Meta atingida");
+    else lines.push(r.remaining >= 0 ? `Ainda cabe ${goalValue(g, r.remaining)}` : `${goalValue(g, -r.remaining)} acima do teto`);
+    if (r.pace != null) lines.push(`no ritmo atual, ${formatMoney(r.pace)} até o fim do ${g.period === "mes" ? "mês" : "ano"}`);
+    const extra = k.money && r.phase !== "passado" && Number(g.forecast) !== Number(g.actual)
+      ? `Contando o que está lançado e ainda não ${g.basis === "caixa" ? "foi recebido/pago" : "está confirmado"}: ${formatMoney(g.forecast)}` : "";
+    const basis = g.kind === "clientes_ativos" ? "contagem de agora" : g.basis === "caixa" ? "pelo caixa" : "por competência";
+    return `
+      <article class="fin-goal fin-goal--${r.tone}" data-goal="${esc(g.id)}">
+        <div class="fin-goal__head">
+          <div class="fin-goal__title"><p class="fin-goal__name">${esc(goalName(g))}</p><span class="fin-chip fin-chip--${TONE_CHIP[r.tone]}">${esc(r.label)}</span></div>
+          ${manages() ? `<span class="fin-goal__tools"><button class="icon-btn" type="button" data-goal-edit="${esc(g.id)}" aria-label="Editar meta ${esc(goalName(g))}" title="Editar">${icon("edit")}</button><button class="icon-btn" type="button" data-goal-archive="${esc(g.id)}" aria-label="Desativar meta ${esc(goalName(g))}" title="Desativar">${icon("close")}</button></span>` : ""}
+        </div>
+        <p class="fin-goal__nums"><b>${esc(goalValue(g, g.actual))}</b><span>${k.higher ? "de" : "de no máximo"} ${esc(goalValue(g, g.target))}</span><span class="fin-goal__pct">${esc(percent(r.pct))}</span></p>
+        <div class="fin-goal__bar" role="progressbar" aria-label="${esc(goalName(g))}: ${esc(percent(r.pct))}" aria-valuemin="0" aria-valuemax="100" aria-valuenow="${Math.min(100, Math.round(r.pct * 100))}" data-pct="${Math.min(100, Math.round(r.pct * 100))}"${r.phase === "atual" ? ` data-elapsed="${Math.round(r.elapsed * 100)}"` : ""}><span class="fin-goal__fill"></span>${r.phase === "atual" && k.money ? '<span class="fin-goal__today" title="Onde o mês/ano está hoje"></span>' : ""}</div>
+        <p class="fin-goal__meta">${esc(lines.join(" · "))}</p>
+        ${extra ? `<p class="fin-goal__meta">${esc(extra)}</p>` : ""}
+        <p class="fin-goal__basis">${esc(basis)}${g.notes ? ` · ${esc(g.notes)}` : ""}</p>
+      </article>`;
+  }
+
+  function meiCard() {
+    const limit = st.settings?.mei_annual_limit_cents;
+    const year = gs.year;
+    if (!limit) return manages() ? `<p class="fin-mei-empty"><button class="link-btn" type="button" data-mei-edit>${icon("target")}<span>Definir o limite anual do MEI</span></button> <span class="field__hint">para acompanhar quanto do teto já foi faturado.</span></p>` : "";
+    const billed = Number(gs.revenue?.billed_cents) || 0;
+    const r = meiReading(limit, billed);
+    const width = Math.min(100, Math.round(r.pct * 100));
+    return `
+      <article class="fin-goal fin-goal--${r.tone} fin-mei">
+        <div class="fin-goal__head"><div class="fin-goal__title"><p class="fin-goal__name">Limite do MEI em ${esc(year)}</p>
+          <span class="fin-chip fin-chip--${TONE_CHIP[r.tone]}">${r.pct >= 1 ? "Passou do limite" : r.pct >= 0.8 ? "Perto do limite" : "Dentro do limite"}</span></div>
+          ${manages() ? `<span class="fin-goal__tools"><button class="icon-btn" type="button" data-mei-edit aria-label="Editar o limite do MEI" title="Editar">${icon("edit")}</button></span>` : ""}</div>
+        <p class="fin-goal__nums"><b>${esc(formatMoney(billed))}</b><span>de ${esc(formatMoney(limit))}</span><span class="fin-goal__pct">${esc(percent(r.pct))}</span></p>
+        <div class="fin-goal__bar" role="progressbar" aria-label="Limite do MEI: ${esc(percent(r.pct))}" aria-valuemin="0" aria-valuemax="100" aria-valuenow="${width}" data-pct="${width}"><span class="fin-goal__fill"></span></div>
+        <p class="fin-goal__meta">${r.remaining >= 0 ? `Ainda cabe ${esc(formatMoney(r.remaining))}` : `${esc(formatMoney(-r.remaining))} acima do limite`} · recebido no ano: ${esc(formatMoney(gs.revenue?.received_cents || 0))}</p>
+        <p class="fin-goal__basis">Faturamento lançado no ano (sem reembolsos). É uma estimativa: confirme sempre com o contador.</p>
+      </article>`;
+  }
+
+  function historyTable(monthly) {
+    const groups = new Map();
+    for (const g of monthly) {
+      const key = `${g.kind}|${g.basis}|${g.category_id || ""}`;
+      if (!groups.has(key)) groups.set(key, []);
+      groups.get(key).push(g);
+    }
+    if (!groups.size) return "";
+    const tables = [...groups.values()].map((rows) => {
+      const first = rows[0];
+      const body = rows.map((g) => { const r = goalReading(g); return `<tr><th scope="row">${esc(monthLabel(g.period_start.slice(0, 7)).replace(/ de \d+$/, ""))}</th><td>${esc(goalValue(g, g.target))}</td><td>${esc(goalValue(g, g.actual))}</td><td><span class="fin-chip fin-chip--${TONE_CHIP[r.tone]}">${esc(percent(r.pct))}</span></td></tr>`; }).join("");
+      return `<div class="fin-hist"><p class="fin-hist__title">${esc(goalName(first))} <span class="field__optional">· ${first.kind === "clientes_ativos" ? "contagem de agora" : first.basis === "caixa" ? "caixa" : "competência"}</span></p>
+        <table class="fin-hist__table"><thead><tr><th scope="col">Mês</th><th scope="col">Meta</th><th scope="col">Realizado</th><th scope="col">%</th></tr></thead><tbody>${body}</tbody></table></div>`;
+    }).join("");
+    return `<details class="detail history-toggle fin-hist-wrap"><summary class="history-toggle__summary">${icon("calendar")}<span>Mês a mês em ${esc(gs.year)}</span><span class="history-toggle__hint">meta × realizado</span></summary>${tables}</details>`;
+  }
+
+  function renderGoals() {
+    goalsRoot.setAttribute("aria-busy", "false");
+    const start = `${st.month}-01`;
+    const monthly = gs.goals.filter((g) => g.period === "mes");
+    const ofMonth = monthly.filter((g) => g.period_start === start);
+    const ofYear = gs.goals.filter((g) => g.period === "ano");
+    const prev = shiftMonth(st.month, -1);
+    const prevGoals = prev.slice(0, 4) === gs.year ? monthly.filter((g) => g.period_start === `${prev}-01`) : [];
+    const head = (title, extra = "") => `<div class="fin-goals__head"><h2 class="detail__title">${esc(title)}</h2>${extra}</div>`;
+    const newBtn = manages() ? `<button class="btn btn--ghost btn--sm" type="button" data-goal-new="mes">${icon("sparkle")}<span>Nova meta</span></button>` : "";
+    const copyBtn = manages() && !ofMonth.length && prevGoals.length ? `<button class="btn btn--ghost btn--sm" type="button" data-goal-copy>${icon("refresh")}<span>Repetir as metas de ${esc(monthLabel(prev).replace(/ de \d+$/, ""))}</span></button>` : "";
+    const empty = (text) => `<p class="fin-goals__empty">${esc(text)}</p>`;
+    goalsRoot.innerHTML = `
+      ${meiCard()}
+      <section class="fin-goals__section" aria-label="Metas do mês">
+        ${head(`Metas de ${monthLabel(st.month)}`, `<span class="fin-goals__actions">${copyBtn}${newBtn}</span>`)}
+        ${ofMonth.length ? `<div class="fin-goals__grid">${ofMonth.map(goalCard).join("")}</div>` : empty(manages() ? "Nenhuma meta para este mês. Crie em Nova meta: faturamento, resultado, teto de despesas, gasto por categoria ou clientes ativos." : "Nenhuma meta para este mês.")}
+      </section>
+      <section class="fin-goals__section" aria-label="Metas do ano">
+        ${head(`Metas de ${gs.year}`, manages() ? `<button class="btn btn--ghost btn--sm" type="button" data-goal-new="ano">${icon("sparkle")}<span>Meta do ano</span></button>` : "")}
+        ${ofYear.length ? `<div class="fin-goals__grid">${ofYear.map(goalCard).join("")}</div>` : empty("Nenhuma meta anual.")}
+      </section>
+      ${historyTable(monthly)}`;
+    // Largura das barras pelo CSSOM (a política de segurança não aceita style="" no HTML)
+    goalsRoot.querySelectorAll("[data-pct]").forEach((bar) => {
+      bar.style.setProperty("--pct", `${bar.dataset.pct}%`);
+      if (bar.dataset.elapsed) bar.style.setProperty("--elapsed", `${bar.dataset.elapsed}%`);
+    });
+  }
+
+  function goalForm(period = "mes", g = null) {
+    const kind = g?.kind || "faturamento";
+    const cats = st.categories.filter((c) => c.direction === "despesa" && (c.active || c.id === g?.category_id)).map((c) => [c.id, c.name]);
+    const targetValue = g ? (GOAL_KINDS[g.kind].money ? moneyInput(g.target) : String(g.target)) : "";
+    const fields = [
+      g ? `<p class="field form-grid__wide fin-goal-fixed"><span class="field__label">Meta</span><span>${esc(goalName(g))} · ${esc(g.period === "mes" ? monthLabel(g.period_start.slice(0, 7)) : `ano de ${g.period_start.slice(0, 4)}`)}</span></p>`
+        : f("kind", "Tipo de meta", select("kind", Object.entries(GOAL_KINDS).map(([k, v]) => [k, v.label]), kind, null), { wide: true, hint: GOAL_KINDS[kind].hint }),
+      g ? "" : `<fieldset class="field radio-row"><legend class="field__label">Período</legend>
+        <label class="check"><input type="radio" name="period" value="mes"${period === "mes" ? " checked" : ""}><span>Mês</span></label>
+        <label class="check"><input type="radio" name="period" value="ano"${period === "ano" ? " checked" : ""}><span>Ano inteiro</span></label></fieldset>`,
+      g ? "" : `<div data-goal-period="mes">${f("month", "Mês", text("month", st.month, 'type="month"'))}</div><div data-goal-period="ano">${f("year", "Ano", text("year", st.month.slice(0, 4), 'type="number" min="2000" max="2100" step="1" inputmode="numeric"'))}</div>`,
+      `<div data-goal-money>${f("target", "Valor da meta", money("target", GOAL_KINDS[kind].money ? targetValue : ""))}</div>`,
+      `<div data-goal-count>${f("target_count", "Quantidade", text("target_count", GOAL_KINDS[kind].money ? "" : targetValue, 'type="number" min="0" max="999999" step="1" inputmode="numeric" placeholder="Ex.: 10"'))}</div>`,
+      `<div data-goal-cat>${f("category_id", "Categoria de despesa", select("category_id", cats, g?.category_id || "", "Escolha…"))}</div>`,
+      `<div data-goal-basis>${f("basis", "Contar por", select("basis", Object.entries(GOAL_BASIS), g?.basis || "competencia", null))}</div>`,
+      f("notes", "Observação", area("notes", g?.notes, 500), { wide: true, optional: true })
+    ].join("");
+    openModal({ kind: "goal", goal: g }, {
+      title: g ? "Editar meta" : period === "ano" ? "Nova meta do ano" : "Nova meta",
+      text: "Você define o valor; o realizado é calculado pelos lançamentos.", iconName: "target", fields, submitLabel: "Salvar meta"
+    });
+    const sync = () => {
+      const k = g?.kind || form.elements.kind.value;
+      const per = g ? g.period : form.querySelector("[name=period]:checked")?.value;
+      form.querySelectorAll("[data-goal-period]").forEach((el) => { el.hidden = el.dataset.goalPeriod !== per; });
+      form.querySelector("[data-goal-money]").hidden = !GOAL_KINDS[k].money;
+      form.querySelector("[data-goal-count]").hidden = GOAL_KINDS[k].money;
+      form.querySelector("[data-goal-cat]").hidden = k !== "limite_categoria";
+      form.querySelector("[data-goal-basis]").hidden = k === "clientes_ativos";
+      const hint = form.elements.kind?.closest(".field")?.querySelector(".field__hint");
+      if (hint) hint.textContent = GOAL_KINDS[k].hint;
+    };
+    form.elements.kind?.addEventListener("change", sync);
+    form.querySelectorAll("[name=period]").forEach((r) => r.addEventListener("change", sync));
+    sync();
+  }
+
+  function meiForm() {
+    const limit = st.settings?.mei_annual_limit_cents;
+    openModal({ kind: "mei" }, {
+      title: "Limite anual do MEI", iconName: "target", submitLabel: "Salvar",
+      text: "O teto de faturamento do MEI muda por lei: confira o valor do ano com o contador. Deixe em branco para não acompanhar.",
+      fields: f("mei_limit", "Limite do ano", money("mei_limit", limit ? moneyInput(limit) : ""), { wide: true, optional: true })
+    });
+  }
+
+  on(goalsRoot, "click", "[data-goal-new]", (event, b) => manages() && goalForm(b.dataset.goalNew));
+  on(goalsRoot, "click", "[data-goal-edit]", (event, b) => { const g = gs.goals.find((x) => x.id === b.dataset.goalEdit); if (g && manages()) goalForm(g.period, g); });
+  on(goalsRoot, "click", "[data-mei-edit]", () => manages() && meiForm());
+  on(goalsRoot, "click", "[data-goal-archive]", async (event, b) => {
+    const g = gs.goals.find((x) => x.id === b.dataset.goalArchive);
+    if (!g || !manages()) return;
+    const ok = await confirm({ title: `Desativar a meta "${goalName(g)}"?`, text: "Ela sai da tela. O registro continua no histórico do financeiro.", confirmLabel: "Desativar" });
+    if (!ok) return;
+    try { await api.finArchiveGoal(g.id); toast("Meta desativada"); await loadGoals(); } catch (error) { toast(error.message, "error"); }
+  });
+  on(goalsRoot, "click", "[data-goal-copy]", async (event, b) => {
+    const prev = shiftMonth(st.month, -1);
+    const list = gs.goals.filter((g) => g.period === "mes" && g.period_start === `${prev}-01`);
+    setBusy(b, true);
+    try { const n = await api.finCopyGoals(list, st.month); toast(n === 1 ? "1 meta repetida" : `${n} metas repetidas`); await loadGoals(); }
+    catch (error) { toast(error.message, "error"); setBusy(b, false); }
+  });
 
   /* ---------- Detalhe do lançamento ---------- */
   async function openEntry(id) {
@@ -408,15 +596,20 @@ export function setupFinance({ api, state, toast, confirm }) {
     const fields = [
       c ? "" : f("direction", "Tipo", select("direction", [["receita", "Receita"], ["despesa", "Despesa"]], "despesa", null)),
       f("name", "Nome", text("name", c?.name, 'maxlength="60" autocomplete="off"')),
+      !c || c.direction === "receita" ? `<label class="check form-grid__wide" data-revenue-only><input type="checkbox" name="counts_as_revenue"${!c || c.counts_as_revenue !== false ? " checked" : ""}><span>Conta como faturamento (metas e limite do MEI). Desmarque em reembolsos e repasses.</span></label>` : "",
       c ? `<label class="check form-grid__wide"><input type="checkbox" name="active"${c.active ? " checked" : ""}><span>Em uso (desmarque para tirar dos formulários)</span></label>` : ""
     ].join("");
     openModal({ kind: "category", category: c }, { title: c ? `Editar ${c.name}` : "Nova categoria", text: "", iconName: "tag", fields, submitLabel: "Salvar" });
+    const dir = form.elements.direction;
+    const sync = () => { const box = form.querySelector("[data-revenue-only]"); if (box && dir) box.hidden = dir.value !== "receita"; };
+    dir?.addEventListener("change", sync);
+    sync();
   }
 
   /* ---------- Enviar ---------- */
   const data = () => Object.fromEntries(new FormData(form));
   async function afterChange(entryId) {
-    await Promise.all([loadEntries(), loadRefs().then(() => { renderAccounts(); renderCategories(); }).catch(() => {})]);
+    await Promise.all([st.tab === "metas" ? loadGoals() : loadEntries(), loadRefs().then(() => { renderAccounts(); renderCategories(); }).catch(() => {})]);
     if (entryId && drawer.open && st.open === entryId) await openEntry(entryId);
   }
 
@@ -462,9 +655,17 @@ export function setupFinance({ api, state, toast, confirm }) {
       errors = validateAccount(input).errors;
       run = async () => { await api.finSaveAccount(mode.account?.id, input); toast("Conta salva"); return null; };
     } else if (mode.kind === "category") {
-      const input = { ...d, direction: mode.category?.direction || d.direction, active: mode.category ? Boolean(d.active) : true };
+      const input = { ...d, direction: mode.category?.direction || d.direction, active: mode.category ? Boolean(d.active) : true, counts_as_revenue: Boolean(d.counts_as_revenue) };
       errors = validateCategory(input).errors;
       run = async () => { await api.finSaveCategory(mode.category?.id, input); toast("Categoria salva"); return null; };
+    } else if (mode.kind === "goal") {
+      const kindNow = mode.goal?.kind || d.kind;
+      if (GOAL_KINDS[kindNow] && !GOAL_KINDS[kindNow].money) d.target = d.target_count;
+      errors = validateGoal({ ...d, kind: kindNow, period: mode.goal?.period || d.period }, { editing: Boolean(mode.goal) }).errors;
+      if (mode.goal) { delete errors.kind; delete errors.period; }
+      run = async () => { await api.finSaveGoal(mode.goal?.id, { ...d, kind: mode.goal?.kind || d.kind }); toast("Meta salva"); return null; };
+    } else if (mode.kind === "mei") {
+      run = async () => { st.settings = await api.finSaveMeiLimit(d.mei_limit); toast(d.mei_limit ? "Limite do MEI salvo" : "Limite do MEI removido"); return null; };
     }
     if (Object.keys(errors).length) { showFieldErrors(form, errors); return; }
     saving = true;
@@ -516,6 +717,6 @@ export function setupFinance({ api, state, toast, confirm }) {
 
   return {
     load,
-    reset() { st.rows = []; st.accounts = []; st.categories = []; st.settings = null; st.ready = false; list.innerHTML = ""; sums.innerHTML = ""; $("#fin-accounts").innerHTML = ""; $("#fin-categories").innerHTML = ""; }
+    reset() { gs.goals = []; gs.year = null; goalsRoot.innerHTML = ""; st.rows = []; st.accounts = []; st.categories = []; st.settings = null; st.ready = false; list.innerHTML = ""; sums.innerHTML = ""; $("#fin-accounts").innerHTML = ""; $("#fin-categories").innerHTML = ""; }
   };
 }

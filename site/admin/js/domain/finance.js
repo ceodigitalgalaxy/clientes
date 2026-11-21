@@ -261,3 +261,100 @@ export function entryTotals(rows) {
     count: live.length
   };
 }
+
+/* ---------- Metas ----------
+   O realizado vem calculado do banco (fin_goal_progress). Aqui ficam só os
+   nomes, a validação do formulário e a leitura do progresso (percentual,
+   quanto falta e o ritmo do período em andamento). */
+
+/** higher: quanto mais, melhor (faturamento); false: é um teto (gasto) */
+export const GOAL_KINDS = Object.freeze({
+  faturamento:      { label: "Faturamento", short: "Faturamento", money: true, higher: true, hint: "Receitas do período (sem as categorias marcadas como fora do faturamento, ex.: reembolso)." },
+  resultado:        { label: "Resultado (receitas − despesas)", short: "Resultado", money: true, higher: true, hint: "O que sobra: tudo o que entra menos tudo o que sai." },
+  despesas:         { label: "Teto de despesas", short: "Despesas", money: true, higher: false, hint: "Quanto a agência pode gastar no período, no máximo." },
+  limite_categoria: { label: "Teto de gasto por categoria", short: "Gasto", money: true, higher: false, hint: "Ex.: no máximo R$ 300,00 em Ferramentas e assinaturas." },
+  clientes_ativos:  { label: "Clientes ativos", short: "Clientes ativos", money: false, higher: true, hint: "Quantos clientes ativos no cadastro (contagem de agora)." }
+});
+export const GOAL_BASIS = Object.freeze({ competencia: "Competência (mês a que pertence)", caixa: "Caixa (o que entrou/saiu de verdade)" });
+
+export function validateGoal(input = {}, { editing = false } = {}) {
+  const errors = {};
+  const kind = Object.hasOwn(GOAL_KINDS, input.kind) ? input.kind : null;
+  const period = input.period === "ano" ? "ano" : input.period === "mes" ? "mes" : null;
+  let start = null;
+  if (period === "mes" && /^\d{4}-(0[1-9]|1[0-2])$/.test(String(input.month || ""))) start = `${input.month}-01`;
+  if (period === "ano" && /^\d{4}$/.test(String(input.year || "")) && Number(input.year) >= 2000 && Number(input.year) <= 2100) start = `${input.year}-01-01`;
+  const meta = kind ? GOAL_KINDS[kind] : null;
+  let target = null;
+  if (meta?.money) target = parseMoney(input.target);
+  else if (meta) target = /^\d{1,6}$/.test(String(input.target ?? "").trim()) ? Number(String(input.target).trim()) : null;
+  const value = {
+    kind, period, period_start: start, target,
+    basis: kind === "clientes_ativos" ? "competencia" : input.basis === "caixa" ? "caixa" : "competencia",
+    category_id: kind === "limite_categoria" ? clean(input.category_id) : null,
+    notes: clean(input.notes)
+  };
+  if (!editing) {
+    if (!kind) errors.kind = "Escolha o tipo de meta.";
+    if (!period) errors.period = "Escolha mês ou ano.";
+    else if (!start) errors[period === "mes" ? "month" : "year"] = period === "mes" ? "Escolha o mês." : "Informe o ano (ex.: 2027).";
+  }
+  if (target == null) errors.target = meta && !meta.money ? "Informe um número inteiro." : "Informe o valor (ex.: 10.000,00).";
+  else if (target < 0) errors.target = "A meta não pode ser negativa.";
+  else if (target > MAX_CENTS) errors.target = "Valor alto demais.";
+  if (kind === "limite_categoria" && !isId(value.category_id)) errors.category_id = "Escolha a categoria.";
+  if (value.notes && value.notes.length > 500) errors.notes = "Use até 500 caracteres.";
+  return { value, errors };
+}
+
+/** Andamento do período: "passado" | "atual" | "futuro" e a fração já corrida (0–1) */
+export function periodProgress(start, end, today = todayBR()) {
+  if (today < start) return { phase: "futuro", elapsed: 0 };
+  if (today > end) return { phase: "passado", elapsed: 1 };
+  const day = (s) => Date.UTC(Number(s.slice(0, 4)), Number(s.slice(5, 7)) - 1, Number(s.slice(8, 10)));
+  const total = (day(end) - day(start)) / 86400000 + 1;
+  const done = (day(today) - day(start)) / 86400000 + 1;
+  return { phase: "atual", elapsed: Math.min(1, done / total) };
+}
+
+/**
+ * Leitura de uma meta (linha da visão fin_goal_progress).
+ * pct: realizado/meta (0–∞); remaining: quanto falta (meta de alta) ou quanto
+ * ainda pode gastar (teto); pace: projeção pelo ritmo, só no período em andamento
+ * e só em valores; tone: success | warn | danger | neutral.
+ */
+export function goalReading(g, today = todayBR()) {
+  const meta = GOAL_KINDS[g.kind] || GOAL_KINDS.faturamento;
+  const target = Number(g.target) || 0;
+  const actual = Number(g.actual) || 0;
+  const { phase, elapsed } = periodProgress(g.period_start, g.period_end, today);
+  const pct = target > 0 ? actual / target : actual > 0 ? 1 : 0;
+  const pace = meta.money && phase === "atual" && elapsed > 0 && g.kind !== "clientes_ativos" ? Math.round(actual / elapsed) : null;
+  let tone = "neutral"; let label = "";
+  if (meta.higher) {
+    const remaining = Math.max(0, target - actual);
+    if (actual >= target && target > 0) { tone = "success"; label = phase === "passado" ? "Meta batida" : "Meta já batida"; }
+    else if (phase === "passado") { tone = "danger"; label = "Não bateu"; }
+    else if (phase === "futuro") { label = "Ainda não começou"; }
+    else if (pace != null) { tone = pace >= target ? "success" : pace >= target * 0.8 ? "warn" : "danger"; label = pace >= target ? "No ritmo" : "Abaixo do ritmo"; }
+    else { tone = pct >= elapsed ? "success" : "warn"; label = "Em andamento"; }
+    return { pct, remaining, pace, tone, label, phase, elapsed };
+  }
+  // Teto: passar é ruim
+  const remaining = target - actual;
+  if (actual > target) { tone = "danger"; label = "Estourou o teto"; }
+  else if (phase === "futuro") { label = "Ainda não começou"; }
+  else if (phase === "passado") { tone = "success"; label = "Dentro do teto"; }
+  else if (pace != null && pace > target) { tone = "warn"; label = "No ritmo de estourar"; }
+  else if (pct >= 0.8) { tone = "warn"; label = "Perto do teto"; }
+  else { tone = "success"; label = "Dentro do teto"; }
+  return { pct, remaining, pace, tone, label, phase, elapsed };
+}
+
+/** Limite anual do MEI: usado / limite (aviso a partir de 80%) */
+export function meiReading(limitCents, billedCents) {
+  if (!limitCents) return null;
+  const pct = billedCents / limitCents;
+  return { pct, remaining: limitCents - billedCents, tone: pct >= 1 ? "danger" : pct >= 0.8 ? "warn" : "success" };
+}
+export const percent = (x) => `${Math.round((Number(x) || 0) * 100)}%`;

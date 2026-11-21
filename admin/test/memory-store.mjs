@@ -74,6 +74,10 @@ export function createMemoryStore() {
       if (this.failNext > 0) { this.failNext -= 1; throw new StoreError(503, "Não foi possível conectar ao banco de dados. Verifique a internet e tente de novo.", "offline"); }
     },
     async ping() { await this.tick(); return true; },
+    /** Para o financeiro de mentira (metas de clientes ativos) */
+    countActiveClients() {
+      return [...clients.values()].filter((c) => c.active !== false).length;
+    },
     async listClients() {
       await this.tick();
       return [...clients.values()].sort((a, b) => a.name.localeCompare(b.name))

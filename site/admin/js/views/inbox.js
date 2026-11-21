@@ -5,9 +5,9 @@
    Novidade chegando (a cada 20 s, ao voltar para o app ou na hora, quando o
    aviso no celular está ativado) → onNew(novos): as telas se atualizam sozinhas. */
 
-import { $, esc, on } from "../../../js/lib/dom.js?v=821fef48a0";
-import { icon } from "../../../js/lib/icons.js?v=821fef48a0";
-import { stampLabel } from "../../../js/lib/dates.js?v=821fef48a0";
+import { $, esc, on } from "../../../js/lib/dom.js?v=7a96e4cef6";
+import { icon } from "../../../js/lib/icons.js?v=7a96e4cef6";
+import { stampLabel } from "../../../js/lib/dates.js?v=7a96e4cef6";
 
 const KINDS = {
   atribuicao: { icon: "user", text: (n) => `${n.actor_name} te colocou como responsável` },

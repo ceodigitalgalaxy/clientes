@@ -6,7 +6,7 @@
    saldos calculados como nas visões, e a trilha de auditoria. */
 
 import { randomUUID } from "node:crypto";
-import { todayBR } from "../../site/admin/js/domain/finance.js";
+import { todayBR, monthRange } from "../../site/admin/js/domain/finance.js";
 
 const ENTRY_COLS = ["direction", "description", "amount_cents", "category_id", "account_id", "client_id", "revenue_kind", "counterparty",
   "competence_date", "due_date", "confirmed", "invoice_number", "notes", "request_id"];
@@ -22,12 +22,13 @@ export function createFakeFinance({ h }) {
   const checkErr = () => ({ error: json(400, { code: "23514", message: "check constraint" }) });
   const denied = (table) => ({ error: json(403, { code: "42501", message: `permission denied for table ${table}` }) });
 
-  const settings = { history_start: null, updated_at: now() };
+  const settings = { history_start: null, mei_annual_limit_cents: null, updated_at: now() };
   const accounts = [{ id: randomUUID(), name: "Conta Inter", kind: "conta", opening_balance_cents: null, opening_date: null, active: true, notes: null, created_at: now(), updated_at: now() }];
   const categories = [
     ...["Mensalidade de cliente", "Projeto avulso", "Comissão", "Reembolso recebido", "Outras receitas"].map((name, i) => ({ direction: "receita", name, position: i + 1 })),
     ...["Ferramentas e assinaturas", "Impostos (DAS)", "Freelancers e terceiros", "Equipamentos", "Marketing da agência", "Tarifas bancárias", "Outras despesas"].map((name, i) => ({ direction: "despesa", name, position: i + 1 }))
-  ].map((c) => ({ id: randomUUID(), active: true, ...c }));
+  ].map((c) => ({ id: randomUUID(), active: true, counts_as_revenue: c.name !== "Reembolso recebido", ...c }));
+  const goals = [];
   const entries = [];
   const settlements = [];
   const audit = [];
@@ -99,6 +100,51 @@ export function createFakeFinance({ h }) {
     return null;
   }
 
+
+  /** Como private.fin_goal_values */
+  function goalValues(g, periodEnd) {
+    if (g.kind === "clientes_ativos") { const n = h.activeClients(); return { actual: n, forecast: n }; }
+    const from = g.period_start; const to = periodEnd;
+    const cat = (id) => categories.find((c) => c.id === id);
+    const rows = entries.map(view).filter((e) => e.status !== "cancelado"
+      && (g.kind === "resultado" || e.direction === (g.kind === "faturamento" ? "receita" : "despesa"))
+      && (g.kind !== "faturamento" || cat(e.category_id)?.counts_as_revenue !== false)
+      && (!g.category_id || e.category_id === g.category_id));
+    const sg = (e) => (g.kind === "resultado" && e.direction === "despesa" ? -1 : 1);
+    const inRange = (d) => d >= from && d <= to;
+    if (g.basis === "caixa") {
+      const cash = settlements.filter((s) => !s.voided_at && inRange(s.paid_on)).reduce((t, s) => { const e = rows.find((x) => x.id === s.entry_id); return e ? t + sg(e) * s.amount_cents : t; }, 0);
+      return { actual: cash, forecast: cash + rows.filter((e) => inRange(e.due_date)).reduce((t, e) => t + sg(e) * e.open_cents, 0) };
+    }
+    const sum = (list) => list.reduce((t, e) => t + sg(e) * e.amount_cents, 0);
+    return { actual: sum(rows.filter((e) => e.confirmed && inRange(e.competence_date))), forecast: sum(rows.filter((e) => inRange(e.competence_date))) };
+  }
+  function goalView(g) {
+    const end = g.period === "mes" ? monthRange(g.period_start.slice(0, 7)).to : `${g.period_start.slice(0, 4)}-12-31`;
+    return { ...g, period_end: end, ...goalValues(g, end) };
+  }
+  function yearRevenue() {
+    const rev = entries.filter((e) => e.direction === "receita" && !e.cancelled_at && categories.find((c) => c.id === e.category_id)?.counts_as_revenue !== false);
+    const years = new Set([Number(todayBR().slice(0, 4)), ...rev.map((e) => Number(e.competence_date.slice(0, 4)))]);
+    return [...years].map((year) => ({
+      year,
+      billed_cents: rev.filter((e) => e.confirmed && Number(e.competence_date.slice(0, 4)) === year).reduce((t, e) => t + e.amount_cents, 0),
+      received_cents: settlements.filter((s) => !s.voided_at && Number(s.paid_on.slice(0, 4)) === year && rev.some((e) => e.id === s.entry_id)).reduce((t, s) => t + s.amount_cents, 0)
+    }));
+  }
+  const GOAL_INSERT = ["kind", "period", "period_start", "target", "basis", "category_id", "notes"];
+  const sameGoal = (a, b) => a.active && a.kind === b.kind && a.period === b.period && a.period_start === b.period_start && a.basis === b.basis && (a.category_id || null) === (b.category_id || null);
+  function guardGoal(g, prev) {
+    if (!["faturamento", "resultado", "despesas", "limite_categoria", "clientes_ativos"].includes(g.kind) || !["mes", "ano"].includes(g.period)) return checkErr();
+    if (!/^\d{4}-\d{2}-01$/.test(g.period_start) || (g.period === "ano" && g.period_start.slice(5, 7) !== "01")) return checkErr();
+    if (!Number.isSafeInteger(g.target) || g.target < 0) return checkErr();
+    if ((g.kind === "limite_categoria") !== Boolean(g.category_id)) return checkErr();
+    if (g.category_id && categories.find((c) => c.id === g.category_id)?.direction !== "despesa") return raise("categoria_de_outro_tipo");
+    if (g.kind === "clientes_ativos") g.basis = "competencia";
+    if (goals.some((x) => x.id !== g.id && sameGoal(x, g) && g.active)) return conflict();
+    return null;
+  }
+
   function route(method, table, params, body, user) {
     const canSee = sees(user);
     const list = (rows) => (canSee ? rows.filter((r) => matches(r, params)) : []);
@@ -106,7 +152,7 @@ export function createFakeFinance({ h }) {
     if (table === "fin_settings") {
       if (method === "GET") return canSee ? [{ ...settings }] : [];
       if (method === "PATCH") {
-        if (extra(body, ["history_start"])) return denied(table);
+        if (extra(body, ["history_start", "mei_annual_limit_cents"])) return denied(table);
         if (!manages(user)) return [];
         const before = { ...settings };
         Object.assign(settings, body, { updated_at: now() });
@@ -142,14 +188,14 @@ export function createFakeFinance({ h }) {
     if (table === "fin_categories") {
       if (method === "GET") return list(categories).sort((a, b) => a.direction.localeCompare(b.direction) || a.position - b.position);
       if (method === "POST") {
-        if (extra(body, ["direction", "name", "active", "position"])) return denied(table);
+        if (extra(body, ["direction", "name", "active", "position", "counts_as_revenue"])) return denied(table);
         if (!manages(user)) return rlsDenied();
         if (categories.some((c) => c.direction === body.direction && c.name.trim().toLowerCase() === String(body.name).trim().toLowerCase())) return conflict();
-        const c = { id: randomUUID(), active: true, position: 0, ...body }; categories.push(c); log(table, c.id, "criou", user, null, { ...c });
+        const c = { id: randomUUID(), active: true, position: 0, counts_as_revenue: true, ...body }; categories.push(c); log(table, c.id, "criou", user, null, { ...c });
         return [{ ...c }];
       }
       if (method === "PATCH") {
-        if (extra(body, ["name", "active", "position"])) return denied(table);
+        if (extra(body, ["name", "active", "position", "counts_as_revenue"])) return denied(table);
         if (!manages(user)) return [];
         const c = categories.find((x) => matches(x, params));
         if (!c) return [];
@@ -223,6 +269,32 @@ export function createFakeFinance({ h }) {
         return [{ ...s }];
       }
     }
+    if (table === "fin_goal_progress" && method === "GET") return list(goals.map(goalView)).sort((a, b) => (a.period_start < b.period_start ? -1 : a.period_start > b.period_start ? 1 : a.kind.localeCompare(b.kind)));
+    if (table === "fin_year_revenue" && method === "GET") return list(yearRevenue());
+    if (table === "fin_goals") {
+      if (method === "GET") return list(goals);
+      if (method === "DELETE") return denied(table);
+      if (method === "POST") {
+        if (extra(body, GOAL_INSERT)) return denied(table);
+        if (!manages(user)) return rlsDenied();
+        const g = { id: randomUUID(), basis: "competencia", category_id: null, notes: null, ...body, active: true, created_by: user.id, created_at: now(), updated_at: now() };
+        const problem = guardGoal(g, null);
+        if (problem) return problem;
+        goals.push(g); log(table, g.id, "criou", user, null, { ...g });
+        return [{ ...g }];
+      }
+      if (method === "PATCH") {
+        if (extra(body, ["target", "basis", "category_id", "notes", "active"])) return denied(table);
+        if (!manages(user)) return [];
+        const g = goals.find((x) => matches(x, params));
+        if (!g) return [];
+        const next = { ...g, ...body };
+        const problem = guardGoal(next, g);
+        if (problem) return problem;
+        const before = { ...g }; Object.assign(g, next, { updated_at: now() }); log(table, g.id, "alterou", user, before, { ...g });
+        return [{ ...g }];
+      }
+    }
     if (table === "fin_audit") {
       if (method === "GET") return list(audit).sort((a, b) => b.id - a.id);
       return denied(table);
@@ -230,6 +302,6 @@ export function createFakeFinance({ h }) {
     return json(405, { message: "Method not allowed" });
   }
 
-  return { route, tables: ["fin_settings", "fin_accounts", "fin_account_balances", "fin_categories", "fin_entries", "fin_entries_view", "fin_settlements", "fin_audit"],
-    entries, settlements, accounts, categories, audit, settings };
+  return { route, tables: ["fin_settings", "fin_accounts", "fin_account_balances", "fin_categories", "fin_entries", "fin_entries_view", "fin_settlements", "fin_audit", "fin_goals", "fin_goal_progress", "fin_year_revenue"],
+    entries, settlements, accounts, categories, audit, settings, goals };
 }

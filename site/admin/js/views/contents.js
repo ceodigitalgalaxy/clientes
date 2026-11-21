@@ -1,18 +1,18 @@
 /* Seção Conteúdos: filtros, lista, detalhes, cadastro, edição e exclusão */
 
-import { $, esc, on } from "../../../js/lib/dom.js?v=821fef48a0";
-import { icon } from "../../../js/lib/icons.js?v=821fef48a0";
-import { longDayLabel, timeLabel, todayISO, stampLabel, addDays } from "../../../js/lib/dates.js?v=821fef48a0";
-import { typeBadge } from "../../../js/ui/badges.js?v=821fef48a0";
-import { renderMedia, wireMediaFallbacks } from "../../../js/ui/media.js?v=821fef48a0";
-import { PRIORITIES } from "../domain/rules.js?v=821fef48a0";
-import { CONTENT_STATUS, CLIENT_VISIBLE_STATUS, APPROVAL_STATUS, PRODUCTION_STATUS, NETWORKS, FORMATS, LIMITS, validateContent, validateContentFilters } from "../domain/rules.js?v=821fef48a0";
-import { closeDialog, wireDialog, showFieldErrors, setBusy } from "../ui/dialogs.js?v=821fef48a0";
-import { stateBlock, loadingRows, button } from "../ui/states.js?v=821fef48a0";
-import { reviewSections, mountReview } from "./content-review.js?v=821fef48a0";
-import { describeMedia, mediaCover, coverHtml } from "../../../js/ui/media.js?v=821fef48a0";
-import { kebab } from "../ui/menu.js?v=821fef48a0";
-import { CAL_MODES, BOARD_COLUMNS, renderCalendar, calendarRange, stepCursor, calendarTitle, attentionItems, renderAttention } from "./contents-calendar.js?v=821fef48a0";
+import { $, esc, on } from "../../../js/lib/dom.js?v=7a96e4cef6";
+import { icon } from "../../../js/lib/icons.js?v=7a96e4cef6";
+import { longDayLabel, timeLabel, todayISO, stampLabel, addDays } from "../../../js/lib/dates.js?v=7a96e4cef6";
+import { typeBadge } from "../../../js/ui/badges.js?v=7a96e4cef6";
+import { renderMedia, wireMediaFallbacks } from "../../../js/ui/media.js?v=7a96e4cef6";
+import { PRIORITIES } from "../domain/rules.js?v=7a96e4cef6";
+import { CONTENT_STATUS, CLIENT_VISIBLE_STATUS, APPROVAL_STATUS, PRODUCTION_STATUS, NETWORKS, FORMATS, LIMITS, validateContent, validateContentFilters } from "../domain/rules.js?v=7a96e4cef6";
+import { closeDialog, wireDialog, showFieldErrors, setBusy } from "../ui/dialogs.js?v=7a96e4cef6";
+import { stateBlock, loadingRows, button } from "../ui/states.js?v=7a96e4cef6";
+import { reviewSections, mountReview } from "./content-review.js?v=7a96e4cef6";
+import { describeMedia, mediaCover, coverHtml } from "../../../js/ui/media.js?v=7a96e4cef6";
+import { kebab } from "../ui/menu.js?v=7a96e4cef6";
+import { CAL_MODES, BOARD_COLUMNS, renderCalendar, calendarRange, stepCursor, calendarTitle, attentionItems, renderAttention } from "./contents-calendar.js?v=7a96e4cef6";
 
 const shortDate = (iso) => iso.split("-").reverse().join("/");
 const statusChip = (status) => `<span class="content-status cs--${esc(status)}">${esc(CONTENT_STATUS[status]?.label || status)}</span>`;

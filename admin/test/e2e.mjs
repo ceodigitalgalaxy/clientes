@@ -63,6 +63,9 @@ const context = await browser.newContext({ viewport: { width: 1360, height: 900 
 // Estes testes usam a lista de conteúdos (o calendário tem o próprio teste: calendario-e2e)
 await context.addInitScript(() => { try { if (!localStorage.getItem("dg-painel-conteudos-modo")) localStorage.setItem("dg-painel-conteudos-modo", "lista"); } catch { /* sem armazenamento */ } });
 // Pedidos ao Supabase respondidos pelo Supabase de mentira (nada sai para a internet)
+// O vídeo de exemplo nunca termina de carregar: sem internet ele daria erro e o painel
+// (corretamente) trocaria o player pelo aviso "O vídeo não carregou", antes da conferência
+await context.route("https://example.com/**", () => {});
 await context.route(`${SUPABASE_URL}/**`, async (route) => {
   const req = route.request();
   const answer = await fake.handle({ method: req.method(), url: req.url(), headers: await req.allHeaders(), body: req.postData(), bodyBuffer: req.postDataBuffer() });

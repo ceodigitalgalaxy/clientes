@@ -1758,7 +1758,8 @@ kbd, .qs-toggle__kbd { padding: 1px 6px; border: 1px solid var(--line); border-r
 }
 @media (max-width: 768px) {
   .fin-tabs, .fin-bar .seg { display: flex; width: 100%; }
-  .fin-tabs button, .fin-bar .seg button { flex: 1 1 0; min-width: 0; padding: 0 8px; }
+  .fin-tabs button, .fin-bar .seg button { flex: 1 1 auto; min-width: 0; padding: 0 8px; }
+  .fin-tabs button { font-size: 12.5px; padding: 0 6px; }
   .fin-month { width: 100%; justify-content: space-between; }
   .fin-month__label { min-width: 0; font-size: 16px; }
   .fin-sums { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
@@ -1774,4 +1775,46 @@ kbd, .qs-toggle__kbd { padding: 1px 6px; border: 1px solid var(--line); border-r
   .fin-row .fin-chip { grid-area: chip; justify-self: end; height: 20px; font-size: 11px; }
   .fin-categories { grid-template-columns: minmax(0, 1fr); }
   .fin-money b { font-size: 14px; }
+}
+
+/* Financeiro: metas */
+.fin-goals { display: grid; gap: 24px; }
+.fin-goals__section { display: grid; gap: 12px; }
+.fin-goals__head { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px; }
+.fin-goals__head .detail__title { margin: 0; }
+.fin-goals__actions { display: flex; flex-wrap: wrap; gap: 8px; }
+.fin-goals__grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 12px; }
+.fin-goals__empty { padding: 16px; border: 1px dashed var(--line-strong); border-radius: var(--radius-lg); font-size: 14px; color: var(--text-muted); }
+.fin-goal { --tone: var(--line-strong); display: grid; gap: 6px; padding: 16px; border: 1px solid var(--line); border-radius: var(--radius-lg); background: var(--surface); box-shadow: var(--shadow-card); }
+.fin-goal--success { --tone: var(--aprovado); } .fin-goal--warn { --tone: var(--aguardando); } .fin-goal--danger { --tone: var(--ajustes); } .fin-goal--neutral { --tone: var(--brand-lilac); }
+.fin-goal > * { min-width: 0; }
+.fin-goal__head { display: flex; align-items: flex-start; gap: 8px; }
+.fin-goal__title { display: flex; flex: 1; flex-wrap: wrap; align-items: center; gap: 4px 8px; min-width: 0; }
+.fin-goal__name { font-weight: 700; overflow-wrap: anywhere; }
+.fin-goal__tools { display: flex; flex: none; gap: 2px; margin: -4px -6px 0 0; }
+.fin-goal__tools .icon-btn { width: 32px; height: 32px; }
+.fin-goal__nums { display: flex; flex-wrap: wrap; align-items: baseline; gap: 6px; font-variant-numeric: tabular-nums; }
+.fin-goal__nums b { font-size: 22px; letter-spacing: -0.01em; }
+.fin-goal__nums span { font-size: 13px; color: var(--text-muted); }
+.fin-goal__pct { margin-left: auto; font-weight: 700; color: var(--text) !important; }
+.fin-goal__bar { position: relative; height: 10px; border-radius: 999px; background: var(--surface-muted); border: 1px solid var(--line); overflow: hidden; }
+.fin-goal__fill { position: absolute; inset: 0 auto 0 0; width: var(--pct, 0%); border-radius: inherit; background: var(--tone); transition: width var(--dur-slow) var(--ease-out); }
+.fin-goal__today { position: absolute; top: -1px; bottom: -1px; left: var(--elapsed, 0%); width: 2px; background: var(--text); opacity: 0.45; }
+.fin-goal__meta { font-size: 13px; color: var(--text-muted); }
+.fin-goal__basis { font-size: 12px; color: var(--text-subtle); }
+.fin-mei-empty { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; font-size: 14px; }
+.fin-mei-empty .link-btn { display: inline-flex; align-items: center; gap: 6px; }
+.fin-mei-empty .icon { width: 16px; height: 16px; }
+.fin-goal-fixed span:last-child { font-weight: 600; }
+.fin-hist-wrap { margin: 0; }
+.fin-hist { margin-top: 12px; }
+.fin-hist__title { margin-bottom: 6px; font-weight: 700; font-size: 14px; }
+.fin-hist__table { width: 100%; border-collapse: collapse; font-size: 13.5px; font-variant-numeric: tabular-nums; }
+.fin-hist__table th, .fin-hist__table td { padding: 8px 10px; border-bottom: 1px solid var(--line); text-align: right; }
+.fin-hist__table th:first-child { text-align: left; text-transform: capitalize; }
+.fin-hist__table thead th { font-size: 12px; font-weight: 600; color: var(--text-muted); text-transform: none; }
+@media (prefers-reduced-motion: reduce) { .fin-goal__fill { transition: none; } }
+@media (max-width: 768px) {
+  .fin-goals__grid { grid-template-columns: minmax(0, 1fr); }
+  .fin-goal__nums b { font-size: 19px; }
 }

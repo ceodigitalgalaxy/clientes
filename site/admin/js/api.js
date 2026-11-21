@@ -2,11 +2,11 @@
    Valida os dados antes de enviar (domain/rules.js); o banco confere de novo
    com as próprias regras e só aceita membros da equipe (RLS). */
 
-import { validateClient, validateContent, validateContentFilters, parseUsername, passwordProblem, CONTENT_STATUS, PRODUCTION_STATUS, isUuid, validateAd, validateAdFilters, AD_LIMITS, validateBrandKit, validateBatch, validateMember } from "./domain/rules.js?v=821fef48a0";
-import { validateTask, isId, TASK_STATUS, COLORS, httpsUrl } from "./domain/tasks.js?v=821fef48a0";
-import { ALERT_DEFAULTS, validateAlertSettings } from "./domain/deadlines.js?v=821fef48a0";
-import { validateEntry, validateSettlement, validateAccount, validateCategory, validateReason, validateEntryFilters, monthRange, isDate } from "./domain/finance.js?v=821fef48a0";
-import { UPLOAD_LIMITS, fileName, fileProblem, resizeImage } from "../../js/lib/storage.js?v=821fef48a0";
+import { validateClient, validateContent, validateContentFilters, parseUsername, passwordProblem, CONTENT_STATUS, PRODUCTION_STATUS, isUuid, validateAd, validateAdFilters, AD_LIMITS, validateBrandKit, validateBatch, validateMember } from "./domain/rules.js?v=7a96e4cef6";
+import { validateTask, isId, TASK_STATUS, COLORS, httpsUrl } from "./domain/tasks.js?v=7a96e4cef6";
+import { ALERT_DEFAULTS, validateAlertSettings } from "./domain/deadlines.js?v=7a96e4cef6";
+import { validateEntry, validateSettlement, validateAccount, validateCategory, validateReason, validateEntryFilters, monthRange, isDate, validateGoal, parseMoney } from "./domain/finance.js?v=7a96e4cef6";
+import { UPLOAD_LIMITS, fileName, fileProblem, resizeImage } from "../../js/lib/storage.js?v=7a96e4cef6";
 
 export class ApiError extends Error {
   constructor(status, message, fields) { super(message); this.status = status; this.fields = fields || {}; }
@@ -306,8 +306,9 @@ export function createApi({ store, onSessionLost, access = null, storage = null,
       const { value, errors } = validateCategory(data);
       requireValid({ value, errors });
       try {
-        if (id) return await store.finUpdateCategory(requireId(id), { name: value.name, active: value.active });
-        return await store.finCreateCategory({ ...value, position: Number(data.position) || 99 });
+        const revenue = value.direction === "receita" ? !(data.counts_as_revenue === false || data.counts_as_revenue === "false") : true;
+        if (id) return await store.finUpdateCategory(requireId(id), { name: value.name, active: value.active, counts_as_revenue: revenue });
+        return await store.finCreateCategory({ ...value, counts_as_revenue: revenue, position: Number(data.position) || 99 });
       } catch (error) { if (error?.code === "23505") throw new ApiError(409, "Já existe uma categoria com esse nome.", { name: "Já existe uma categoria com esse nome." }); throw error; }
     }),
     finEntries: guard((filters = {}) => {
@@ -346,7 +347,43 @@ export function createApi({ store, onSessionLost, access = null, storage = null,
       await store.finVoidSettlement(requireId(settlement.id), r.value);
       return store.finEntry(settlement.entry_id);
     }),
-    finAudit: guard((rowIds = []) => store.finAudit({ rowIds: rowIds.filter(isUuid) }))
+    finAudit: guard((rowIds = []) => store.finAudit({ rowIds: rowIds.filter(isUuid) })),
+    /* Metas: quem define é o administrador; o realizado vem do banco */
+    finGoals: guard(async (year) => {
+      if (!/^\d{4}$/.test(String(year))) throw new ApiError(422, "Ano inválido.");
+      const [goals, revenue] = await Promise.all([store.finGoals(year), store.finYearRevenue(year)]);
+      return { goals, revenue };
+    }),
+    finSaveGoal: guard(async (id, data) => {
+      const { value, errors } = validateGoal(data, { editing: Boolean(id) });
+      requireValid({ value, errors });
+      try {
+        if (id) return await store.finUpdateGoal(requireId(id), { target: value.target, basis: value.basis, category_id: value.category_id, notes: value.notes });
+        return await store.finCreateGoal(value);
+      } catch (error) {
+        if (error?.code === "23505") throw new ApiError(409, "Já existe uma meta desse tipo para esse período. Edite a que está lá.", { kind: "Já existe uma meta igual neste período." });
+        throw error;
+      }
+    }),
+    finArchiveGoal: guard((id) => store.finUpdateGoal(requireId(id), { active: false })),
+    /** Repete as metas de um mês em outro (as que já existirem lá ficam como estão) */
+    finCopyGoals: guard(async (goals, month) => {
+      if (!monthRange(month)) throw new ApiError(422, "Mês inválido.");
+      let created = 0;
+      for (const g of goals) {
+        try {
+          await store.finCreateGoal({ kind: g.kind, period: "mes", period_start: `${month}-01`, target: g.target, basis: g.basis, category_id: g.category_id, notes: g.notes });
+          created += 1;
+        } catch (error) { if (error?.code !== "23505") throw error; }
+      }
+      return created;
+    }),
+    finSaveMeiLimit: guard((text) => {
+      const raw = String(text ?? "").trim();
+      const cents = raw ? parseMoney(raw) : null;
+      if (raw && (cents == null || cents <= 0)) throw new ApiError(422, "Valor inválido (ex.: 81.000,00).", { mei_limit: "Valor inválido (ex.: 81.000,00)." });
+      return store.finUpdateSettings({ mei_annual_limit_cents: cents });
+    })
   };
 
   return {

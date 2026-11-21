@@ -12,7 +12,7 @@
    português.
    ========================================================================== */
 
-import { FINANCE_ERRORS } from "../domain/finance.js?v=821fef48a0";
+import { FINANCE_ERRORS } from "../domain/finance.js?v=7a96e4cef6";
 
 export class StoreError extends Error {
   constructor(status, message, code) {
@@ -535,11 +535,11 @@ export function createSupabaseStore({ url, apiKey, secretKey, getToken, onUnauth
 
     /* ---------- Financeiro (só quem tem acesso; mudar, só o administrador — RLS) ---------- */
     async finSettings() {
-      const rows = await request("fin_settings?select=history_start,updated_at&id=eq.true");
+      const rows = await request("fin_settings?select=history_start,mei_annual_limit_cents,updated_at&id=eq.true");
       return Array.isArray(rows) && rows.length ? rows[0] : null;
     },
     async finUpdateSettings(value) {
-      return request("fin_settings?select=history_start,updated_at&id=eq.true", { method: "PATCH", body: value, single: true, prefer: "return=representation" });
+      return request("fin_settings?select=history_start,mei_annual_limit_cents,updated_at&id=eq.true", { method: "PATCH", body: value, single: true, prefer: "return=representation" });
     },
     async finAccounts() {
       return request("fin_account_balances?select=*&order=active.desc,name.asc");
@@ -551,13 +551,13 @@ export function createSupabaseStore({ url, apiKey, secretKey, getToken, onUnauth
       return request(`fin_accounts?select=id&id=eq.${enc(id)}`, { method: "PATCH", body: value, single: true, prefer: "return=representation" });
     },
     async finCategories() {
-      return request("fin_categories?select=id,direction,name,active,position&order=direction.asc,position.asc,name.asc");
+      return request("fin_categories?select=id,direction,name,active,position,counts_as_revenue&order=direction.asc,position.asc,name.asc");
     },
     async finCreateCategory(value) {
-      return request("fin_categories?select=id,direction,name,active,position", { method: "POST", body: value, single: true, prefer: "return=representation" });
+      return request("fin_categories?select=id,direction,name,active,position,counts_as_revenue", { method: "POST", body: value, single: true, prefer: "return=representation" });
     },
     async finUpdateCategory(id, value) {
-      return request(`fin_categories?select=id,direction,name,active,position&id=eq.${enc(id)}`, { method: "PATCH", body: value, single: true, prefer: "return=representation" });
+      return request(`fin_categories?select=id,direction,name,active,position,counts_as_revenue&id=eq.${enc(id)}`, { method: "PATCH", body: value, single: true, prefer: "return=representation" });
     },
     /** Lançamentos já com o status e o saldo calculados pelo banco */
     async finEntries({ from, to, basis = "vencimento", direction, status, category_id, account_id, client_id } = {}) {
@@ -601,6 +601,21 @@ export function createSupabaseStore({ url, apiKey, secretKey, getToken, onUnauth
       const rows = await request(`fin_settlements?select=${FIN_SETTLEMENT_FIELDS}&id=eq.${enc(id)}&voided_at=is.null`, { method: "PATCH", body: { voided_at: new Date().toISOString(), void_reason: reason }, prefer: "return=representation" });
       if (!Array.isArray(rows) || !rows.length) throw new StoreError(409, FINANCE_ERRORS.baixa_ja_estornada, "baixa_ja_estornada");
       return rows[0];
+    },
+    /** Metas do ano (mensais e anuais), já com o realizado calculado pelo banco */
+    async finGoals(year) {
+      const y = Number(year);
+      return request(`fin_goal_progress?select=*&active=eq.true&period_start=gte.${y}-01-01&period_start=lte.${y}-12-01&order=period_start.asc,kind.asc`);
+    },
+    async finCreateGoal(value) {
+      return request("fin_goals?select=id", { method: "POST", body: value, single: true, prefer: "return=representation" });
+    },
+    async finUpdateGoal(id, value) {
+      return request(`fin_goals?select=id&id=eq.${enc(id)}`, { method: "PATCH", body: value, single: true, prefer: "return=representation" });
+    },
+    async finYearRevenue(year) {
+      const rows = await request(`fin_year_revenue?select=year,billed_cents,received_cents&year=eq.${Number(year)}`);
+      return rows?.[0] || { year: Number(year), billed_cents: 0, received_cents: 0 };
     },
     async finAudit({ rowIds = [], limit = 50 } = {}) {
       const q = ["select=id,table_name,row_id,action,actor_name,at,before,after", "order=at.desc", `limit=${Number(limit) || 50}`];

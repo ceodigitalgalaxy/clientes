@@ -5,11 +5,11 @@
      que estão à vista para o perfil dela.
    - Busca ao abrir (e reaproveita por 60 s); ignora acentos e maiúsculas. */
 
-import { $, esc, on } from "../../../js/lib/dom.js?v=821fef48a0";
-import { icon } from "../../../js/lib/icons.js?v=821fef48a0";
-import { closeDialog, wireDialog } from "../ui/dialogs.js?v=821fef48a0";
-import { TASK_STATUS, dueParts } from "../domain/tasks.js?v=821fef48a0";
-import { FORMATS } from "../domain/rules.js?v=821fef48a0";
+import { $, esc, on } from "../../../js/lib/dom.js?v=7a96e4cef6";
+import { icon } from "../../../js/lib/icons.js?v=7a96e4cef6";
+import { closeDialog, wireDialog } from "../ui/dialogs.js?v=7a96e4cef6";
+import { TASK_STATUS, dueParts } from "../domain/tasks.js?v=7a96e4cef6";
+import { FORMATS } from "../domain/rules.js?v=7a96e4cef6";
 
 const norm = (s) => String(s || "").normalize("NFD").replace(/[̀-ͯ]/g, "").toLowerCase();
 const shortDay = (iso) => (iso ? iso.slice(0, 10).split("-").reverse().slice(0, 2).join("/") : "");

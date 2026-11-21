@@ -77,7 +77,7 @@ export function createFakeSupabase({ store, publishableKey }) {
     const value = params.get(column);
     return value && value.startsWith(`${op}.`) ? decodeURIComponent(value.slice(op.length + 1)) : undefined;
   }
-  const finance = createFakeFinance({ h: { isAdmin, active, memberName, json, raise, rlsDenied, eq } });
+  const finance = createFakeFinance({ h: { isAdmin, active, memberName, json, raise, rlsDenied, eq, activeClients: () => store.countActiveClients?.() ?? 0 } });
   const tasks = createFakeTasks({ store, h: { sees, editsClient, isAdmin, active, memberName, userById, json, raise, rlsDenied, eq } });
   {
     const notify = store.notifyAdjustment.bind(store);

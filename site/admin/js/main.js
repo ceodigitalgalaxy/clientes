@@ -9,33 +9,33 @@
    O banco aplica as mesmas regras (RLS): esconder a tela não é a proteção.
    ========================================================================== */
 
-import { $, on } from "../../js/lib/dom.js?v=821fef48a0";
-import { icon, brandMark } from "../../js/lib/icons.js?v=821fef48a0";
-import { toast } from "../../js/ui/toast.js?v=821fef48a0";
-import { SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY } from "../../js/config.js?v=821fef48a0";
-import { createAuth } from "../../js/lib/auth.js?v=821fef48a0";
-import { createStorage } from "../../js/lib/storage.js?v=821fef48a0";
-import { createSupabaseStore } from "./data/store.js?v=821fef48a0";
-import { createApi } from "./api.js?v=821fef48a0";
-import { validateContentFilters } from "./domain/rules.js?v=821fef48a0";
-import { createConfirm, showFieldErrors, setBusy } from "./ui/dialogs.js?v=821fef48a0";
-import { setupClients } from "./views/clients.js?v=821fef48a0";
-import { setupContents } from "./views/contents.js?v=821fef48a0";
-import { setupAccess } from "./views/access.js?v=821fef48a0";
-import { setupImport } from "./views/import.js?v=821fef48a0";
-import { setupAds } from "./views/ads.js?v=821fef48a0";
-import { setupBrand } from "./views/brand.js?v=821fef48a0";
-import { setupApprovals } from "./views/approvals.js?v=821fef48a0";
-import { setupTeam } from "./views/team.js?v=821fef48a0";
-import { setupTasks } from "./views/tasks.js?v=821fef48a0";
-import { setupBoard } from "./views/board.js?v=821fef48a0";
-import { formatFromContent } from "./domain/tasks.js?v=821fef48a0";
-import { setupHome } from "./views/home.js?v=821fef48a0";
-import { setupInbox } from "./views/inbox.js?v=821fef48a0";
-import { setupPush } from "./views/push.js?v=821fef48a0";
-import { wireMenus } from "./ui/menu.js?v=821fef48a0";
-import { setupSearch } from "./views/search.js?v=821fef48a0";
-import { setupFinance } from "./views/finance.js?v=821fef48a0";
+import { $, on } from "../../js/lib/dom.js?v=7a96e4cef6";
+import { icon, brandMark } from "../../js/lib/icons.js?v=7a96e4cef6";
+import { toast } from "../../js/ui/toast.js?v=7a96e4cef6";
+import { SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY } from "../../js/config.js?v=7a96e4cef6";
+import { createAuth } from "../../js/lib/auth.js?v=7a96e4cef6";
+import { createStorage } from "../../js/lib/storage.js?v=7a96e4cef6";
+import { createSupabaseStore } from "./data/store.js?v=7a96e4cef6";
+import { createApi } from "./api.js?v=7a96e4cef6";
+import { validateContentFilters } from "./domain/rules.js?v=7a96e4cef6";
+import { createConfirm, showFieldErrors, setBusy } from "./ui/dialogs.js?v=7a96e4cef6";
+import { setupClients } from "./views/clients.js?v=7a96e4cef6";
+import { setupContents } from "./views/contents.js?v=7a96e4cef6";
+import { setupAccess } from "./views/access.js?v=7a96e4cef6";
+import { setupImport } from "./views/import.js?v=7a96e4cef6";
+import { setupAds } from "./views/ads.js?v=7a96e4cef6";
+import { setupBrand } from "./views/brand.js?v=7a96e4cef6";
+import { setupApprovals } from "./views/approvals.js?v=7a96e4cef6";
+import { setupTeam } from "./views/team.js?v=7a96e4cef6";
+import { setupTasks } from "./views/tasks.js?v=7a96e4cef6";
+import { setupBoard } from "./views/board.js?v=7a96e4cef6";
+import { formatFromContent } from "./domain/tasks.js?v=7a96e4cef6";
+import { setupHome } from "./views/home.js?v=7a96e4cef6";
+import { setupInbox } from "./views/inbox.js?v=7a96e4cef6";
+import { setupPush } from "./views/push.js?v=7a96e4cef6";
+import { wireMenus } from "./ui/menu.js?v=7a96e4cef6";
+import { setupSearch } from "./views/search.js?v=7a96e4cef6";
+import { setupFinance } from "./views/finance.js?v=7a96e4cef6";
 
 /* O painel não abre dentro de outro site (proteção contra clique disfarçado).
    A página fica invisível até esta checagem (veja .admin em admin.css). */
