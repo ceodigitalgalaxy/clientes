@@ -8,15 +8,16 @@
    - Nada é apagado: lançamento é cancelado e recebimento/pagamento é estornado,
      sempre com motivo, e tudo fica no histórico. */
 
-import { $, esc, on } from "../../../js/lib/dom.js?v=7a96e4cef6";
-import { icon } from "../../../js/lib/icons.js?v=7a96e4cef6";
-import { closeDialog, wireDialog, showFieldErrors, setBusy } from "../ui/dialogs.js?v=7a96e4cef6";
-import { stateBlock, loadingRows } from "../ui/states.js?v=7a96e4cef6";
+import { $, esc, on } from "../../../js/lib/dom.js?v=282cf0daa2";
+import { icon } from "../../../js/lib/icons.js?v=282cf0daa2";
+import { closeDialog, wireDialog, showFieldErrors, setBusy } from "../ui/dialogs.js?v=282cf0daa2";
+import { stateBlock, loadingRows } from "../ui/states.js?v=282cf0daa2";
 import {
   STATUS, statusLabel, METHODS, ACCOUNT_KINDS, REVENUE_KINDS, formatMoney, moneyInput, todayBR, monthRange, shiftMonth, monthLabel, monthTitle, shortDate,
   validateEntry, validateSettlement, validateAccount, validateCategory, validateReason, validateEntryFilters, entryTotals, newRequestId,
-  GOAL_KINDS, GOAL_BASIS, validateGoal, goalReading, meiReading, percent
-} from "../domain/finance.js?v=7a96e4cef6";
+  GOAL_KINDS, GOAL_BASIS, validateGoal, goalReading, meiReading, percent,
+  validateContract, monthlyRows, monthlyTotals, contractCovers
+} from "../domain/finance.js?v=282cf0daa2";
 
 const norm = (s) => String(s || "").normalize("NFD").replace(/[̀-ͯ]/g, "").toLowerCase();
 const AUDIT_ACTIONS = { criou: "criou", alterou: "alterou", cancelou: "cancelou", estornou: "estornou" };
@@ -62,7 +63,7 @@ export function setupFinance({ api, state, toast, confirm }) {
     history.replaceState(null, "", `#/financeiro${q ? `?${q}` : ""}`);
   }
   function readAddress(query = {}) {
-    st.tab = ["metas", "contas", "categorias"].includes(query.aba) && (query.aba !== "categorias" || manages()) ? query.aba : "lancamentos";
+    st.tab = ["mensalidades", "metas", "contas", "categorias"].includes(query.aba) && (query.aba !== "categorias" || manages()) ? query.aba : "lancamentos";
     st.month = monthRange(query.mes) ? query.mes : todayBR().slice(0, 7);
     st.basis = query.base === "competencia" ? "competencia" : "vencimento";
     const f = validateEntryFilters(query);
@@ -105,6 +106,7 @@ export function setupFinance({ api, state, toast, confirm }) {
     }
     if (st.tab === "lancamentos") await loadEntries();
     if (st.tab === "metas") await loadGoals();
+    if (st.tab === "mensalidades") await loadMonthly();
     renderAccounts();
     renderCategories();
   }
@@ -116,7 +118,7 @@ export function setupFinance({ api, state, toast, confirm }) {
     view.querySelector("[data-fin-month-label]").textContent = monthTitle(st.month);
     view.querySelectorAll("[data-fin-basis]").forEach((b) => b.setAttribute("aria-pressed", String(b.dataset.finBasis === st.basis)));
     // O mês vale para Lançamentos e Metas; vencimento × competência, só para Lançamentos
-    view.querySelector("[data-fin-monthbar]").hidden = !["lancamentos", "metas"].includes(st.tab);
+    view.querySelector("[data-fin-monthbar]").hidden = !["lancamentos", "mensalidades", "metas"].includes(st.tab);
     view.querySelector("[data-fin-basis-wrap]").hidden = st.tab !== "lancamentos";
   }
   on(view, "click", "[data-fin-tab]", async (event, b) => {
@@ -124,12 +126,13 @@ export function setupFinance({ api, state, toast, confirm }) {
     syncTabs(); writeAddress();
     if (st.tab === "lancamentos") await loadEntries();
     else if (st.tab === "metas") await loadGoals();
+    else if (st.tab === "mensalidades") await loadMonthly();
     else { await loadRefs().catch(() => {}); renderAccounts(); renderCategories(); }
   });
   on(view, "click", "[data-fin-month]", (event, b) => {
     st.month = shiftMonth(st.month, Number(b.dataset.finMonth));
     syncTabs(); writeAddress();
-    if (st.tab === "metas") loadGoals(); else loadEntries();
+    if (st.tab === "metas") loadGoals(); else if (st.tab === "mensalidades") loadMonthly(); else loadEntries();
   });
   on(view, "click", "[data-fin-basis]", (event, b) => { st.basis = b.dataset.finBasis; syncTabs(); writeAddress(); loadEntries(); });
 
@@ -251,6 +254,111 @@ export function setupFinance({ api, state, toast, confirm }) {
           <button class="icon-btn" type="button" data-fin-category-edit="${esc(c.id)}" aria-label="Editar ${esc(c.name)}" title="Editar">${icon("edit")}</button></li>`).join("")}</ul></section>`;
     root.innerHTML = col("receita", "Receitas") + col("despesa", "Despesas");
   }
+
+  /* ---------- Mensalidades ----------
+     Contrato de cada cliente + o lançamento de cada mês (uma receita comum). */
+  const monthlyRoot = $("#fin-monthly");
+  const ms = { month: null, contracts: [], entries: [], seq: 0 };
+  async function loadMonthly() {
+    const seq = ++ms.seq;
+    monthlyRoot.setAttribute("aria-busy", "true");
+    if (ms.month !== st.month) monthlyRoot.innerHTML = loadingRows(4);
+    try {
+      const { contracts, entries } = await api.finMonthly(st.month);
+      if (seq !== ms.seq) return;
+      Object.assign(ms, { month: st.month, contracts, entries });
+      renderMonthly();
+    } catch (error) {
+      if (seq !== ms.seq) return;
+      monthlyRoot.setAttribute("aria-busy", "false");
+      monthlyRoot.innerHTML = stateBlock({ iconName: "message", tone: "error", title: "Não foi possível carregar as mensalidades", text: error.message });
+    }
+  }
+  const MONTHLY_STATUS = { nao_lancada: ["Não lançada", "muted"], aberto: ["A receber", "neutral"], previsto: ["Prevista", "muted"], parcial: ["Recebida em parte", "info"], vencido: ["Vencida", "danger"], quitado: ["Recebida", "success"], cancelado: ["Cancelada", "muted"] };
+  function monthlyRow(r) {
+    const c = r.contract;
+    const [label, tone] = MONTHLY_STATUS[r.status] || [r.status, "neutral"];
+    const value = r.entry ? r.entry.amount_cents : c.amount_cents;
+    const partial = r.entry && r.entry.settled_cents > 0 && r.entry.open_cents > 0 && r.status !== "cancelado";
+    const canReceive = manages() && r.entry && r.entry.open_cents > 0 && r.status !== "cancelado";
+    return `
+      <li class="fin-mrow">
+        <button class="fin-mrow__main" type="button" ${r.entry ? `data-fin-open="${esc(r.entry.id)}"` : `data-contract-edit="${esc(c.id)}"`}>
+          <span class="fin-mrow__client">${esc(clientName(c.client_id) || "Cliente removido")}</span>
+          <span class="fin-mrow__meta">${esc(c.description)} · vence ${esc(shortDate(r.due).slice(0, 5))}${c.paused ? " · pausada daqui em diante" : ""}</span>
+        </button>
+        <span class="fin-chip fin-chip--${tone}">${esc(r.status === "vencido" && partial ? "Vencida · em parte" : label)}</span>
+        <span class="fin-mrow__amount">${esc(formatMoney(value))}${partial ? `<small>falta ${esc(formatMoney(r.entry.open_cents))}</small>` : ""}</span>
+        <span class="fin-mrow__actions">
+          ${canReceive ? `<button class="btn btn--ghost btn--sm" type="button" data-monthly-receive="${esc(r.entry.id)}">${icon("check")}<span>Recebeu</span></button>` : ""}
+          ${manages() ? `<button class="icon-btn" type="button" data-contract-edit="${esc(c.id)}" aria-label="Editar mensalidade de ${esc(clientName(c.client_id))}" title="Editar mensalidade">${icon("edit")}</button>` : ""}
+        </span>
+      </li>`;
+  }
+  function renderMonthly() {
+    monthlyRoot.setAttribute("aria-busy", "false");
+    const rows = monthlyRows(ms.contracts, ms.entries, st.month).sort((a, b) => (a.due < b.due ? -1 : a.due > b.due ? 1 : clientName(a.contract.client_id).localeCompare(clientName(b.contract.client_id))));
+    const t = monthlyTotals(ms.contracts, rows, st.month);
+    const withContract = new Set(ms.contracts.filter((c) => !c.end_month || c.end_month.slice(0, 7) >= st.month).map((c) => c.client_id));
+    const without = state.clients.filter((c) => c.active && !withContract.has(c.id));
+    const paused = ms.contracts.filter((c) => c.paused && contractCovers({ ...c, paused: false }, st.month) && !ms.entries.some((e) => e.contract_id === c.id));
+    const item = (cls, label, value, sub) => `<li class="fin-sum fin-sum--${cls}"><span class="fin-sum__label">${esc(label)}</span><span class="fin-sum__value">${esc(value)}</span>${sub ? `<span class="fin-sum__sub">${esc(sub)}</span>` : ""}</li>`;
+    const live = rows.filter((r) => r.status !== "cancelado");
+    monthlyRoot.innerHTML = `
+      <ul class="fin-sums" aria-label="Resumo das mensalidades">
+        ${item("res", "Recorrente no mês", formatMoney(t.recurring), `${live.length} ${live.length === 1 ? "mensalidade" : "mensalidades"}`)}
+        ${item("in", "Recebido", formatMoney(t.received), "")}
+        ${item("ok", "A receber", formatMoney(t.toReceive), "")}
+        ${item(t.overdue ? "late" : "ok", "Vencido", formatMoney(t.overdue), t.overdue ? "já passou do vencimento" : "nada vencido")}
+      </ul>
+      ${t.missing && manages() ? `<div class="fin-generate"><p>${icon("calendar")}<span><b>${t.missing} ${t.missing === 1 ? "mensalidade ainda não lançada" : "mensalidades ainda não lançadas"}</b> em ${esc(monthLabel(st.month))}. Lançar cria a receita de cada uma, com o vencimento do mês.</span></p><button class="btn btn--primary btn--sm" type="button" data-monthly-generate>${icon("sparkle")}<span>Lançar agora</span></button></div>` : ""}
+      <div class="fin-goals__head"><h2 class="detail__title">Mensalidades de ${esc(monthLabel(st.month))}</h2>${manages() ? `<button class="btn btn--ghost btn--sm" type="button" data-contract-new>${icon("sparkle")}<span>Nova mensalidade</span></button>` : ""}</div>
+      ${rows.length ? `<ul class="fin-mrows">${rows.map(monthlyRow).join("")}</ul>`
+        : stateBlock({ iconName: "wallet", title: ms.contracts.length ? "Nenhuma mensalidade neste mês" : "Nenhuma mensalidade cadastrada", text: manages() ? "Cadastre a mensalidade de cada cliente: valor, dia do vencimento e desde quando." : "Quando o administrador cadastrar, aparece aqui." })}
+      ${paused.length ? `<p class="fin-goals__empty">Pausadas neste mês: ${esc(paused.map((c) => clientName(c.client_id)).join(", "))}.</p>` : ""}
+      ${without.length ? `<section class="fin-without" aria-label="Clientes ativos sem mensalidade">
+        <h2 class="detail__title">Clientes ativos sem mensalidade <span class="field__optional">(${without.length})</span></h2>
+        <ul>${without.map((c) => `<li><span>${esc(c.name)}</span>${manages() ? `<button class="link-btn" type="button" data-contract-new="${esc(c.id)}">Cadastrar mensalidade</button>` : ""}</li>`).join("")}</ul>
+      </section>` : ""}`;
+  }
+
+  function contractForm(k = null, clientId = "") {
+    const cats = st.categories.filter((c) => c.direction === "receita" && (c.active || c.id === k?.category_id)).map((c) => [c.id, c.name]);
+    const defaultCat = st.categories.find((c) => c.direction === "receita" && c.active && /mensalidade/i.test(c.name))?.id || "";
+    const fields = [
+      k ? `<p class="field form-grid__wide fin-goal-fixed"><span class="field__label">Cliente</span><span>${esc(clientName(k.client_id) || "Cliente removido")}</span></p>`
+        : f("client_id", "Cliente", select("client_id", state.clients.filter((c) => c.active).map((c) => [c.id, c.name]), clientId, "Escolha…"), { wide: true }),
+      f("amount", "Valor por mês", money("amount", k ? moneyInput(k.amount_cents) : "")),
+      f("due_day", "Dia do vencimento", text("due_day", k?.due_day ?? "10", 'type="number" min="1" max="31" step="1" inputmode="numeric"'), { hint: "29, 30 ou 31 viram o último dia nos meses mais curtos." }),
+      f("start_month", "Começa em", text("start_month", k ? k.start_month.slice(0, 7) : st.month, 'type="month"')),
+      f("end_month", "Termina em", text("end_month", k?.end_month ? k.end_month.slice(0, 7) : "", 'type="month"'), { optional: true, hint: "Em branco: sem data para acabar." }),
+      f("description", "Nome no lançamento", text("description", k?.description || "Mensalidade", 'maxlength="120" autocomplete="off"')),
+      f("category_id", "Categoria", select("category_id", cats, k?.category_id || defaultCat, "Escolha…")),
+      f("account_id", "Conta onde cai", select("account_id", activeAccounts(k?.account_id), k?.account_id || st.accounts.find((a) => a.active)?.id || "", "Não definir"), { optional: true }),
+      f("method", "Forma de pagamento", select("method", Object.entries(METHODS), k?.method || "pix", "Não informar"), { optional: true }),
+      f("notes", "Observações", area("notes", k?.notes, 1000), { wide: true, optional: true }),
+      k ? `<label class="check form-grid__wide"><input type="checkbox" name="paused"${k.paused ? " checked" : ""}><span>Pausada · não lança nos próximos meses até reativar</span></label>` : ""
+    ].join("");
+    openModal({ kind: "contract", contract: k }, {
+      title: k ? "Editar mensalidade" : "Nova mensalidade",
+      text: k ? "Mudanças valem para os meses ainda não lançados; o que já foi lançado continua como está." : "Todo mês você lança com um clique e acompanha quem já pagou.",
+      iconName: "calendar", fields, submitLabel: k ? "Salvar" : "Cadastrar"
+    });
+  }
+
+  on(monthlyRoot, "click", "[data-fin-open]", (event, b) => openEntry(b.dataset.finOpen));
+  on(monthlyRoot, "click", "[data-contract-new]", (event, b) => manages() && contractForm(null, b.dataset.contractNew || ""));
+  on(monthlyRoot, "click", "[data-contract-edit]", (event, b) => { const k = ms.contracts.find((x) => x.id === b.dataset.contractEdit); if (k && manages()) contractForm(k); });
+  on(monthlyRoot, "click", "[data-monthly-receive]", (event, b) => { const e = ms.entries.find((x) => x.id === b.dataset.monthlyReceive); if (e && manages()) settleForm(e); });
+  on(monthlyRoot, "click", "[data-monthly-generate]", async (event, b) => {
+    if (!manages()) return;
+    setBusy(b, true);
+    try {
+      const n = await api.finGenerateMonthly(st.month);
+      toast(n === 1 ? "1 mensalidade lançada" : n ? `${n} mensalidades lançadas` : "Nada para lançar: já estava tudo lançado");
+      await loadMonthly();
+    } catch (error) { toast(error.message, "error"); setBusy(b, false); }
+  });
 
   /* ---------- Metas ----------
      Valores e metas só o administrador define; o realizado vem do banco. */
@@ -609,7 +717,7 @@ export function setupFinance({ api, state, toast, confirm }) {
   /* ---------- Enviar ---------- */
   const data = () => Object.fromEntries(new FormData(form));
   async function afterChange(entryId) {
-    await Promise.all([st.tab === "metas" ? loadGoals() : loadEntries(), loadRefs().then(() => { renderAccounts(); renderCategories(); }).catch(() => {})]);
+    await Promise.all([st.tab === "metas" ? loadGoals() : st.tab === "mensalidades" ? loadMonthly() : loadEntries(), loadRefs().then(() => { renderAccounts(); renderCategories(); }).catch(() => {})]);
     if (entryId && drawer.open && st.open === entryId) await openEntry(entryId);
   }
 
@@ -664,6 +772,13 @@ export function setupFinance({ api, state, toast, confirm }) {
       errors = validateGoal({ ...d, kind: kindNow, period: mode.goal?.period || d.period }, { editing: Boolean(mode.goal) }).errors;
       if (mode.goal) { delete errors.kind; delete errors.period; }
       run = async () => { await api.finSaveGoal(mode.goal?.id, { ...d, kind: mode.goal?.kind || d.kind }); toast("Meta salva"); return null; };
+    } else if (mode.kind === "contract") {
+      errors = validateContract(d, { editing: Boolean(mode.contract), categories: st.categories }).errors;
+      run = async () => {
+        await api.finSaveContract(mode.contract?.id, { ...d, paused: Boolean(d.paused) }, { categories: st.categories });
+        toast(mode.contract ? "Mensalidade atualizada" : "Mensalidade cadastrada");
+        return null;
+      };
     } else if (mode.kind === "mei") {
       run = async () => { st.settings = await api.finSaveMeiLimit(d.mei_limit); toast(d.mei_limit ? "Limite do MEI salvo" : "Limite do MEI removido"); return null; };
     }
@@ -717,6 +832,6 @@ export function setupFinance({ api, state, toast, confirm }) {
 
   return {
     load,
-    reset() { gs.goals = []; gs.year = null; goalsRoot.innerHTML = ""; st.rows = []; st.accounts = []; st.categories = []; st.settings = null; st.ready = false; list.innerHTML = ""; sums.innerHTML = ""; $("#fin-accounts").innerHTML = ""; $("#fin-categories").innerHTML = ""; }
+    reset() { ms.contracts = []; ms.entries = []; ms.month = null; monthlyRoot.innerHTML = ""; gs.goals = []; gs.year = null; goalsRoot.innerHTML = ""; st.rows = []; st.accounts = []; st.categories = []; st.settings = null; st.ready = false; list.innerHTML = ""; sums.innerHTML = ""; $("#fin-accounts").innerHTML = ""; $("#fin-categories").innerHTML = ""; }
   };
 }

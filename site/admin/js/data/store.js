@@ -12,7 +12,7 @@
    português.
    ========================================================================== */
 
-import { FINANCE_ERRORS } from "../domain/finance.js?v=7a96e4cef6";
+import { FINANCE_ERRORS } from "../domain/finance.js?v=282cf0daa2";
 
 export class StoreError extends Error {
   constructor(status, message, code) {
@@ -28,7 +28,7 @@ const TASK_COMMENT_FIELDS = "id,task_id,parent_id,author_id,author_name,body,men
 const TASK_FIELDS = "id,parent_id,client_id,project_id,content_id,title,description,status,column_id,priority,due_at,position,created_by,completed_at,completed_by,archived_at,version,created_at,updated_at,kind,drive_url,reference_url,video_format,video_duration";
 const ROUND_FIELDS = "id,task_id,round,requested_notes,requested_name,requested_at,delivery_url,delivery_note,delivered_name,delivered_at,decision,decided_at";
 const MEMBER_FIELDS = "user_id,role,active,name,email,job_title,all_clients,edit_scope,can_send_approval,finance_access";
-const FIN_ENTRY_FIELDS = "id,direction,description,amount_cents,category_id,account_id,client_id,revenue_kind,counterparty,competence_date,due_date,confirmed,invoice_number,notes,cancelled_at,cancel_reason,request_id,version,created_by,created_at,updated_at,settled_cents,open_cents,last_paid_on,status";
+const FIN_ENTRY_FIELDS = "id,direction,description,amount_cents,category_id,account_id,client_id,revenue_kind,counterparty,competence_date,due_date,confirmed,invoice_number,notes,cancelled_at,cancel_reason,request_id,version,created_by,created_at,updated_at,settled_cents,open_cents,last_paid_on,status,contract_id";
 const FIN_SETTLEMENT_FIELDS = "id,entry_id,account_id,amount_cents,paid_on,method,notes,voided_at,void_reason,request_id,created_by,created_at";
 const AD_ASSET_FIELDS = "id,ad_id,kind,storage_path,url,position,created_at";
 
@@ -616,6 +616,23 @@ export function createSupabaseStore({ url, apiKey, secretKey, getToken, onUnauth
     async finYearRevenue(year) {
       const rows = await request(`fin_year_revenue?select=year,billed_cents,received_cents&year=eq.${Number(year)}`);
       return rows?.[0] || { year: Number(year), billed_cents: 0, received_cents: 0 };
+    },
+    /* Mensalidades dos clientes */
+    async finContracts() {
+      return request("fin_contracts?select=*&order=created_at.asc");
+    },
+    async finCreateContract(value) {
+      return request("fin_contracts?select=id", { method: "POST", body: value, single: true, prefer: "return=representation" });
+    },
+    async finUpdateContract(id, value) {
+      return request(`fin_contracts?select=id&id=eq.${enc(id)}`, { method: "PATCH", body: value, single: true, prefer: "return=representation" });
+    },
+    /** Receitas das mensalidades de um mês (pela competência) */
+    async finContractEntries(from, to) {
+      return request(`fin_entries_view?select=${FIN_ENTRY_FIELDS}&contract_id=not.is.null&competence_date=gte.${enc(from)}&competence_date=lte.${enc(to)}`);
+    },
+    async finGenerateMonthly(month) {
+      return request("rpc/fin_generate_monthly", { method: "POST", body: { p_month: `${month}-01` } });
     },
     async finAudit({ rowIds = [], limit = 50 } = {}) {
       const q = ["select=id,table_name,row_id,action,actor_name,at,before,after", "order=at.desc", `limit=${Number(limit) || 50}`];

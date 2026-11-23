@@ -131,6 +131,7 @@ export function createFakeSupabase({ store, publishableKey }) {
   }
 
   async function rpc(name, body, user) {
+    if (name === "fin_generate_monthly") return finance.generateMonthly(body, user);
     if (name === "edit_deliver" || name === "edit_review") {
       if (!active(user)) return raise("sem_permissao");
       const out = tasks.rpc(name, body || {}, user);

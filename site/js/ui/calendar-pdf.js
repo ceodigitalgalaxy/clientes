@@ -7,10 +7,10 @@
    Montado no navegador (lib/pdf.js): nada é enviado a nenhum servidor.
    ========================================================================== */
 
-import { createPdf, fitText, wrapText, textWidth } from "../lib/pdf.js?v=7a96e4cef6";
-import { monthGrid, monthLabel, timeLabel, WEEKDAYS_SHORT, fromISO } from "../lib/dates.js?v=7a96e4cef6";
-import { ACTIVITY_TYPES, PLATFORMS, STATUS } from "../domain/model.js?v=7a96e4cef6";
-import { statusOf } from "../domain/status.js?v=7a96e4cef6";
+import { createPdf, fitText, wrapText, textWidth } from "../lib/pdf.js?v=282cf0daa2";
+import { monthGrid, monthLabel, timeLabel, WEEKDAYS_SHORT, fromISO } from "../lib/dates.js?v=282cf0daa2";
+import { ACTIVITY_TYPES, PLATFORMS, STATUS } from "../domain/model.js?v=282cf0daa2";
+import { statusOf } from "../domain/status.js?v=282cf0daa2";
 
 const C = {
   brand: "#5A1AC7", deep: "#3B008E", text: "#160B2E", muted: "#5E5774", subtle: "#8F88A3",

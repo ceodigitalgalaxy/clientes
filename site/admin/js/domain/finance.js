@@ -48,7 +48,11 @@ export const FINANCE_ERRORS = Object.freeze({
   baixa_imutavel: "Recebimentos e pagamentos não se editam: estorne e registre de novo.",
   baixa_ja_estornada: "Este registro já foi estornado.",
   versao_desatualizada: "Outra pessoa alterou este lançamento agora há pouco. Atualize e tente de novo.",
-  campo_imutavel: "Este dado não pode ser alterado."
+  campo_imutavel: "Este dado não pode ser alterado.",
+  mensalidade_nao_encontrada: "Mensalidade não encontrada. Atualize a página.",
+  mensalidade_de_outro_cliente: "Este lançamento não é do cliente desta mensalidade.",
+  sem_permissao: "Seu usuário não tem permissão para fazer isso.",
+  mes_invalido: "Mês inválido."
 });
 
 /* ---------- Dinheiro ---------- */
@@ -358,3 +362,69 @@ export function meiReading(limitCents, billedCents) {
   return { pct, remaining: limitCents - billedCents, tone: pct >= 1 ? "danger" : pct >= 0.8 ? "warn" : "success" };
 }
 export const percent = (x) => `${Math.round((Number(x) || 0) * 100)}%`;
+
+/* ---------- Mensalidades (contratos dos clientes) ---------- */
+
+/** A mensalidade vale neste mês? (pausada não gera) */
+export const contractCovers = (c, month) => !c.paused && c.start_month.slice(0, 7) <= month && (!c.end_month || c.end_month.slice(0, 7) >= month);
+/** Vencimento no mês: dia 29–31 vira o último dia nos meses curtos (como no banco) */
+export function contractDueDate(c, month) {
+  const last = monthRange(month).to.slice(8, 10);
+  return `${month}-${String(Math.min(Number(c.due_day), Number(last))).padStart(2, "0")}`;
+}
+
+export function validateContract(input = {}, { editing = false, categories = [] } = {}) {
+  const errors = {};
+  const amount = parseMoney(input.amount);
+  const monthOk = (m) => /^\d{4}-(0[1-9]|1[0-2])$/.test(String(m || ""));
+  const value = {
+    client_id: clean(input.client_id),
+    description: clean(input.description) || "Mensalidade",
+    amount_cents: amount,
+    due_day: /^\d{1,2}$/.test(String(input.due_day ?? "").trim()) ? Number(input.due_day) : null,
+    start_month: monthOk(input.start_month) ? `${input.start_month}-01` : null,
+    end_month: clean(input.end_month) ? (monthOk(input.end_month) ? `${input.end_month}-01` : "x") : null,
+    category_id: clean(input.category_id),
+    account_id: clean(input.account_id),
+    method: Object.hasOwn(METHODS, input.method) ? input.method : null,
+    notes: clean(input.notes),
+    paused: input.paused === true || input.paused === "on"
+  };
+  if (!editing && !isId(value.client_id)) errors.client_id = "Escolha o cliente.";
+  if (value.description.length > 120) errors.description = "Use até 120 caracteres.";
+  if (amount == null) errors.amount = "Informe o valor (ex.: 1.500,00).";
+  else if (amount <= 0) errors.amount = "O valor precisa ser maior que zero.";
+  else if (amount > MAX_CENTS) errors.amount = "Valor alto demais.";
+  if (!value.due_day || value.due_day < 1 || value.due_day > 31) errors.due_day = "Dia de 1 a 31.";
+  if (!value.start_month) errors.start_month = "Escolha o mês de início.";
+  if (value.end_month === "x") errors.end_month = "Mês inválido.";
+  else if (value.end_month && value.start_month && value.end_month < value.start_month) errors.end_month = "O fim não pode ser antes do início.";
+  if (!isId(value.category_id)) errors.category_id = "Escolha a categoria.";
+  else if (categories.length && categories.find((c) => c.id === value.category_id)?.direction !== "receita") errors.category_id = "Use uma categoria de receita.";
+  if (value.account_id && !isId(value.account_id)) errors.account_id = "Conta inválida.";
+  if (value.notes && value.notes.length > 1000) errors.notes = "Use até 1.000 caracteres.";
+  return { value, errors };
+}
+
+/**
+ * Linhas do mês: cada mensalidade que vale no mês, com o lançamento dela (se já
+ * foi lançado) e a situação. entries = linhas da visão com contract_id.
+ */
+export function monthlyRows(contracts, entries, month) {
+  return contracts.filter((c) => contractCovers(c, month) || entries.some((e) => e.contract_id === c.id))
+    .map((c) => {
+      const entry = entries.find((e) => e.contract_id === c.id) || null;
+      return { contract: c, entry, status: entry ? entry.status : "nao_lancada", due: entry?.due_date || contractDueDate(c, month) };
+    });
+}
+export function monthlyTotals(contracts, rows, month) {
+  const live = rows.filter((r) => r.status !== "cancelado");
+  return {
+    // O que vale no mês: o lançado (com o valor da época) ou, se ainda não lançou, o valor do contrato
+    recurring: live.reduce((t, r) => t + (r.entry ? Number(r.entry.amount_cents) || 0 : r.contract.amount_cents), 0),
+    received: live.reduce((t, r) => t + (Number(r.entry?.settled_cents) || 0), 0),
+    toReceive: live.reduce((t, r) => t + (r.entry ? Number(r.entry.open_cents) || 0 : r.contract.amount_cents), 0),
+    overdue: live.filter((r) => r.status === "vencido").reduce((t, r) => t + (Number(r.entry.open_cents) || 0), 0),
+    missing: rows.filter((r) => r.status === "nao_lancada").length
+  };
+}

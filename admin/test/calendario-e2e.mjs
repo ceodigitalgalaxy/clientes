@@ -20,10 +20,14 @@ const SHOTS = process.env.ADMIN_SHOTS;
 
 const pad = (n) => String(n).padStart(2, "0");
 const iso = (d) => `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
-const today = new Date();
+// Relógio do teste: dia 10 do mês atual, ao meio-dia (sempre há dias livres antes e depois).
+// O navegador anda com este mesmo relógio (context.clock); sem isso, depois do dia 20 os
+// conteúdos de exemplo caíam em dias já passados e viravam "atrasados".
+const real = new Date();
+const today = new Date(real.getFullYear(), real.getMonth(), 10, 12, 0, 0);
 const TODAY = iso(today);
 const MONTH = TODAY.slice(0, 7);
-const plus = (n) => { const d = new Date(); d.setDate(d.getDate() + n); return iso(d); };
+const plus = (n) => { const d = new Date(today); d.setDate(d.getDate() + n); return iso(d); };
 // Dias dentro do mês atual (o calendário abre no mês de hoje)
 const inMonth = (day) => `${MONTH}-${pad(day)}`;
 const last = new Date(today.getFullYear(), today.getMonth() + 1, 0).getDate();
@@ -72,6 +76,8 @@ const browser = await chromium.launch();
 const consoleErrors = [];
 async function newPage(options, name) {
   const context = await browser.newContext(options);
+  await context.clock.install({ time: today });
+  await context.clock.resume();
   await context.route(`${SUPABASE_URL}/**`, async (route) => {
     const req = route.request();
     const answer = await fake.handle({ method: req.method(), url: req.url(), headers: await req.allHeaders(), body: req.postData(), bodyBuffer: req.postDataBuffer() });

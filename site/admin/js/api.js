@@ -2,11 +2,11 @@
    Valida os dados antes de enviar (domain/rules.js); o banco confere de novo
    com as próprias regras e só aceita membros da equipe (RLS). */
 
-import { validateClient, validateContent, validateContentFilters, parseUsername, passwordProblem, CONTENT_STATUS, PRODUCTION_STATUS, isUuid, validateAd, validateAdFilters, AD_LIMITS, validateBrandKit, validateBatch, validateMember } from "./domain/rules.js?v=7a96e4cef6";
-import { validateTask, isId, TASK_STATUS, COLORS, httpsUrl } from "./domain/tasks.js?v=7a96e4cef6";
-import { ALERT_DEFAULTS, validateAlertSettings } from "./domain/deadlines.js?v=7a96e4cef6";
-import { validateEntry, validateSettlement, validateAccount, validateCategory, validateReason, validateEntryFilters, monthRange, isDate, validateGoal, parseMoney } from "./domain/finance.js?v=7a96e4cef6";
-import { UPLOAD_LIMITS, fileName, fileProblem, resizeImage } from "../../js/lib/storage.js?v=7a96e4cef6";
+import { validateClient, validateContent, validateContentFilters, parseUsername, passwordProblem, CONTENT_STATUS, PRODUCTION_STATUS, isUuid, validateAd, validateAdFilters, AD_LIMITS, validateBrandKit, validateBatch, validateMember } from "./domain/rules.js?v=282cf0daa2";
+import { validateTask, isId, TASK_STATUS, COLORS, httpsUrl } from "./domain/tasks.js?v=282cf0daa2";
+import { ALERT_DEFAULTS, validateAlertSettings } from "./domain/deadlines.js?v=282cf0daa2";
+import { validateEntry, validateSettlement, validateAccount, validateCategory, validateReason, validateEntryFilters, monthRange, isDate, validateGoal, parseMoney, validateContract } from "./domain/finance.js?v=282cf0daa2";
+import { UPLOAD_LIMITS, fileName, fileProblem, resizeImage } from "../../js/lib/storage.js?v=282cf0daa2";
 
 export class ApiError extends Error {
   constructor(status, message, fields) { super(message); this.status = status; this.fields = fields || {}; }
@@ -377,6 +377,22 @@ export function createApi({ store, onSessionLost, access = null, storage = null,
         } catch (error) { if (error?.code !== "23505") throw error; }
       }
       return created;
+    }),
+    /* Mensalidades: contrato do cliente e o lançamento de cada mês */
+    finMonthly: guard(async (month) => {
+      const range = monthRange(month);
+      if (!range) throw new ApiError(422, "Mês inválido.");
+      const [contracts, entries] = await Promise.all([store.finContracts(), store.finContractEntries(range.from, range.to)]);
+      return { contracts, entries };
+    }),
+    finSaveContract: guard(async (id, data, { categories = [] } = {}) => {
+      const { client_id, ...value } = requireValid(validateContract(data, { editing: Boolean(id), categories }));
+      if (id) return store.finUpdateContract(requireId(id), value);
+      return store.finCreateContract({ client_id, ...value });
+    }),
+    finGenerateMonthly: guard((month) => {
+      if (!monthRange(month)) throw new ApiError(422, "Mês inválido.");
+      return store.finGenerateMonthly(month);
     }),
     finSaveMeiLimit: guard((text) => {
       const raw = String(text ?? "").trim();

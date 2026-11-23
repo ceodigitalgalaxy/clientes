@@ -1,7 +1,7 @@
 /* Regras do financeiro (centavos, validação, totais). Rode: node admin/test/finance.test.mjs */
 
 import assert from "node:assert/strict";
-import { parseMoney, formatMoney, moneyInput, validateEntry, validateSettlement, validateAccount, validateEntryFilters, entryTotals, monthRange, shiftMonth, todayBR, statusLabel, validateGoal, goalReading, periodProgress, meiReading } from "../../site/admin/js/domain/finance.js";
+import { monthlyRows, monthlyTotals, contractDueDate, validateContract, parseMoney, formatMoney, moneyInput, validateEntry, validateSettlement, validateAccount, validateEntryFilters, entryTotals, monthRange, shiftMonth, todayBR, statusLabel, validateGoal, goalReading, periodProgress, meiReading } from "../../site/admin/js/domain/finance.js";
 
 let n = 0;
 const check = (label, fn) => { fn(); n += 1; console.log(`✔ ${label}`); };
@@ -128,6 +128,21 @@ check("Metas: leitura do progresso (meta de alta e teto)", () => {
   assert.equal(meiReading(null, 100), null);
   assert.equal(meiReading(8100000, 6500000).tone, "warn");
   assert.equal(meiReading(8100000, 8200000).tone, "danger");
+});
+
+check("Mensalidades: vencimento no mês, linhas e totais", () => {
+  const k = (o) => ({ id: o.id, client_id: "c", amount_cents: 100000, due_day: 31, start_month: "2026-01-01", end_month: null, paused: false, ...o });
+  assert.equal(contractDueDate(k({}), "2027-02"), "2027-02-28");
+  assert.equal(contractDueDate(k({ due_day: 5 }), "2027-02"), "2027-02-05");
+  const contracts = [k({ id: "a" }), k({ id: "b", amount_cents: 50000, end_month: "2026-10-01" }), k({ id: "p", amount_cents: 30000, paused: true })];
+  const entries = [{ contract_id: "p", amount_cents: 25000, settled_cents: 25000, open_cents: 0, status: "quitado", due_date: "2026-11-30" }];
+  const rows = monthlyRows(contracts, entries, "2026-11");
+  assert.deepEqual(rows.map((r) => [r.contract.id, r.status]), [["a", "nao_lancada"], ["p", "quitado"]], "a que acabou não aparece; a pausada já lançada aparece");
+  const t = monthlyTotals(contracts, rows, "2026-11");
+  assert.deepEqual([t.recurring, t.received, t.toReceive, t.missing], [125000, 25000, 100000, 1], "lançada conta com o valor lançado");
+  assert.deepEqual(validateContract({ client_id: "11111111-1111-4111-8111-111111111111", amount: "1.500", due_day: "10", start_month: "2026-11", category_id: "22222222-2222-4222-8222-222222222222" }).errors, {});
+  const bad = validateContract({ amount: "0", due_day: "0", start_month: "2026-11", end_month: "2026-10" });
+  assert.ok(bad.errors.client_id && bad.errors.amount && bad.errors.due_day && bad.errors.end_month && bad.errors.category_id);
 });
 
 console.log(`\n${n} verificações ok`);

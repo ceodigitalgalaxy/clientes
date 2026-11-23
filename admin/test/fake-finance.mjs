@@ -9,7 +9,7 @@ import { randomUUID } from "node:crypto";
 import { todayBR, monthRange } from "../../site/admin/js/domain/finance.js";
 
 const ENTRY_COLS = ["direction", "description", "amount_cents", "category_id", "account_id", "client_id", "revenue_kind", "counterparty",
-  "competence_date", "due_date", "confirmed", "invoice_number", "notes", "request_id"];
+  "competence_date", "due_date", "confirmed", "invoice_number", "notes", "request_id", "contract_id"];
 const ENTRY_UPDATE = ["description", "amount_cents", "category_id", "account_id", "client_id", "revenue_kind", "counterparty",
   "competence_date", "due_date", "confirmed", "invoice_number", "notes", "cancelled_at", "cancel_reason", "version"];
 
@@ -29,6 +29,7 @@ export function createFakeFinance({ h }) {
     ...["Ferramentas e assinaturas", "Impostos (DAS)", "Freelancers e terceiros", "Equipamentos", "Marketing da agência", "Tarifas bancárias", "Outras despesas"].map((name, i) => ({ direction: "despesa", name, position: i + 1 }))
   ].map((c) => ({ id: randomUUID(), active: true, counts_as_revenue: c.name !== "Reembolso recebido", ...c }));
   const goals = [];
+  const contracts = [];
   const entries = [];
   const settlements = [];
   const audit = [];
@@ -68,6 +69,7 @@ export function createFakeFinance({ h }) {
       else if (v.startsWith("lte.")) { if (!(val <= v.slice(4))) return false; }
       else if (v.startsWith("in.(")) { if (!v.slice(4, -1).split(",").includes(String(val))) return false; }
       else if (v === "is.null") { if (val != null) return false; }
+      else if (v === "not.is.null") { if (val == null) return false; }
     }
     return true;
   }
@@ -86,6 +88,13 @@ export function createFakeFinance({ h }) {
     if (prev) {
       if (prev.cancelled_at) return raise("lancamento_cancelado");
       if (next.version !== prev.version) return raise("versao_desatualizada");
+    }
+    if (prev && (next.contract_id || null) !== (prev.contract_id || null)) return raise("campo_imutavel");
+    if (next.contract_id) {
+      const k = contracts.find((c) => c.id === next.contract_id);
+      if (!k) return raise("mensalidade_nao_encontrada");
+      if (next.direction !== "receita" || next.client_id !== k.client_id) return raise("mensalidade_de_outro_cliente");
+      if (!prev && entries.some((e) => e.contract_id === next.contract_id && e.competence_date === next.competence_date)) return conflict();
     }
     const cat = categories.find((c) => c.id === next.category_id);
     if (!cat) return raise("categoria_invalida");
@@ -143,6 +152,35 @@ export function createFakeFinance({ h }) {
     if (g.kind === "clientes_ativos") g.basis = "competencia";
     if (goals.some((x) => x.id !== g.id && sameGoal(x, g) && g.active)) return conflict();
     return null;
+  }
+
+
+  /* Mensalidades: como fin_contracts e public.fin_generate_monthly */
+  const CONTRACT_COLS = ["client_id", "description", "amount_cents", "due_day", "start_month", "end_month", "category_id", "account_id", "method", "notes", "paused"];
+  function guardContract(k) {
+    if (!Number.isSafeInteger(k.amount_cents) || k.amount_cents < 1) return checkErr();
+    if (!Number.isInteger(k.due_day) || k.due_day < 1 || k.due_day > 31) return checkErr();
+    if (!/^\d{4}-\d{2}-01$/.test(k.start_month) || (k.end_month && (!/^\d{4}-\d{2}-01$/.test(k.end_month) || k.end_month < k.start_month))) return checkErr();
+    if (categories.find((c) => c.id === k.category_id)?.direction !== "receita") return raise("categoria_de_outro_tipo");
+    return null;
+  }
+  function generateMonthly(body, user) {
+    if (!manages(user)) return raise("sem_permissao");
+    const month = String(body?.p_month || "").slice(0, 7);
+    const range = monthRange(month);
+    if (!range) return raise("mes_invalido");
+    const last = Number(range.to.slice(8, 10));
+    let n = 0;
+    for (const k of contracts) {
+      if (k.paused || k.start_month > range.from || (k.end_month && k.end_month < range.from)) continue;
+      if (entries.some((e) => e.contract_id === k.id && e.competence_date === range.from)) continue;
+      const e = { id: randomUUID(), direction: "receita", description: k.description, amount_cents: k.amount_cents, category_id: k.category_id, account_id: k.account_id || null,
+        client_id: k.client_id, revenue_kind: "recorrente", counterparty: null, competence_date: range.from, due_date: `${month}-${String(Math.min(k.due_day, last)).padStart(2, "0")}`,
+        confirmed: true, invoice_number: null, notes: null, cancelled_at: null, cancelled_by: null, cancel_reason: null, request_id: randomUUID(), contract_id: k.id,
+        version: 1, created_by: user.id, created_at: now(), updated_at: now() };
+      entries.push(e); log("fin_entries", e.id, "criou", user, null, { ...e }); n += 1;
+    }
+    return n;
   }
 
   function route(method, table, params, body, user) {
@@ -214,7 +252,7 @@ export function createFakeFinance({ h }) {
         if (!manages(user)) return rlsDenied();
         if (!body.request_id) return checkErr();
         if (entries.some((e) => e.request_id === body.request_id)) return conflict();
-        const e = { id: randomUUID(), account_id: null, client_id: null, revenue_kind: null, counterparty: null, confirmed: true, invoice_number: null, notes: null, ...body,
+        const e = { id: randomUUID(), contract_id: null, account_id: null, client_id: null, revenue_kind: null, counterparty: null, confirmed: true, invoice_number: null, notes: null, ...body,
           cancelled_at: null, cancelled_by: null, cancel_reason: null, version: 1, created_by: user.id, created_at: now(), updated_at: now() };
         const problem = guardEntry(e, null, user);
         if (problem) return problem;
@@ -295,6 +333,30 @@ export function createFakeFinance({ h }) {
         return [{ ...g }];
       }
     }
+    if (table === "fin_contracts") {
+      if (method === "GET") return list(contracts);
+      if (method === "DELETE") return denied(table);
+      if (method === "POST") {
+        if (extra(body, CONTRACT_COLS)) return denied(table);
+        if (!manages(user)) return rlsDenied();
+        const k = { id: randomUUID(), description: "Mensalidade", end_month: null, account_id: null, method: null, notes: null, paused: false, ...body, created_by: user.id, created_at: now(), updated_at: now() };
+        const problem = guardContract(k);
+        if (problem) return problem;
+        contracts.push(k); log(table, k.id, "criou", user, null, { ...k });
+        return [{ ...k }];
+      }
+      if (method === "PATCH") {
+        if (extra(body, CONTRACT_COLS.filter((c) => c !== "client_id"))) return denied(table);
+        if (!manages(user)) return [];
+        const k = contracts.find((x) => matches(x, params));
+        if (!k) return [];
+        const next = { ...k, ...body };
+        const problem = guardContract(next);
+        if (problem) return problem;
+        const before = { ...k }; Object.assign(k, next, { updated_at: now() }); log(table, k.id, "alterou", user, before, { ...k });
+        return [{ ...k }];
+      }
+    }
     if (table === "fin_audit") {
       if (method === "GET") return list(audit).sort((a, b) => b.id - a.id);
       return denied(table);
@@ -302,6 +364,6 @@ export function createFakeFinance({ h }) {
     return json(405, { message: "Method not allowed" });
   }
 
-  return { route, tables: ["fin_settings", "fin_accounts", "fin_account_balances", "fin_categories", "fin_entries", "fin_entries_view", "fin_settlements", "fin_audit", "fin_goals", "fin_goal_progress", "fin_year_revenue"],
-    entries, settlements, accounts, categories, audit, settings, goals };
+  return { route, tables: ["fin_settings", "fin_accounts", "fin_account_balances", "fin_categories", "fin_entries", "fin_entries_view", "fin_settlements", "fin_audit", "fin_goals", "fin_goal_progress", "fin_year_revenue", "fin_contracts"],
+    generateMonthly, entries, settlements, accounts, categories, audit, settings, goals, contracts };
 }

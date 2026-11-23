@@ -17,9 +17,9 @@
   <link rel="preload" href="../fonts/sora-latin-400-normal.woff2" as="font" type="font/woff2" crossorigin>
   <link rel="preload" href="../fonts/sora-latin-600-normal.woff2" as="font" type="font/woff2" crossorigin>
   <!-- Mesmos tokens e componentes do portal do cliente -->
-  <link rel="stylesheet" href="../css/style.css?v=7a96e4cef6">
-  <link rel="stylesheet" href="css/admin.css?v=7a96e4cef6">
-  <script type="module" src="js/main.js?v=7a96e4cef6"></script>
+  <link rel="stylesheet" href="../css/style.css?v=282cf0daa2">
+  <link rel="stylesheet" href="css/admin.css?v=282cf0daa2">
+  <script type="module" src="js/main.js?v=282cf0daa2"></script>
 </head>
 <body class="admin">
   <!-- Tela de entrada: aparece enquanto ninguém estiver logado -->
@@ -221,6 +221,7 @@
       </div>
       <div class="seg fin-tabs" role="tablist" aria-label="Partes do financeiro">
         <button type="button" role="tab" data-fin-tab="lancamentos" aria-selected="true">Lançamentos</button>
+        <button type="button" role="tab" data-fin-tab="mensalidades" aria-selected="false">Mensalidades</button>
         <button type="button" role="tab" data-fin-tab="metas" aria-selected="false">Metas</button>
         <button type="button" role="tab" data-fin-tab="contas" aria-selected="false">Contas</button>
         <button type="button" role="tab" data-fin-tab="categorias" aria-selected="false" data-needs="finmanage">Categorias</button>
@@ -248,6 +249,9 @@
         <div class="fin-notice" data-fin-notice hidden></div>
         <ul class="fin-sums" id="fin-sums" aria-label="Totais do mês"></ul>
         <div class="fin-list" id="fin-list" aria-busy="true"></div>
+      </div>
+      <div class="fin-panel" data-fin-panel="mensalidades" hidden>
+        <div class="fin-monthly" id="fin-monthly" aria-busy="true"></div>
       </div>
       <div class="fin-panel" data-fin-panel="metas" hidden>
         <div class="fin-goals" id="fin-goals" aria-busy="true"></div>
